@@ -222,6 +222,18 @@ namespace MimeKit.Utils {
 			return true;
 		}
 
+		public static bool SkipPeriod (byte [] text, ref int index, int endIndex)
+		{
+			int start = index;
+
+			while (index < endIndex && text [index] == (byte)'.')
+				index++;
+
+			index--;
+
+			return index >= start;
+		}
+
 		public static bool SkipAtom (byte[] text, ref int index, int endIndex)
 		{
 			int start = index;
@@ -249,6 +261,20 @@ namespace MimeKit.Utils {
 
 			if (text[index].IsAtom ())
 				return SkipAtom (text, ref index, endIndex);
+
+			return false;
+		}
+
+		public static bool SkipWordAndPeriod (byte[] text, ref int index, int endIndex, bool throwOnError)
+		{
+			if (text[index] == (byte) '"')
+				return SkipQuoted (text, ref index, endIndex, throwOnError);
+
+			if (text[index].IsAtom ())
+				return SkipAtom (text, ref index, endIndex);
+
+			if (text[index] == (byte) '.')
+				return SkipPeriod (text, ref index, endIndex);
 
 			return false;
 		}
