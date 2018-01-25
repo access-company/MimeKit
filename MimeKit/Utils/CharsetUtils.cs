@@ -43,6 +43,20 @@ using Decoder = Portable.Text.Decoder;
 #endif
 
 namespace MimeKit.Utils {
+	public static class External
+	{
+		public delegate char [] ExternalConverter (byte [] input);
+		internal static Dictionary<int, ExternalConverter> externalConvertes = new Dictionary<int, ExternalConverter> ();
+
+		public static void SetExternalConverter (int codepage, ExternalConverter converter)
+		{
+			if (externalConvertes.ContainsKey (codepage)) {
+				externalConvertes.Remove (codepage);
+			}
+			externalConvertes.Add (codepage, converter);
+		}
+	}
+
 	static class CharsetUtils
 	{
 		static readonly Dictionary<string, int> aliases;
@@ -530,6 +544,16 @@ namespace MimeKit.Utils {
 
 		internal static char[] ConvertToUnicode (Encoding encoding, byte[] input, int startIndex, int length, out int charCount)
 		{
+			External.ExternalConverter converter;
+			External.externalConvertes.TryGetValue (encoding.CodePage, out converter);
+			if (converter != null) {
+				byte [] sub = new byte [length - startIndex];
+				Array.Copy (input, startIndex, sub, 0, length - startIndex);
+				var chars = converter (sub);
+				charCount = chars.Length;
+				return chars;
+			}
+
 			var decoder = encoding.GetDecoder ();
 			int count = decoder.GetCharCount (input, startIndex, length, true);
 			var output = new char[count];
