@@ -294,7 +294,7 @@ namespace MimeKit {
 			localpart = null;
 
 			do {
-				if (!text[index].IsAtom () && text[index] != '"') {
+				if (!text[index].IsAtom () && text[index] != '"' && text[index] != '.') {
 					if (throwOnError)
 						throw new ParseException (string.Format ("Invalid local-part at offset {0}", startIndex), startIndex, index);
 
@@ -302,7 +302,7 @@ namespace MimeKit {
 				}
 
 				int start = index;
-				if (!ParseUtils.SkipWord (text, ref index, endIndex, throwOnError))
+				if (!ParseUtils.SkipWordAndPeriod (text, ref index, endIndex, throwOnError))
 					return false;
 
 				try {
@@ -332,6 +332,10 @@ namespace MimeKit {
 
 					return false;
 				}
+
+				if (text[index] == '@')
+					break;
+				
 			} while (true);
 
 			localpart = token.ToString ();
@@ -596,7 +600,8 @@ namespace MimeKit {
 							trimLeadingQuote = true;
 					}
 				} else {
-					if (!ParseUtils.SkipAtom (text, ref index, endIndex))
+
+					if (!ParseUtils.SkipWordAndPeriod (text, ref index, endIndex, throwOnError))
 						break;
 				}
 

@@ -584,5 +584,134 @@ namespace UnitTests {
 		}
 
 		#endregion
+
+		#region TestLegacyEmailAddress
+		TestCaseData[] LegacyAddressNotCompliantWithRFC ()
+		{
+			var addressList = new TestCaseData[]
+			{
+				// RFCCompliance
+				new TestCaseData ("aaaa@example.com"),
+				new TestCaseData ("aa.aa@example.com"),
+				new TestCaseData ("0123456789@example.com"),
+				new TestCaseData ("abcdefghijklmnopqrstuvwxyz@example.com"),
+				new TestCaseData ("ABCDEFGHIJKLMNOPQRSTUVWXYZ@example.com"),
+				new TestCaseData ("a.a-a_a@ex-amp_le.com"),
+				new TestCaseData ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.com"),
+				new TestCaseData ("アドレス <aaaa@example.com>"),
+				new TestCaseData ("アドレス<aaaa@example.com>"),
+				new TestCaseData ("\"アドレス\" <aaaa@example.com>"),
+				new TestCaseData ("\"アドレス\"   <aaaa@example.com>"),
+				new TestCaseData ("\"アドレス\"<aaaa@example.com>"),
+				new TestCaseData ("aaaa@example.com (アドレス)"),
+				new TestCaseData ("aaaa@example.com   (アドレス)"),
+				new TestCaseData ("aaaa@example.com(アドレス)"),
+				new TestCaseData ("0123456789 <aaaa@example.com>"),
+				new TestCaseData ("abcdefghijklmnopqrstuvwxyz <aaaa@example.com>"),
+				new TestCaseData ("ABCDEFGHIJKLMNOPQRSTUVWXYZ <aaaa@example.com>"),
+				new TestCaseData ("a.a@a-a_a <aaaa@example.com>"),
+				new TestCaseData ("bbb@example.com <aaaa@example.com>"),
+				new TestCaseData ("%22%3E%3C%28%29%5C <aaaa@example.com>"),
+				new TestCaseData ("\"%22%3E%3C%28%29%5C\" <aaaa@example.com>"),
+				new TestCaseData ("aaaa@example.com (%22%3E%3C%28%29%5C)"),
+				new TestCaseData ("aa!aa@example.com"),
+				new TestCaseData ("aa#aa@example.com"),
+				new TestCaseData ("aa$aa@example.com"),
+				new TestCaseData ("aa%aa@example.com"),
+				new TestCaseData ("aa&aa@example.com"),
+				new TestCaseData ("aa'aa@example.com"),
+				new TestCaseData ("aa*aa@example.com"),
+				new TestCaseData ("aa+aa@example.com"),
+				new TestCaseData ("aa/aa@example.com"),
+				new TestCaseData ("aa=aa@example.com"),
+				new TestCaseData ("aa?aa@example.com"),
+				new TestCaseData ("aa^aa@example.com"),
+				new TestCaseData ("aa`aa@example.com"),
+				new TestCaseData ("aa{aa@example.com"),
+				new TestCaseData ("aa|aa@example.com"),
+				new TestCaseData ("aa}aa@example.com"),
+				new TestCaseData ("aa~aa@example.com"),
+				new TestCaseData ("aa%20aa@example.com"),
+				new TestCaseData ("aa%21aa@example.com"),
+				new TestCaseData ("aa%23aa@example.com"),
+				new TestCaseData ("aa%24aa@example.com"),
+				new TestCaseData ("aa%25aa@example.com"),
+				new TestCaseData ("aa%26aa@example.com"),
+				new TestCaseData ("aa%27aa@example.com"),
+				new TestCaseData ("aa%2Aaa@example.com"),
+				new TestCaseData ("aa%2Baa@example.com"),
+				new TestCaseData ("aa%2Faa@example.com"),
+				new TestCaseData ("aa%3Daa@example.com"),
+				new TestCaseData ("aa%3Faa@example.com"),
+				new TestCaseData ("aa%5Eaa@example.com"),
+				new TestCaseData ("aa%60aa@example.com"),
+				new TestCaseData ("aa%7Baa@example.com"),
+				new TestCaseData ("aa%7Caa@example.com"),
+				new TestCaseData ("aa%7Daa@example.com"),
+				new TestCaseData ("aa%7Eaa@example.com"),
+				new TestCaseData ("aa%00aa@example.com"),
+				new TestCaseData ("aa%7Faa@example.com"),
+				new TestCaseData ("アドレス <aa!aa@example.com>"),
+				new TestCaseData ("アドレス <aa#aa@example.com>"),
+				new TestCaseData ("アドレス <aa$aa@example.com>"),
+				new TestCaseData ("アドレス <aa%aa@example.com>"),
+				new TestCaseData ("アドレス <aa&aa@example.com>"),
+				new TestCaseData ("アドレス <aa'aa@example.com>"),
+				new TestCaseData ("アドレス <aa*aa@example.com>"),
+				new TestCaseData ("アドレス <aa+aa@example.com>"),
+				new TestCaseData ("アドレス <aa/aa@example.com>"),
+				new TestCaseData ("アドレス <aa=aa@example.com>"),
+				new TestCaseData ("アドレス <aa?aa@example.com>"),
+				new TestCaseData ("アドレス <aa^aa@example.com>"),
+				new TestCaseData ("アドレス <aa`aa@example.com>"),
+				new TestCaseData ("アドレス <aa{aa@example.com>"),
+				new TestCaseData ("アドレス <aa|aa@example.com>"),
+				new TestCaseData ("アドレス <aa}aa@example.com>"),
+				new TestCaseData ("アドレス <aa~aa@example.com>"),
+				new TestCaseData ("アドレス <aa%21aa@example.com>"),
+				new TestCaseData ("アドレス <aa%22aa@example.com>"),
+				new TestCaseData ("アドレス <aa%23aa@example.com>"),
+				new TestCaseData ("アドレス <aa%24aa@example.com>"),
+				new TestCaseData ("アドレス <aa%25aa@example.com>"),
+				new TestCaseData ("アドレス <aa%26aa@example.com>"),
+				new TestCaseData ("アドレス <aa%27aa@example.com>"),
+				new TestCaseData ("アドレス <aa%2Aaa@example.com>"),
+				new TestCaseData ("アドレス <aa%2Baa@example.com>"),
+				new TestCaseData ("アドレス <aa%2Faa@example.com>"),
+				new TestCaseData ("アドレス <aa%3Daa@example.com>"),
+				new TestCaseData ("アドレス <aa%3Faa@example.com>"),
+				new TestCaseData ("アドレス <aa%5Eaa@example.com>"),
+				new TestCaseData ("アドレス <aa%60aa@example.com>"),
+				new TestCaseData ("アドレス <aa%7Baa@example.com>"),
+				new TestCaseData ("アドレス <aa%7Caa@example.com>"),
+				new TestCaseData ("アドレス <aa%7Daa@example.com>"),
+				new TestCaseData ("アドレス <aa%7Eaa@example.com>"),
+				new TestCaseData ("\"アド<>レス\" <aaaa@example.com>"),
+				new TestCaseData ("\"アド()レス\" <aaaa@example.com>"),
+				new TestCaseData ("ADDRESS012345"),
+				new TestCaseData ("アドレス０１２３４５"),
+
+				// Not compliant with RFC
+				new TestCaseData ("aaaa.@example.com"),
+				new TestCaseData ("aa..aa@example.com"),
+				new TestCaseData (".aaaa@example.com"),
+
+				// More not compliant with RFC
+				// Does not correspond now.
+				//new TestCaseData ("アドレス <aa\"aa@example.com>"),
+				//new TestCaseData ("\"アド\"レス\" <aaaa@example.com>"),
+				//new TestCaseData ("ア,ド;レ.ス@あ-ど-れ_す")
+			};
+			return addressList;
+		}
+
+		[TestCaseSource ("LegacyAddressNotCompliantWithRFC")]
+		public void TestLegacyEmailAddress (string address)
+		{
+			string text = address;
+
+			AssertParse (text);
+		}
+		#endregion
 	}
 }
