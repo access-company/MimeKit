@@ -190,10 +190,8 @@ namespace UnitTests {
 		public void TestParseIncompleteQuotedString ()
 		{
 			const string text = "\"This quoted string never ends... oh no!";
-			const int tokenIndex = 0;
-			int errorIndex = text.Length;
 
-			AssertParseFailure (text, false, tokenIndex, errorIndex);
+			AssertParse (text);
 		}
 
 		[Test]
@@ -279,20 +277,6 @@ namespace UnitTests {
 			// default options should parse this as a single mailbox address
 			addr = InternetAddress.Parse (text);
 			Assert.AreEqual ("Worthington, Warren", addr.Name);
-
-			// this should fail when we allow mailbox addresses w/o a domain
-			var options = ParserOptions.Default.Clone ();
-			options.AllowAddressesWithoutDomain = true;
-
-			try {
-				addr = InternetAddress.Parse (options, text);
-				Assert.Fail ("Should not have parsed \"{0}\" with AllowAddressesWithoutDomain = true", text);
-			} catch (ParseException pex) {
-				Assert.AreEqual (text.IndexOf (','), pex.TokenIndex, "TokenIndex");
-				Assert.AreEqual (text.IndexOf (','), pex.ErrorIndex, "ErrorIndex");
-			} catch (Exception ex) {
-				Assert.Fail ("Should not have thrown {0}", ex.GetType ().Name);
-			}
 		}
 
 		[Test]
@@ -534,7 +518,9 @@ namespace UnitTests {
 				new TestCaseData ("aaaa.@example.com"),
 				new TestCaseData ("aa..aa@example.com"),
 				new TestCaseData (".aaaa@example.com"),
-
+				new TestCaseData ("!\"#$%&'()=@amimap.access.co.jp"),
+				new TestCaseData ("!\"#$%&'\"()=@amimap.access.co.jp"),
+				new TestCaseData ("!\"#$%&'\"=\"@amimap.access.co.jp"),
 				// More not compliant with RFC
 				// Does not correspond now.
 				//new TestCaseData ("アドレス <aa\"aa@example.com>"),
