@@ -62,22 +62,6 @@ namespace UnitTests {
 			Assert.IsFalse (ParseUtils.TryParseInt32 (buffer, ref index, buffer.Length, out value), "Parsing MaxValue*10 should result in overflow.");
 		}
 
-		[Test]
-		public void TestSkipBadlyQuoted ()
-		{
-			var buffer = Encoding.ASCII.GetBytes ("\"This is missing the end quote.");
-			int index = 0;
-
-			Assert.False (ParseUtils.SkipQuoted (buffer, ref index, buffer.Length, false), "Skipping an unterminated qstring should have failed.");
-			Assert.AreEqual (buffer.Length, index, "The index should be at the end of the buffer.");
-
-			index = 0;
-
-			var ex = Assert.Throws<ParseException> (() => ParseUtils.SkipQuoted (buffer, ref index, buffer.Length, true), "An exception should have been thrown.");
-			Assert.AreEqual (0, ex.TokenIndex, "The token index should be 0.");
-			Assert.AreEqual (buffer.Length, ex.ErrorIndex, "The error index should be at the end of the buffer.");
-		}
-
 		static readonly string[] GoodDomains = {
 			"[127.0.0.1]",                                "[127.0.0.1]",
 			"amazon (comment) . (comment) com (comment)", "amazon.com",

@@ -210,10 +210,7 @@ namespace MimeKit.Utils {
 			}
 
 			if (index >= endIndex) {
-				if (throwOnError)
-					throw new ParseException (string.Format ("Incomplete quoted-string token at offset {0}", startIndex), startIndex, index);
-
-				return false;
+				index = startIndex;
 			}
 
 			// skip over the closing '"'

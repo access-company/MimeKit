@@ -293,6 +293,7 @@ namespace MimeKit {
 
 			localpart = null;
 
+			var start = index;
 			do {
 				if (!text[index].IsAtom () && text[index] != '"' && text[index] != '.') {
 					if (throwOnError)
@@ -301,9 +302,15 @@ namespace MimeKit {
 					return false;
 				}
 
-				int start = index;
 				if (!ParseUtils.SkipWordAndPeriod (text, ref index, endIndex, throwOnError))
 					return false;
+
+				if (index < endIndex && text[index] == (byte) '"') 
+				{
+					ParseUtils.SkipQuoted (text, ref index, endIndex, throwOnError);
+					if (index < endIndex && text[index].IsAtom() && text[index] != (byte) '@' && text[index] != (byte) '(')
+						continue;
+				}
 
 				try {
 					token.Append (CharsetUtils.UTF8.GetString (text, start, index - start));
@@ -316,6 +323,12 @@ namespace MimeKit {
 
 				if (!ParseUtils.SkipCommentsAndWhiteSpace (text, ref index, endIndex, throwOnError))
 					return false;
+
+				if (index < endIndex && text[index] != (byte) '"' && text[index].IsAtom()) 
+				{
+					start = index;
+					continue;
+				}
 
 				if (index >= endIndex || text[index] != (byte) '.')
 					break;
@@ -335,6 +348,8 @@ namespace MimeKit {
 
 				if (text[index] == '@')
 					break;
+				
+				start = index;
 				
 			} while (true);
 
