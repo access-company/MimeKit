@@ -1,9 +1,9 @@
-//
+﻿//
 // BoundStream.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc.
+// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,8 @@
 
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MimeKit.IO {
 	/// <summary>
@@ -35,7 +37,7 @@ namespace MimeKit.IO {
 	/// <para>Wraps an arbitrary stream, limiting I/O operations to a subset of the source stream.
 	/// If the <see cref="EndBoundary"/> is <c>-1</c>, then the end of the stream is unbound.</para>
 	/// <para>When a <see cref="MimeParser"/> is set to parse a persistent stream, it will construct
-	/// <see cref="ContentObject"/>s using bounded streams instead of loading the content into memory.</para>
+	/// <see cref="MimeContent"/>s using bounded streams instead of loading the content into memory.</para>
 	/// </remarks>
 	public class BoundStream : Stream
 	{
@@ -303,8 +305,8 @@ namespace MimeKit.IO {
 		/// Reads data from the <see cref="BaseStream"/>, not allowing it to
 		/// read beyond the <see cref="EndBoundary"/>.
 		/// </remarks>
-		/// <returns>The total number of bytes read into the buffer. This can be less than the number of bytes requested if that many
-		/// bytes are not currently available, or zero (0) if the end of the stream has been reached.</returns>
+		/// <returns>The total number of bytes read into the buffer. This can be less than the number of bytes requested if
+		/// that many bytes are not currently available, or zero (0) if the end of the stream has been reached.</returns>
 		/// <param name="buffer">The buffer to read data into.</param>
 		/// <param name="offset">The offset into the buffer to start reading data.</param>
 		/// <param name="count">The number of bytes to read.</param>
@@ -345,6 +347,69 @@ namespace MimeKit.IO {
 
 			int n = EndBoundary != -1 ? (int) Math.Min (EndBoundary - (StartBoundary + position), count) : count;
 			int nread = BaseStream.Read (buffer, offset, n);
+
+			if (nread > 0)
+				position += nread;
+			else if (nread == 0)
+				eos = true;
+
+			return nread;
+		}
+
+		/// <summary>
+		/// Asynchronously reads a sequence of bytes from the stream and advances the position
+		/// within the stream by the number of bytes read.
+		/// </summary>
+		/// <remarks>
+		/// Reads data from the <see cref="BaseStream"/>, not allowing it to
+		/// read beyond the <see cref="EndBoundary"/>.
+		/// </remarks>
+		/// <returns>The total number of bytes read into the buffer. This can be less than the number of bytes requested if
+		/// that many bytes are not currently available, or zero (0) if the end of the stream has been reached.</returns>
+		/// <param name="buffer">The buffer to read data into.</param>
+		/// <param name="offset">The offset into the buffer to start reading data.</param>
+		/// <param name="count">The number of bytes to read.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="buffer"/> is <c>null</c>.
+		/// </exception>
+		/// <exception cref="System.ArgumentOutOfRangeException">
+		/// <para><paramref name="offset"/> is less than zero or greater than the length of <paramref name="buffer"/>.</para>
+		/// <para>-or-</para>
+		/// <para>The <paramref name="buffer"/> is not large enough to contain <paramref name="count"/> bytes starting
+		/// at the specified <paramref name="offset"/>.</para>
+		/// </exception>
+		/// <exception cref="System.ObjectDisposedException">
+		/// The stream has been disposed.
+		/// </exception>
+		/// <exception cref="System.NotSupportedException">
+		/// The stream does not support reading.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public override async Task<int> ReadAsync (byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+		{
+			CheckDisposed ();
+			CheckCanRead ();
+
+			ValidateArguments (buffer, offset, count);
+
+			// if we are at the end of the stream, we cannot read anymore data
+			if (EndBoundary != -1 && StartBoundary + position >= EndBoundary) {
+				eos = true;
+				return 0;
+			}
+
+			// make sure that the source stream is in the expected position
+			if (BaseStream.Position != StartBoundary + position)
+				BaseStream.Seek (StartBoundary + position, SeekOrigin.Begin);
+
+			int n = EndBoundary != -1 ? (int) Math.Min (EndBoundary - (StartBoundary + position), count) : count;
+			int nread = await BaseStream.ReadAsync (buffer, offset, n, cancellationToken).ConfigureAwait (false);
 
 			if (nread > 0)
 				position += nread;
@@ -408,6 +473,64 @@ namespace MimeKit.IO {
 		}
 
 		/// <summary>
+		/// Asynchronously writes a sequence of bytes to the stream and advances the current
+		/// position within this stream by the number of bytes written.
+		/// </summary>
+		/// <remarks>
+		/// Writes data to the <see cref="BaseStream"/>, not allowing it to
+		/// write beyond the <see cref="EndBoundary"/>.
+		/// </remarks>
+		/// <returns>A task that represents the asynchronous write operation.</returns>
+		/// <param name="buffer">The buffer to write.</param>
+		/// <param name="offset">The offset of the first byte to write.</param>
+		/// <param name="count">The number of bytes to write.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="buffer"/> is <c>null</c>.
+		/// </exception>
+		/// <exception cref="System.ArgumentOutOfRangeException">
+		/// <para><paramref name="offset"/> is less than zero or greater than the length of <paramref name="buffer"/>.</para>
+		/// <para>-or-</para>
+		/// <para>The <paramref name="buffer"/> is not large enough to contain <paramref name="count"/> bytes starting
+		/// at the specified <paramref name="offset"/>.</para>
+		/// </exception>
+		/// <exception cref="System.ObjectDisposedException">
+		/// The stream has been disposed.
+		/// </exception>
+		/// <exception cref="System.NotSupportedException">
+		/// The stream does not support writing.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public override async Task WriteAsync (byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+		{
+			CheckDisposed ();
+			CheckCanWrite ();
+
+			ValidateArguments (buffer, offset, count);
+
+			// if we are at the end of the stream, we cannot write anymore data
+			if (EndBoundary != -1 && StartBoundary + position + count > EndBoundary) {
+				eos = StartBoundary + position >= EndBoundary;
+				throw new IOException ();
+			}
+
+			// make sure that the source stream is in the expected position
+			if (BaseStream.Position != StartBoundary + position)
+				BaseStream.Seek (StartBoundary + position, SeekOrigin.Begin);
+
+			await BaseStream.WriteAsync (buffer, offset, count, cancellationToken).ConfigureAwait (false);
+			position += count;
+
+			if (EndBoundary != -1 && StartBoundary + position >= EndBoundary)
+				eos = true;
+		}
+
+		/// <summary>
 		/// Sets the position within the current stream.
 		/// </summary>
 		/// <remarks>
@@ -449,7 +572,7 @@ namespace MimeKit.IO {
 						return -1;
 				} else if (EndBoundary == -1) {
 					// seeking backwards from eos (which happens to be our current position)
-					real = position + offset;
+					real = StartBoundary + position + offset;
 				} else {
 					// seeking backwards from a known position
 					real = EndBoundary + offset;
@@ -505,6 +628,35 @@ namespace MimeKit.IO {
 			CheckCanWrite ();
 
 			BaseStream.Flush ();
+		}
+
+		/// <summary>
+		/// Asynchronously clears all buffers for this stream and causes any buffered data to be written
+		/// to the underlying device.
+		/// </summary>
+		/// <remarks>
+		/// Flushes the <see cref="BaseStream"/>.
+		/// </remarks>
+		/// <returns>A task that represents the asynchronous flush operation.</returns>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ObjectDisposedException">
+		/// The stream has been disposed.
+		/// </exception>
+		/// <exception cref="System.NotSupportedException">
+		/// The stream does not support writing.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public override Task FlushAsync (CancellationToken cancellationToken)
+		{
+			CheckDisposed ();
+			CheckCanWrite ();
+
+			return BaseStream.FlushAsync (cancellationToken);
 		}
 
 		/// <summary>

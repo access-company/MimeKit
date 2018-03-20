@@ -1,9 +1,9 @@
-//
+﻿//
 // MimeMessage.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,7 @@ using System.IO;
 using System.Text;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 
 #if PORTABLE
@@ -1048,7 +1049,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Writes the message to the specified output stream.
+		/// Write the message to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// Writes the message to the output stream using the provided formatting options.
@@ -1056,7 +1057,7 @@ namespace MimeKit {
 		/// <param name="options">The formatting options.</param>
 		/// <param name="stream">The output stream.</param>
 		/// <param name="headersOnly"><c>true</c> if only the headers should be written; otherwise, <c>false</c>.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <para><paramref name="options"/> is <c>null</c>.</para>
 		/// <para>-or-</para>
@@ -1090,7 +1091,7 @@ namespace MimeKit {
 						var rawValue = header.GetRawValue (options);
 
 						filtered.Write (header.RawField, 0, header.RawField.Length, cancellationToken);
-						filtered.Write (new [] { (byte) ':' }, 0, 1, cancellationToken);
+						filtered.Write (Header.Colon, 0, Header.Colon.Length, cancellationToken);
 						filtered.Write (rawValue, 0, rawValue.Length, cancellationToken);
 					}
 
@@ -1120,14 +1121,79 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Writes the message to the specified output stream.
+		/// Asynchronously write the message to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// Writes the message to the output stream using the provided formatting options.
 		/// </remarks>
 		/// <param name="options">The formatting options.</param>
 		/// <param name="stream">The output stream.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="headersOnly"><c>true</c> if only the headers should be written; otherwise, <c>false</c>.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="options"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="stream"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public async Task WriteToAsync (FormatOptions options, Stream stream, bool headersOnly, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			if (options == null)
+				throw new ArgumentNullException (nameof (options));
+
+			if (stream == null)
+				throw new ArgumentNullException (nameof (stream));
+
+			if (compliance == RfcComplianceMode.Strict && Body != null && Body.Headers.Count > 0 && !Headers.Contains (HeaderId.MimeVersion))
+				MimeVersion = new Version (1, 0);
+
+			if (Body != null) {
+				using (var filtered = new FilteredStream (stream)) {
+					filtered.Add (options.CreateNewLineFilter ());
+
+					foreach (var header in MergeHeaders ()) {
+						if (options.HiddenHeaders.Contains (header.Id))
+							continue;
+
+						var rawValue = header.GetRawValue (options);
+
+						await filtered.WriteAsync (header.RawField, 0, header.RawField.Length, cancellationToken).ConfigureAwait (false);
+						await filtered.WriteAsync (Header.Colon, 0, Header.Colon.Length, cancellationToken).ConfigureAwait (false);
+						await filtered.WriteAsync (rawValue, 0, rawValue.Length, cancellationToken).ConfigureAwait (false);
+					}
+
+					await filtered.FlushAsync (cancellationToken).ConfigureAwait (false);
+				}
+
+				await stream.WriteAsync (options.NewLineBytes, 0, options.NewLineBytes.Length, cancellationToken).ConfigureAwait (false);
+
+				if (!headersOnly) {
+					try {
+						Body.EnsureNewLine = compliance == RfcComplianceMode.Strict;
+						await Body.WriteToAsync (options, stream, true, cancellationToken).ConfigureAwait (false);
+					} finally {
+						Body.EnsureNewLine = false;
+					}
+				}
+			} else {
+				await Headers.WriteToAsync (options, stream, cancellationToken).ConfigureAwait (false);
+			}
+		}
+
+		/// <summary>
+		/// Write the message to the specified output stream.
+		/// </summary>
+		/// <remarks>
+		/// Writes the message to the output stream using the provided formatting options.
+		/// </remarks>
+		/// <param name="options">The formatting options.</param>
+		/// <param name="stream">The output stream.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <para><paramref name="options"/> is <c>null</c>.</para>
 		/// <para>-or-</para>
@@ -1145,14 +1211,39 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Writes the message to the specified output stream.
+		/// Asynchronously write the message to the specified output stream.
+		/// </summary>
+		/// <remarks>
+		/// Writes the message to the output stream using the provided formatting options.
+		/// </remarks>
+		/// <param name="options">The formatting options.</param>
+		/// <param name="stream">The output stream.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="options"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="stream"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public Task WriteToAsync (FormatOptions options, Stream stream, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return WriteToAsync (options, stream, false, cancellationToken);
+		}
+
+		/// <summary>
+		/// Write the message to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// Writes the message to the output stream using the default formatting options.
 		/// </remarks>
 		/// <param name="stream">The output stream.</param>
 		/// <param name="headersOnly"><c>true</c> if only the headers should be written; otherwise, <c>false</c>.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="stream"/> is <c>null</c>.
 		/// </exception>
@@ -1168,13 +1259,36 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Writes the message to the specified output stream.
+		/// Asynchronously write the message to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// Writes the message to the output stream using the default formatting options.
 		/// </remarks>
 		/// <param name="stream">The output stream.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="headersOnly"><c>true</c> if only the headers should be written; otherwise, <c>false</c>.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="stream"/> is <c>null</c>.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public Task WriteToAsync (Stream stream, bool headersOnly, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return WriteToAsync (FormatOptions.Default, stream, headersOnly, cancellationToken);
+		}
+
+		/// <summary>
+		/// Write the message to the specified output stream.
+		/// </summary>
+		/// <remarks>
+		/// Writes the message to the output stream using the default formatting options.
+		/// </remarks>
+		/// <param name="stream">The output stream.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="stream"/> is <c>null</c>.
 		/// </exception>
@@ -1189,16 +1303,38 @@ namespace MimeKit {
 			WriteTo (FormatOptions.Default, stream, false, cancellationToken);
 		}
 
+		/// <summary>
+		/// Asynchronously write the message to the specified output stream.
+		/// </summary>
+		/// <remarks>
+		/// Writes the message to the output stream using the default formatting options.
+		/// </remarks>
+		/// <param name="stream">The output stream.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="stream"/> is <c>null</c>.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public Task WriteToAsync (Stream stream, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return WriteToAsync (FormatOptions.Default, stream, false, cancellationToken);
+		}
+
 #if !PORTABLE
 		/// <summary>
-		/// Writes the message to the specified file.
+		/// Write the message to the specified file.
 		/// </summary>
 		/// <remarks>
 		/// Writes the message to the specified file using the provided formatting options.
 		/// </remarks>
 		/// <param name="options">The formatting options.</param>
 		/// <param name="fileName">The file.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <para><paramref name="options"/> is <c>null</c>.</para>
 		/// <para>-or-</para>
@@ -1237,13 +1373,59 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Writes the message to the specified file.
+		/// Asynchronously write the message to the specified file.
+		/// </summary>
+		/// <remarks>
+		/// Writes the message to the specified file using the provided formatting options.
+		/// </remarks>
+		/// <param name="options">The formatting options.</param>
+		/// <param name="fileName">The file.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="options"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="fileName"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.ArgumentException">
+		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
+		/// contains one or more invalid characters as defined by
+		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.IO.DirectoryNotFoundException">
+		/// <paramref name="fileName"/> is an invalid file path.
+		/// </exception>
+		/// <exception cref="System.IO.FileNotFoundException">
+		/// The specified file path could not be found.
+		/// </exception>
+		/// <exception cref="System.UnauthorizedAccessException">
+		/// The user does not have access to write to the specified file.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public async Task WriteToAsync (FormatOptions options, string fileName, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			if (options == null)
+				throw new ArgumentNullException (nameof (options));
+
+			if (fileName == null)
+				throw new ArgumentNullException (nameof (fileName));
+
+			using (var stream = File.Open (fileName, FileMode.Create, FileAccess.Write))
+				await WriteToAsync (options, stream, cancellationToken).ConfigureAwait (false);
+		}
+
+		/// <summary>
+		/// Write the message to the specified file.
 		/// </summary>
 		/// <remarks>
 		/// Writes the message to the specified file using the default formatting options.
 		/// </remarks>
 		/// <param name="fileName">The file.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="fileName"/> is <c>null</c>.
 		/// </exception>
@@ -1274,6 +1456,46 @@ namespace MimeKit {
 
 			using (var stream = File.Open (fileName, FileMode.Create, FileAccess.Write))
 				WriteTo (FormatOptions.Default, stream, cancellationToken);
+		}
+
+		/// <summary>
+		/// Asynchronously write the message to the specified file.
+		/// </summary>
+		/// <remarks>
+		/// Writes the message to the specified file using the default formatting options.
+		/// </remarks>
+		/// <param name="fileName">The file.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="fileName"/> is <c>null</c>.
+		/// </exception>
+		/// <exception cref="System.ArgumentException">
+		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
+		/// contains one or more invalid characters as defined by
+		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.IO.DirectoryNotFoundException">
+		/// <paramref name="fileName"/> is an invalid file path.
+		/// </exception>
+		/// <exception cref="System.IO.FileNotFoundException">
+		/// The specified file path could not be found.
+		/// </exception>
+		/// <exception cref="System.UnauthorizedAccessException">
+		/// The user does not have access to write to the specified file.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public async Task WriteToAsync (string fileName, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			if (fileName == null)
+				throw new ArgumentNullException (nameof (fileName));
+
+			using (var stream = File.Open (fileName, FileMode.Create, FileAccess.Write))
+				await WriteToAsync (FormatOptions.Default, stream, cancellationToken).ConfigureAwait (false);
 		}
 #endif
 
@@ -1402,12 +1624,15 @@ namespace MimeKit {
 			}
 
 			stream.Write (header.RawField, 0, header.RawField.Length);
-			stream.Write (new [] { (byte) ':' }, 0, 1);
+			stream.Write (Header.Colon, 0, Header.Colon.Length);
 			stream.Write (rawValue, 0, rawLength);
 		}
 
 		static ISigner DkimGetDigestSigner (DkimSignatureAlgorithm algorithm, AsymmetricKeyParameter key)
 		{
+#if ENABLE_NATIVE_DKIM
+			return new SystemSecuritySigner (algorithm, key.AsAsymmetricAlgorithm ());
+#else
 			DerObjectIdentifier id;
 
 			if (algorithm == DkimSignatureAlgorithm.RsaSha256)
@@ -1420,6 +1645,7 @@ namespace MimeKit {
 			signer.Init (key.IsPrivate, key);
 
 			return signer;
+#endif
 		}
 
 		byte[] DkimHashBody (FormatOptions options, DkimSignatureAlgorithm signatureAlgorithm, DkimCanonicalizationAlgorithm bodyCanonicalizationAlgorithm, int maxLength)
@@ -1939,37 +2165,7 @@ namespace MimeKit {
 			return new Header (dkimSignature.Options, dkimSignature.RawField, rawValue);
 		}
 
-		/// <summary>
-		/// Verify the specified DKIM-Signature header.
-		/// </summary>
-		/// <remarks>
-		/// Verifies the specified DKIM-Signature header.
-		/// </remarks>
-		/// <example>
-		/// <code language="c#" source="Examples\DkimVerifierExample.cs" />
-		/// </example>
-		/// <returns><c>true</c> if the DKIM-Signature is valid; otherwise, <c>false</c>.</returns>
-		/// <param name="options">The formatting options.</param>
-		/// <param name="dkimSignature">The DKIM-Signature header.</param>
-		/// <param name="publicKeyLocator">The public key locator service.</param>
-		/// <param name="cancellationToken">The cancellation token.</param>
-		/// <exception cref="System.ArgumentNullException">
-		/// <para><paramref name="options"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="dkimSignature"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="publicKeyLocator"/> is <c>null</c>.</para>
-		/// </exception>
-		/// <exception cref="System.ArgumentException">
-		/// <paramref name="dkimSignature"/> is not a DKIM-Signature header.
-		/// </exception>
-		/// <exception cref="System.FormatException">
-		/// The DKIM-Signature header value is malformed.
-		/// </exception>
-		/// <exception cref="System.OperationCanceledException">
-		/// The operation was canceled via the cancellation token.
-		/// </exception>
-		public bool Verify (FormatOptions options, Header dkimSignature, IDkimPublicKeyLocator publicKeyLocator, CancellationToken cancellationToken = default (CancellationToken))
+		async Task<bool> VerifyAsync (FormatOptions options, Header dkimSignature, IDkimPublicKeyLocator publicKeyLocator, bool doAsync, CancellationToken cancellationToken)
 		{
 			if (options == null)
 				throw new ArgumentNullException (nameof (options));
@@ -1992,9 +2188,12 @@ namespace MimeKit {
 			int maxLength;
 
 			ValidateDkimSignatureParameters (parameters, out signatureAlgorithm, out headerAlgorithm, out bodyAlgorithm,
-				out d, out s, out q, out headers, out bh, out b, out maxLength);
+			                                 out d, out s, out q, out headers, out bh, out b, out maxLength);
 
-			key = publicKeyLocator.LocatePublicKey (q, d, s, cancellationToken);
+			if (doAsync)
+				key = await publicKeyLocator.LocatePublicKeyAsync (q, d, s, cancellationToken).ConfigureAwait (false);
+			else
+				key = publicKeyLocator.LocatePublicKey (q, d, s, cancellationToken);
 
 			options = options.Clone ();
 			options.NewLineFormat = NewLineFormat.Dos;
@@ -2041,6 +2240,76 @@ namespace MimeKit {
 		/// <code language="c#" source="Examples\DkimVerifierExample.cs" />
 		/// </example>
 		/// <returns><c>true</c> if the DKIM-Signature is valid; otherwise, <c>false</c>.</returns>
+		/// <param name="options">The formatting options.</param>
+		/// <param name="dkimSignature">The DKIM-Signature header.</param>
+		/// <param name="publicKeyLocator">The public key locator service.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="options"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="dkimSignature"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="publicKeyLocator"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.ArgumentException">
+		/// <paramref name="dkimSignature"/> is not a DKIM-Signature header.
+		/// </exception>
+		/// <exception cref="System.FormatException">
+		/// The DKIM-Signature header value is malformed.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		public bool Verify (FormatOptions options, Header dkimSignature, IDkimPublicKeyLocator publicKeyLocator, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return VerifyAsync (options, dkimSignature, publicKeyLocator, false, cancellationToken).GetAwaiter ().GetResult ();
+		}
+
+		/// <summary>
+		/// Asynchronously verify the specified DKIM-Signature header.
+		/// </summary>
+		/// <remarks>
+		/// Verifies the specified DKIM-Signature header.
+		/// </remarks>
+		/// <example>
+		/// <code language="c#" source="Examples\DkimVerifierExample.cs" />
+		/// </example>
+		/// <returns><c>true</c> if the DKIM-Signature is valid; otherwise, <c>false</c>.</returns>
+		/// <param name="options">The formatting options.</param>
+		/// <param name="dkimSignature">The DKIM-Signature header.</param>
+		/// <param name="publicKeyLocator">The public key locator service.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="options"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="dkimSignature"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="publicKeyLocator"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.ArgumentException">
+		/// <paramref name="dkimSignature"/> is not a DKIM-Signature header.
+		/// </exception>
+		/// <exception cref="System.FormatException">
+		/// The DKIM-Signature header value is malformed.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		public Task<bool> VerifyAsync (FormatOptions options, Header dkimSignature, IDkimPublicKeyLocator publicKeyLocator, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return VerifyAsync (options, dkimSignature, publicKeyLocator, true, cancellationToken);
+		}
+
+		/// <summary>
+		/// Verify the specified DKIM-Signature header.
+		/// </summary>
+		/// <remarks>
+		/// Verifies the specified DKIM-Signature header.
+		/// </remarks>
+		/// <example>
+		/// <code language="c#" source="Examples\DkimVerifierExample.cs" />
+		/// </example>
+		/// <returns><c>true</c> if the DKIM-Signature is valid; otherwise, <c>false</c>.</returns>
 		/// <param name="dkimSignature">The DKIM-Signature header.</param>
 		/// <param name="publicKeyLocator">The public key locator service.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
@@ -2061,6 +2330,38 @@ namespace MimeKit {
 		public bool Verify (Header dkimSignature, IDkimPublicKeyLocator publicKeyLocator, CancellationToken cancellationToken = default (CancellationToken))
 		{
 			return Verify (FormatOptions.Default, dkimSignature, publicKeyLocator, cancellationToken);
+		}
+
+		/// <summary>
+		/// Asynchronously verify the specified DKIM-Signature header.
+		/// </summary>
+		/// <remarks>
+		/// Verifies the specified DKIM-Signature header.
+		/// </remarks>
+		/// <example>
+		/// <code language="c#" source="Examples\DkimVerifierExample.cs" />
+		/// </example>
+		/// <returns><c>true</c> if the DKIM-Signature is valid; otherwise, <c>false</c>.</returns>
+		/// <param name="dkimSignature">The DKIM-Signature header.</param>
+		/// <param name="publicKeyLocator">The public key locator service.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="dkimSignature"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="publicKeyLocator"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.ArgumentException">
+		/// <paramref name="dkimSignature"/> is not a DKIM-Signature header.
+		/// </exception>
+		/// <exception cref="System.FormatException">
+		/// The DKIM-Signature header value is malformed.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		public Task<bool> VerifyAsync (Header dkimSignature, IDkimPublicKeyLocator publicKeyLocator, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return VerifyAsync (FormatOptions.Default, dkimSignature, publicKeyLocator, cancellationToken);
 		}
 
 		/// <summary>
@@ -2431,7 +2732,7 @@ namespace MimeKit {
 			int index = 0;
 
 			// parse the addresses in the new header and add them to our address list
-			if (!InternetAddressList.TryParse (Headers.Options, header.RawValue, ref index, length, false, false, out parsed))
+			if (!InternetAddressList.TryParse (Headers.Options, header.RawValue, ref index, length, false, 0, false, out parsed))
 				return;
 
 			list.Changed -= InternetAddressListChanged;
@@ -2453,7 +2754,7 @@ namespace MimeKit {
 				List<InternetAddress> parsed;
 				int index = 0;
 
-				if (!InternetAddressList.TryParse (Headers.Options, header.RawValue, ref index, length, false, false, out parsed))
+				if (!InternetAddressList.TryParse (Headers.Options, header.RawValue, ref index, length, false, 0, false, out parsed))
 					continue;
 
 				list.AddRange (parsed);
@@ -2694,7 +2995,7 @@ namespace MimeKit {
 		/// <param name="options">The parser options.</param>
 		/// <param name="stream">The stream.</param>
 		/// <param name="persistent"><c>true</c> if the stream is persistent; otherwise <c>false</c>.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <para><paramref name="options"/> is <c>null</c>.</para>
 		/// <para>-or-</para>
@@ -2723,6 +3024,50 @@ namespace MimeKit {
 		}
 
 		/// <summary>
+		/// Asynchronously load a <see cref="MimeMessage"/> from the specified stream.
+		/// </summary>
+		/// <remarks>
+		/// <para>Loads a <see cref="MimeMessage"/> from the given stream, using the
+		/// specified <see cref="ParserOptions"/>.</para>
+		/// <para>If <paramref name="persistent"/> is <c>true</c> and <paramref name="stream"/> is seekable, then
+		/// the <see cref="MimeParser"/> will not copy the content of <see cref="MimePart"/>s into memory. Instead,
+		/// it will use a <see cref="MimeKit.IO.BoundStream"/> to reference a substream of <paramref name="stream"/>.
+		/// This has the potential to not only save mmeory usage, but also improve <see cref="MimeParser"/>
+		/// performance.</para>
+		/// </remarks>
+		/// <returns>The parsed message.</returns>
+		/// <param name="options">The parser options.</param>
+		/// <param name="stream">The stream.</param>
+		/// <param name="persistent"><c>true</c> if the stream is persistent; otherwise <c>false</c>.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="options"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="stream"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.FormatException">
+		/// There was an error parsing the entity.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public static Task<MimeMessage> LoadAsync (ParserOptions options, Stream stream, bool persistent, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			if (options == null)
+				throw new ArgumentNullException (nameof (options));
+
+			if (stream == null)
+				throw new ArgumentNullException (nameof (stream));
+
+			var parser = new MimeParser (options, stream, MimeFormat.Entity, persistent);
+
+			return parser.ParseMessageAsync (cancellationToken);
+		}
+
+		/// <summary>
 		/// Load a <see cref="MimeMessage"/> from the specified stream.
 		/// </summary>
 		/// <remarks>
@@ -2732,7 +3077,7 @@ namespace MimeKit {
 		/// <returns>The parsed message.</returns>
 		/// <param name="options">The parser options.</param>
 		/// <param name="stream">The stream.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <para><paramref name="options"/> is <c>null</c>.</para>
 		/// <para>-or-</para>
@@ -2753,6 +3098,36 @@ namespace MimeKit {
 		}
 
 		/// <summary>
+		/// Asynchronously load a <see cref="MimeMessage"/> from the specified stream.
+		/// </summary>
+		/// <remarks>
+		/// Loads a <see cref="MimeMessage"/> from the given stream, using the
+		/// specified <see cref="ParserOptions"/>.
+		/// </remarks>
+		/// <returns>The parsed message.</returns>
+		/// <param name="options">The parser options.</param>
+		/// <param name="stream">The stream.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="options"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="stream"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.FormatException">
+		/// There was an error parsing the entity.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public static Task<MimeMessage> LoadAsync (ParserOptions options, Stream stream, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return LoadAsync (options, stream, false, cancellationToken);
+		}
+
+		/// <summary>
 		/// Load a <see cref="MimeMessage"/> from the specified stream.
 		/// </summary>
 		/// <remarks>
@@ -2767,7 +3142,7 @@ namespace MimeKit {
 		/// <returns>The parsed message.</returns>
 		/// <param name="stream">The stream.</param>
 		/// <param name="persistent"><c>true</c> if the stream is persistent; otherwise <c>false</c>.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="stream"/> is <c>null</c>.
 		/// </exception>
@@ -2786,6 +3161,39 @@ namespace MimeKit {
 		}
 
 		/// <summary>
+		/// Asynchronously load a <see cref="MimeMessage"/> from the specified stream.
+		/// </summary>
+		/// <remarks>
+		/// <para>Loads a <see cref="MimeMessage"/> from the given stream, using the
+		/// default <see cref="ParserOptions"/>.</para>
+		/// <para>If <paramref name="persistent"/> is <c>true</c> and <paramref name="stream"/> is seekable, then
+		/// the <see cref="MimeParser"/> will not copy the content of <see cref="MimePart"/>s into memory. Instead,
+		/// it will use a <see cref="MimeKit.IO.BoundStream"/> to reference a substream of <paramref name="stream"/>.
+		/// This has the potential to not only save mmeory usage, but also improve <see cref="MimeParser"/>
+		/// performance.</para>
+		/// </remarks>
+		/// <returns>The parsed message.</returns>
+		/// <param name="stream">The stream.</param>
+		/// <param name="persistent"><c>true</c> if the stream is persistent; otherwise <c>false</c>.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="stream"/> is <c>null</c>.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.FormatException">
+		/// There was an error parsing the entity.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public static Task<MimeMessage> LoadAsync (Stream stream, bool persistent, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return LoadAsync (ParserOptions.Default, stream, persistent, cancellationToken);
+		}
+
+		/// <summary>
 		/// Load a <see cref="MimeMessage"/> from the specified stream.
 		/// </summary>
 		/// <remarks>
@@ -2794,7 +3202,7 @@ namespace MimeKit {
 		/// </remarks>
 		/// <returns>The parsed message.</returns>
 		/// <param name="stream">The stream.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="stream"/> is <c>null</c>.
 		/// </exception>
@@ -2812,6 +3220,33 @@ namespace MimeKit {
 			return Load (ParserOptions.Default, stream, false, cancellationToken);
 		}
 
+		/// <summary>
+		/// Asynchronously load a <see cref="MimeMessage"/> from the specified stream.
+		/// </summary>
+		/// <remarks>
+		/// Loads a <see cref="MimeMessage"/> from the given stream, using the
+		/// default <see cref="ParserOptions"/>.
+		/// </remarks>
+		/// <returns>The parsed message.</returns>
+		/// <param name="stream">The stream.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="stream"/> is <c>null</c>.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.FormatException">
+		/// There was an error parsing the entity.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public static Task<MimeMessage> LoadAsync (Stream stream, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return LoadAsync (ParserOptions.Default, stream, false, cancellationToken);
+		}
+
 #if !PORTABLE
 		/// <summary>
 		/// Load a <see cref="MimeMessage"/> from the specified file.
@@ -2823,7 +3258,7 @@ namespace MimeKit {
 		/// <returns>The parsed message.</returns>
 		/// <param name="options">The parser options.</param>
 		/// <param name="fileName">The name of the file to load.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <para><paramref name="options"/> is <c>null</c>.</para>
 		/// <para>-or-</para>
@@ -2865,6 +3300,57 @@ namespace MimeKit {
 		}
 
 		/// <summary>
+		/// Asynchronously load a <see cref="MimeMessage"/> from the specified file.
+		/// </summary>
+		/// <remarks>
+		/// Loads a <see cref="MimeMessage"/> from the file at the given path, using the
+		/// specified <see cref="ParserOptions"/>.
+		/// </remarks>
+		/// <returns>The parsed message.</returns>
+		/// <param name="options">The parser options.</param>
+		/// <param name="fileName">The name of the file to load.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="options"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="fileName"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.ArgumentException">
+		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
+		/// contains one or more invalid characters as defined by
+		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// </exception>
+		/// <exception cref="System.IO.DirectoryNotFoundException">
+		/// <paramref name="fileName"/> is an invalid file path.
+		/// </exception>
+		/// <exception cref="System.IO.FileNotFoundException">
+		/// The specified file path could not be found.
+		/// </exception>
+		/// <exception cref="System.UnauthorizedAccessException">
+		/// The user does not have access to read the specified file.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.FormatException">
+		/// There was an error parsing the entity.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public static async Task<MimeMessage> LoadAsync (ParserOptions options, string fileName, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			if (options == null)
+				throw new ArgumentNullException (nameof (options));
+
+			if (fileName == null)
+				throw new ArgumentNullException (nameof (fileName));
+
+			using (var stream = File.Open (fileName, FileMode.Open, FileAccess.Read))
+				return await LoadAsync (options, stream, cancellationToken).ConfigureAwait (false);
+		}
+
+		/// <summary>
 		/// Load a <see cref="MimeMessage"/> from the specified file.
 		/// </summary>
 		/// <remarks>
@@ -2873,7 +3359,7 @@ namespace MimeKit {
 		/// </remarks>
 		/// <returns>The parsed message.</returns>
 		/// <param name="fileName">The name of the file to load.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="fileName"/> is <c>null</c>.
 		/// </exception>
@@ -2903,6 +3389,47 @@ namespace MimeKit {
 		public static MimeMessage Load (string fileName, CancellationToken cancellationToken = default (CancellationToken))
 		{
 			return Load (ParserOptions.Default, fileName, cancellationToken);
+		}
+
+		/// <summary>
+		/// Asynchronously load a <see cref="MimeMessage"/> from the specified file.
+		/// </summary>
+		/// <remarks>
+		/// Loads a <see cref="MimeMessage"/> from the file at the given path, using the
+		/// default <see cref="ParserOptions"/>.
+		/// </remarks>
+		/// <returns>The parsed message.</returns>
+		/// <param name="fileName">The name of the file to load.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="fileName"/> is <c>null</c>.
+		/// </exception>
+		/// <exception cref="System.ArgumentException">
+		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
+		/// contains one or more invalid characters as defined by
+		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// </exception>
+		/// <exception cref="System.IO.DirectoryNotFoundException">
+		/// <paramref name="fileName"/> is an invalid file path.
+		/// </exception>
+		/// <exception cref="System.IO.FileNotFoundException">
+		/// The specified file path could not be found.
+		/// </exception>
+		/// <exception cref="System.UnauthorizedAccessException">
+		/// The user does not have access to read the specified file.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.FormatException">
+		/// There was an error parsing the entity.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public static Task<MimeMessage> LoadAsync (string fileName, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return LoadAsync (ParserOptions.Default, fileName, cancellationToken);
 		}
 #endif // !PORTABLE
 
@@ -2946,7 +3473,7 @@ namespace MimeKit {
 			item.ContentStream.CopyTo (stream);
 			stream.Position = 0;
 
-			part.ContentObject = new ContentObject (stream);
+			part.Content = new MimeContent (stream);
 
 			return part;
 		}
@@ -2986,17 +3513,12 @@ namespace MimeKit {
 				msg.Headers.Replace (HeaderId.From, string.Empty);
 				msg.From.Add ((MailboxAddress) message.From);
 			}
-#if NET_3_5
-			if (message.ReplyTo != null) {
-				msg.Headers.Replace (HeaderId.ReplyTo, string.Empty);
-				msg.ReplyTo.Add ((MailboxAddress) message.ReplyTo);
-			}
-#else
+
 			if (message.ReplyToList.Count > 0) {
 				msg.Headers.Replace (HeaderId.ReplyTo, string.Empty);
 				msg.ReplyTo.AddRange ((InternetAddressList) message.ReplyToList);
 			}
-#endif
+
 			if (message.To.Count > 0) {
 				msg.Headers.Replace (HeaderId.To, string.Empty);
 				msg.To.AddRange ((InternetAddressList) message.To);
@@ -3051,17 +3573,12 @@ namespace MimeKit {
 				foreach (var view in message.AlternateViews) {
 					var part = GetMimePart (view);
 
-					if (view.BaseUri != null)
-						part.ContentLocation = view.BaseUri;
-
 					if (view.LinkedResources.Count > 0) {
 						var type = part.ContentType.MediaType + "/" + part.ContentType.MediaSubtype;
 						var related = new MultipartRelated ();
 
 						related.ContentType.Parameters.Add ("type", type);
-
-						if (view.BaseUri != null)
-							related.ContentLocation = view.BaseUri;
+						related.ContentBase = view.BaseUri;
 
 						related.Add (part);
 
@@ -3076,6 +3593,7 @@ namespace MimeKit {
 
 						alternative.Add (related);
 					} else {
+						part.ContentBase = view.BaseUri;
 						alternative.Add (part);
 					}
 				}

@@ -65,6 +65,32 @@ namespace UnitTests {
 			Assert.Throws<ArgumentNullException> (() => multipart.CopyTo (null, 0));
 
 			Assert.Throws<ArgumentOutOfRangeException> (() => multipart.Prepare (EncodingConstraint.SevenBit, 1));
+
+			Assert.Throws<ArgumentNullException> (() => multipart.WriteTo ((string) null));
+			Assert.Throws<ArgumentNullException> (() => multipart.WriteTo ((Stream) null));
+			Assert.Throws<ArgumentNullException> (() => multipart.WriteTo ((string) null, false));
+			Assert.Throws<ArgumentNullException> (() => multipart.WriteTo ((Stream) null, false));
+			Assert.Throws<ArgumentNullException> (() => multipart.WriteTo (null, Stream.Null));
+			Assert.Throws<ArgumentNullException> (() => multipart.WriteTo (FormatOptions.Default, (Stream) null));
+			Assert.Throws<ArgumentNullException> (() => multipart.WriteTo (null, "fileName"));
+			Assert.Throws<ArgumentNullException> (() => multipart.WriteTo (FormatOptions.Default, (string) null));
+			Assert.Throws<ArgumentNullException> (() => multipart.WriteTo (null, Stream.Null, false));
+			Assert.Throws<ArgumentNullException> (() => multipart.WriteTo (FormatOptions.Default, (Stream) null, false));
+			Assert.Throws<ArgumentNullException> (() => multipart.WriteTo (null, "fileName", false));
+			Assert.Throws<ArgumentNullException> (() => multipart.WriteTo (FormatOptions.Default, (string) null, false));
+
+			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync ((string) null));
+			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync ((Stream) null));
+			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync ((string) null, false));
+			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync ((Stream) null, false));
+			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync (null, Stream.Null));
+			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync (FormatOptions.Default, (Stream) null));
+			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync (null, "fileName"));
+			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync (FormatOptions.Default, (string) null));
+			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync (null, Stream.Null, false));
+			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync (FormatOptions.Default, (Stream) null, false));
+			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync (null, "fileName", false));
+			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync (FormatOptions.Default, (string) null, false));
 		}
 
 		[Test]
@@ -79,7 +105,7 @@ namespace UnitTests {
 
 			Assert.AreEqual ("__Next_Part_123", multipart.Boundary);
 
-			var generic = new MimePart ("application", "octet-stream") { ContentObject = new ContentObject (new MemoryStream ()), IsAttachment = true };
+			var generic = new MimePart ("application", "octet-stream") { Content = new MimeContent (new MemoryStream ()), IsAttachment = true };
 			var plain = new TextPart ("plain") { Text = "This is some plain text." };
 
 			multipart.Add (generic);

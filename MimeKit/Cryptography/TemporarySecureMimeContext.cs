@@ -1,9 +1,9 @@
-//
+﻿//
 // TemporarySecureMimeContext.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -31,8 +31,9 @@ using System.Collections.Generic;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Pkcs;
 using Org.BouncyCastle.Pkix;
-using Org.BouncyCastle.X509.Store;
 using Org.BouncyCastle.X509;
+using Org.BouncyCastle.X509.Store;
+using Org.BouncyCastle.Asn1.X509;
 
 namespace MimeKit.Cryptography {
 	/// <summary>
@@ -43,7 +44,7 @@ namespace MimeKit.Cryptography {
 	/// does not use a persistent store for certificates, private keys, or CRLs.
 	/// Instead, certificates, private keys, and CRLs are maintained in memory only.
 	/// </remarks>
-	public class TemporarySecureMimeContext : SecureMimeContext
+	public class TemporarySecureMimeContext : BouncyCastleSecureMimeContext
 	{
 		readonly Dictionary<X509Certificate, EncryptionAlgorithm[]> capabilities;
 		readonly Dictionary<X509Certificate, AsymmetricKeyParameter> keys;
@@ -205,6 +206,28 @@ namespace MimeKit.Cryptography {
 			return X509StoreFactory.Create ("Crl/Collection", new X509CollectionStoreParameters (crls));
 		}
 
+		/// <summary>
+		/// Get the date &amp; time for the next scheduled certificate revocation list update for the specified issuer.
+		/// </summary>
+		/// <remarks>
+		/// Gets the date &amp; time for the next scheduled certificate revocation list update for the specified issuer.
+		/// </remarks>
+		/// <returns>The date &amp; time for the next update.</returns>
+		/// <param name="issuer">The issuer.</param>
+		protected override DateTime GetNextCertificateRevocationListUpdate (X509Name issuer)
+		{
+			var nextUpdate = DateTime.MinValue.ToUniversalTime ();
+
+			foreach (var crl in crls) {
+				if (!crl.IssuerDN.Equals (issuer))
+					continue;
+
+				nextUpdate = crl.NextUpdate.Value > nextUpdate ? crl.NextUpdate.Value : nextUpdate;
+			}
+
+			return nextUpdate;
+		}
+
 		X509Certificate GetCmsRecipientCertificate (MailboxAddress mailbox)
 		{
 			var secure = mailbox as SecureMailboxAddress;
@@ -277,7 +300,7 @@ namespace MimeKit.Cryptography {
 					continue;
 
 				var keyUsage = certificate.GetKeyUsageFlags ();
-				if (keyUsage != 0 && (keyUsage & SecureMimeContext.DigitalSignatureKeyUsageFlags) == 0)
+				if (keyUsage != 0 && (keyUsage & DigitalSignatureKeyUsageFlags) == 0)
 					continue;
 
 				if (!keys.TryGetValue (certificate, out key))

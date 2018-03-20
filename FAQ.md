@@ -15,7 +15,6 @@
 * [How do I save messages?](#SaveMessages)
 * [How do I save attachments?](#SaveAttachments)
 * [How do I get the email addresses in the From, To, and Cc headers?](#AddressHeaders)
-* [Why doesn't the MimeMessage class implement ISerializable so that I can serialize a message to disk and read it back later?](#Serialize)
 * [Why do attachments with unicode or long filenames appear as "ATT0####.dat" in Outlook?](#UntitledAttachments)
 * [How do I decrypt PGP messages that are embedded in the main message text?](#DecryptInlinePGP)
 * [How do I reply to a message using MimeKit?](#Reply)
@@ -69,7 +68,7 @@ Will you be my +1?
 
 // create an image attachment for the file located at path
 var attachment = new MimePart ("image", "gif") {
-    ContentObject = new ContentObject (File.OpenRead (path), ContentEncoding.Default),
+    Content = new MimeContent (File.OpenRead (path), ContentEncoding.Default),
     ContentDisposition = new ContentDisposition (ContentDisposition.Attachment),
     ContentTransferEncoding = ContentEncoding.Base64,
     FileName = Path.GetFileName (path)
@@ -315,7 +314,7 @@ class HtmlPreviewVisitor : MimeVisitor
 
         if (!File.Exists (path)) {
             using (var output = File.Create (path))
-                image.ContentObject.DecodeTo (output);
+                image.Content.DecodeTo (output);
         }
 
         return "file://" + path.Replace ('\\', '/');
@@ -530,7 +529,7 @@ the attachment that you'd like to save, here's how you might save it:
 
 ```csharp
 using (var stream = File.Create (fileName))
-    attachment.ContentObject.DecodeTo (stream);
+    attachment.Content.DecodeTo (stream);
 ```
 
 Pretty simple, right?
@@ -558,7 +557,7 @@ foreach (var attachment in message.Attachments) {
         } else {
             var part = (MimePart) attachment;
             
-            part.ContentObject.DecodeTo (stream);
+            part.Content.DecodeTo (stream);
         }
     }
 }
@@ -724,7 +723,7 @@ and then do this:
 static Stream DecryptEmbeddedPgp (TextPart text)
 {
     using (var memory = new MemoryStream ()) {
-        text.ContentObject.DecodeTo (memory);
+        text.Content.DecodeTo (memory);
         memory.Position = 0;
 
         using (var ctx = new MyGnuPGContext ()) {

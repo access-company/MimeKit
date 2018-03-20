@@ -44,15 +44,17 @@
     <Reference Include="nunit.framework">
       <HintPath>..\packages\NUnit.2.6.4\lib\nunit.framework.dll</HintPath>
     </Reference>
-    <Reference Include="Newtonsoft.Json">
-      <HintPath>..\packages\Newtonsoft.Json.7.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
-    </Reference>
     <Reference Include="BouncyCastle.Crypto">
       <HintPath>..\packages\BouncyCastle.1.8.1\lib\BouncyCastle.Crypto.dll</HintPath>
     </Reference>
-    <Reference Include="System.Data.SQLite">
-      <HintPath>..\packages\System.Data.SQLite.Core.1.0.105.2\lib\net45\System.Data.SQLite.dll</HintPath>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>..\packages\Newtonsoft.Json.10.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
+    <Reference Include="System.Data.SQLite">
+      <HintPath>..\packages\System.Data.SQLite.Core.1.0.106.0\lib\net45\System.Data.SQLite.dll</HintPath>
+    </Reference>
+    <Reference Include="System.DirectoryServices" />
+    <Reference Include="System.DirectoryServices.Protocols" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MimeKit\MimeKit.Net45.csproj">
@@ -65,40 +67,65 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ApplicationPkcs7MimeTests.cs" />
+    <Compile Include="Cryptography\ApplicationPkcs7MimeTests.cs" />
+    <Compile Include="Cryptography\AsymmetricAlgorithmExtensionTests.cs" />
+    <Compile Include="Cryptography\CmsRecipientTests.cs" />
+    <Compile Include="Cryptography\CmsSignerTests.cs" />
+    <Compile Include="Cryptography\DefaultSecureMimeContextTests.cs" />
+    <Compile Include="Cryptography\DkimRelaxedBodyFilterTests.cs" />
+    <Compile Include="Cryptography\DkimTests.cs" />
+    <Compile Include="Cryptography\DummyOpenPgpContext.cs" />
+    <Compile Include="Cryptography\DummySecureMimeContext.cs" />
+    <Compile Include="Cryptography\LdapUriTests.cs" />
+    <Compile Include="Cryptography\PgpMimeTests.cs" />
+    <Compile Include="Cryptography\SecureMimeTests.cs" />
+    <Compile Include="Cryptography\X509CertificateChainTests.cs" />
+    <Compile Include="Cryptography\X509CertificateStoreTests.cs" />
+    <Compile Include="Encodings\EncoderTests.cs" />
+    <Compile Include="Encodings\YEncodingTests.cs" />
+    <Compile Include="IO\Filters\FilterTests.cs" />
+    <Compile Include="IO\BoundStreamTests.cs" />
+    <Compile Include="IO\CanReadWriteSeekStream.cs" />
+    <Compile Include="IO\ChainedStreamTests.cs" />
+    <Compile Include="IO\FilteredStreamTests.cs" />
+    <Compile Include="IO\MeasuringStreamTests.cs" />
+    <Compile Include="IO\MemoryBlockStreamTests.cs" />
+    <Compile Include="IO\ReadOneByteStream.cs" />
+    <Compile Include="IO\TimeoutStream.cs" />
+    <Compile Include="Text\HtmlAttributeTests.cs" />
+    <Compile Include="Text\HtmlEntityDecoderTests.cs" />
+    <Compile Include="Text\HtmlToHtmlTests.cs" />
+    <Compile Include="Text\HtmlTokenizerTests.cs" />
+    <Compile Include="Text\HtmlTokenTests.cs" />
+    <Compile Include="Text\HtmlUtilsTests.cs" />
+    <Compile Include="Text\HtmlWriterTests.cs" />
+    <Compile Include="Text\RtfCompressedToRtfTests.cs" />
+    <Compile Include="Text\TextConverterTests.cs" />
+    <Compile Include="Text\TextToHtmlTests.cs" />
+    <Compile Include="Text\TrieTests.cs" />
+    <Compile Include="Text\UrlScannerTests.cs" />
+    <Compile Include="Tnef\TnefTests.cs" />
+    <Compile Include="Utils\CharsetUtilsTests.cs" />
+    <Compile Include="Utils\DateParserTests.cs" />
+    <Compile Include="Utils\MimeUtilsTests.cs" />
+    <Compile Include="Utils\ParseUtilsTests.cs" />
+    <Compile Include="Utils\Rfc2047Tests.cs" />
     <Compile Include="ArgumentExceptionTests.cs" />
     <Compile Include="AssortedTests.cs" />
     <Compile Include="AttachmentCollectionTests.cs" />
-    <Compile Include="ChainedStreamTests.cs" />
-    <Compile Include="CharsetUtilsTests.cs" />
-    <Compile Include="CmsRecipientTests.cs" />
-    <Compile Include="CmsSignerTests.cs" />
     <Compile Include="ConstructorTests.cs" />
     <Compile Include="ContentDispositionTests.cs" />
+    <Compile Include="ContentObjectTests.cs" />
     <Compile Include="ContentTypeTests.cs" />
-    <Compile Include="DateParserTests.cs" />
-    <Compile Include="DkimRelaxedBodyFilterTests.cs" />
-    <Compile Include="DkimTests.cs" />
     <Compile Include="DomainListTests.cs" />
-    <Compile Include="DummyOpenPgpContext.cs" />
-    <Compile Include="DummySecureMimeContext.cs" />
-    <Compile Include="EncoderTests.cs" />
     <Compile Include="ExceptionTests.cs" />
-    <Compile Include="FilterTests.cs" />
     <Compile Include="GroupAddressTests.cs" />
     <Compile Include="HeaderListTests.cs" />
     <Compile Include="HeaderTests.cs" />
-    <Compile Include="HtmlAttributeTests.cs" />
-    <Compile Include="HtmlEntityDecoderTests.cs" />
     <Compile Include="HtmlPreviewVisitor.cs" />
-    <Compile Include="HtmlToHtmlTests.cs" />
-    <Compile Include="HtmlTokenizerTests.cs" />
-    <Compile Include="HtmlUtilsTests.cs" />
-    <Compile Include="HtmlWriterTests.cs" />
     <Compile Include="InternetAddressListTests.cs" />
     <Compile Include="InternetAddressTests.cs" />
     <Compile Include="MailboxAddressTests.cs" />
-    <Compile Include="MemoryBlockStreamTests.cs" />
     <Compile Include="MessageDeliveryStatusTests.cs" />
     <Compile Include="MessageDispositionNotificiationTests.cs" />
     <Compile Include="MessageIdListTests.cs" />
@@ -107,7 +134,6 @@
     <Compile Include="MimeParserTests.cs" />
     <Compile Include="MimePartTests.cs" />
     <Compile Include="MimeTypeTests.cs" />
-    <Compile Include="MimeUtilsTests.cs" />
     <Compile Include="MimeVisitorTests.cs" />
     <Compile Include="MultipartRelatedTests.cs" />
     <Compile Include="MultipartReportTests.cs" />
@@ -115,20 +141,7 @@
     <Compile Include="ParameterListTests.cs" />
     <Compile Include="ParameterTests.cs" />
     <Compile Include="ParserOptionsTests.cs" />
-    <Compile Include="ParseUtilsTests.cs" />
-    <Compile Include="PgpMimeTests.cs" />
-    <Compile Include="Rfc2047Tests.cs" />
-    <Compile Include="RtfCompressedToRtfTests.cs" />
-    <Compile Include="SecureMimeTests.cs" />
-    <Compile Include="TextConverterTests.cs" />
     <Compile Include="TextPartTests.cs" />
-    <Compile Include="TextToHtmlTests.cs" />
-    <Compile Include="TnefTests.cs" />
-    <Compile Include="TrieTests.cs" />
-    <Compile Include="UrlScannerTests.cs" />
-    <Compile Include="X509CertificateChainTests.cs" />
-    <Compile Include="X509CertificateStoreTests.cs" />
-    <Compile Include="YEncodingTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="TestData\dkim\example.bind9" />
@@ -142,6 +155,8 @@
     <None Include="TestData\encoders\photo.b64" />
     <None Include="TestData\encoders\photo.jpg" />
     <None Include="TestData\encoders\photo.uu" />
+    <None Include="TestData\html\badly-quoted-attr.html" />
+    <None Include="TestData\html\badly-quoted-attr.tokens" />
     <None Include="TestData\html\blocked.html" />
     <None Include="TestData\html\blocked.tokens" />
     <None Include="TestData\html\cdata.html" />
@@ -160,6 +175,7 @@
     <None Include="TestData\html\xamarin3.html" />
     <None Include="TestData\html\xamarin3.tokens" />
     <None Include="TestData\html\xamarin3.xhtml" />
+    <None Include="TestData\images\girl.jpg" />
     <None Include="TestData\mbox\jwz.mbox.txt" />
     <None Include="TestData\mbox\jwz-summary.txt" />
     <None Include="TestData\mbox\simple.mbox.txt" />
@@ -177,10 +193,12 @@
     <None Include="TestData\messages\disposition-notification.txt" />
     <None Include="TestData\messages\empty-multipart.txt" />
     <None Include="TestData\messages\epilogue.txt" />
+    <None Include="TestData\messages\issue358.txt" />
     <None Include="TestData\messages\japanese.txt" />
     <None Include="TestData\messages\missing-subtype.txt" />
     <None Include="TestData\messages\multipart-digest.txt" />
     <None Include="TestData\messages\rfc2060.txt" />
+    <None Include="TestData\messages\stack-overflow.txt" />
     <None Include="TestData\openpgp\gpg.conf" />
     <None Include="TestData\openpgp\mimekit.gpg.pub" />
     <None Include="TestData\openpgp\mimekit.gpg.sec" />
@@ -226,6 +244,7 @@
     <None Include="TestData\tnef\triples.tnef" />
     <None Include="TestData\tnef\two-files.list" />
     <None Include="TestData\tnef\two-files.tnef" />
+    <None Include="TestData\tnef\ukr.eml" />
     <None Include="TestData\tnef\winmail.tnef" />
     <None Include="TestData\tnef\winmail.list" />
     <None Include="TestData\yenc\00000020.ntx" />
@@ -235,7 +254,6 @@
     <None Include="TestData\yenc\state-changes.ntx" />
     <None Include="packages.config" />
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
-  <Import Project="..\packages\System.Data.SQLite.Core.1.0.105.2\build\net45\System.Data.SQLite.Core.targets" Condition="Exists('..\packages\System.Data.SQLite.Core.1.0.105.2\build\net45\System.Data.SQLite.Core.targets')" />
+  <Import Project="..\packages\System.Data.SQLite.Core.1.0.106.0\build\net45\System.Data.SQLite.Core.targets" Condition="Exists('..\packages\System.Data.SQLite.Core.1.0.106.0\build\net45\System.Data.SQLite.Core.targets')" />
 </Project>

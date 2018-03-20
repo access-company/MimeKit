@@ -50,7 +50,7 @@ namespace UnitTests {
 				Assert.Fail ("GroupAddress.Parse(string) should fail.");
 			} catch (ParseException ex) {
 				Assert.AreEqual (tokenIndex, ex.TokenIndex, "ParseException did not have the correct token index.");
-				Assert.AreEqual (errorIndex, ex.ErrorIndex, "ParseException did not have the error index.");
+				Assert.AreEqual (errorIndex, ex.ErrorIndex, "ParseException did not have the correct error index.");
 			} catch {
 				Assert.Fail ("GroupAddress.Parse(string) should throw ParseException.");
 			}
@@ -60,7 +60,7 @@ namespace UnitTests {
 				Assert.Fail ("GroupAddress.Parse(byte[]) should fail.");
 			} catch (ParseException ex) {
 				Assert.AreEqual (tokenIndex, ex.TokenIndex, "ParseException did not have the correct token index.");
-				Assert.AreEqual (errorIndex, ex.ErrorIndex, "ParseException did not have the error index.");
+				Assert.AreEqual (errorIndex, ex.ErrorIndex, "ParseException did not have the correct error index.");
 			} catch {
 				Assert.Fail ("GroupAddress.Parse(new byte[]) should throw ParseException.");
 			}
@@ -70,7 +70,7 @@ namespace UnitTests {
 				Assert.Fail ("GroupAddress.Parse(byte[], int) should fail.");
 			} catch (ParseException ex) {
 				Assert.AreEqual (tokenIndex, ex.TokenIndex, "ParseException did not have the correct token index.");
-				Assert.AreEqual (errorIndex, ex.ErrorIndex, "ParseException did not have the error index.");
+				Assert.AreEqual (errorIndex, ex.ErrorIndex, "ParseException did not have the correct error index.");
 			} catch {
 				Assert.Fail ("GroupAddress.Parse(new byte[], int) should throw ParseException.");
 			}
@@ -80,7 +80,7 @@ namespace UnitTests {
 				Assert.Fail ("GroupAddress.Parse(byte[], int, int) should fail.");
 			} catch (ParseException ex) {
 				Assert.AreEqual (tokenIndex, ex.TokenIndex, "ParseException did not have the correct token index.");
-				Assert.AreEqual (errorIndex, ex.ErrorIndex, "ParseException did not have the error index.");
+				Assert.AreEqual (errorIndex, ex.ErrorIndex, "ParseException did not have the correct error index.");
 			} catch {
 				Assert.Fail ("GroupAddress.Parse(new byte[], int, int) should throw ParseException.");
 			}
@@ -351,6 +351,17 @@ namespace UnitTests {
 			int errorIndex = tokenIndex;
 
 			AssertParseFailure (text, false, tokenIndex, errorIndex);
+		}
+
+		[Test]
+		public void TestDefaultMaxGroupDepthOverflow ()
+		{
+			const string overflow = "group0: group1: group2: group3: milbox@host.com;;;;";
+			const string safe = "group0: group1: group2: milbox@host.com;;;";
+
+			AssertParse (safe);
+
+			AssertParseFailure (overflow, false, 24, 30);
 		}
 	}
 }

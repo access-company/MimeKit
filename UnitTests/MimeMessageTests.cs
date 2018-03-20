@@ -68,6 +68,17 @@ namespace UnitTests {
 			Assert.Throws<ArgumentNullException> (() => MimeMessage.Load (null, "fileName"));
 			Assert.Throws<ArgumentNullException> (() => MimeMessage.Load (ParserOptions.Default, (string) null));
 
+			Assert.Throws<ArgumentNullException> (async () => await MimeMessage.LoadAsync ((Stream) null));
+			Assert.Throws<ArgumentNullException> (async () => await MimeMessage.LoadAsync ((Stream) null, true));
+			Assert.Throws<ArgumentNullException> (async () => await MimeMessage.LoadAsync (null, Stream.Null));
+			Assert.Throws<ArgumentNullException> (async () => await MimeMessage.LoadAsync (ParserOptions.Default, (Stream) null));
+			Assert.Throws<ArgumentNullException> (async () => await MimeMessage.LoadAsync (null, Stream.Null, true));
+			Assert.Throws<ArgumentNullException> (async () => await MimeMessage.LoadAsync (ParserOptions.Default, (Stream) null, true));
+
+			Assert.Throws<ArgumentNullException> (async () => await MimeMessage.LoadAsync ((string) null));
+			Assert.Throws<ArgumentNullException> (async () => await MimeMessage.LoadAsync (null, "fileName"));
+			Assert.Throws<ArgumentNullException> (async () => await MimeMessage.LoadAsync (ParserOptions.Default, (string) null));
+
 			Assert.Throws<ArgumentNullException> (() => message.Accept (null));
 			Assert.Throws<ArgumentOutOfRangeException> (() => message.Prepare (EncodingConstraint.None, 10));
 			Assert.Throws<ArgumentNullException> (() => message.WriteTo ((string) null));
@@ -76,6 +87,12 @@ namespace UnitTests {
 			Assert.Throws<ArgumentNullException> (() => message.WriteTo (FormatOptions.Default, (Stream) null));
 			Assert.Throws<ArgumentNullException> (() => message.WriteTo (null, "fileName"));
 			Assert.Throws<ArgumentNullException> (() => message.WriteTo (FormatOptions.Default, (string) null));
+			Assert.Throws<ArgumentNullException> (async () => await message.WriteToAsync ((string) null));
+			Assert.Throws<ArgumentNullException> (async () => await message.WriteToAsync ((Stream) null));
+			Assert.Throws<ArgumentNullException> (async () => await message.WriteToAsync (null, Stream.Null));
+			Assert.Throws<ArgumentNullException> (async () => await message.WriteToAsync (FormatOptions.Default, (Stream) null));
+			Assert.Throws<ArgumentNullException> (async () => await message.WriteToAsync (null, "fileName"));
+			Assert.Throws<ArgumentNullException> (async () => await message.WriteToAsync (FormatOptions.Default, (string) null));
 			Assert.Throws<ArgumentNullException> (() => message.Sign (null));
 			Assert.Throws<ArgumentNullException> (() => message.Sign (null, DigestAlgorithm.Sha1));
 			Assert.Throws<ArgumentNullException> (() => message.Encrypt (null));
@@ -83,7 +100,7 @@ namespace UnitTests {
 		}
 
 		[Test]
-		public void TestReserialization ()
+		public async void TestReserialization ()
 		{
 			string rawMessageText = @"X-Andrew-Authenticated-As: 4099;greenbush.galaxy;Nathaniel Borenstein
 Received: from Messages.8.5.N.CUILIB.3.45.SNAP.NOT.LINKED.greenbush.galaxy.sun4.41
@@ -158,7 +175,6 @@ Just for fun....  -- Nathaniel<nl>
 
 --Multipart.Alternative.IeCBvV20M2YtEoUA0A--
 ".Replace ("\r\n", "\n");
-			string result;
 
 			using (var source = new MemoryStream (Encoding.UTF8.GetBytes (rawMessageText))) {
 				var parser = new MimeParser (source, MimeFormat.Default);
@@ -170,15 +186,26 @@ Just for fun....  -- Nathaniel<nl>
 
 					message.WriteTo (options, serialized);
 
-					result = Encoding.UTF8.GetString (serialized.ToArray ());
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (rawMessageText, result, "Reserialized message is not identical to the original.");
+				}
+
+				using (var serialized = new MemoryStream ()) {
+					var options = FormatOptions.Default.Clone ();
+					options.NewLineFormat = NewLineFormat.Unix;
+
+					await message.WriteToAsync (options, serialized);
+
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (rawMessageText, result, "Reserialized (async) message is not identical to the original.");
 				}
 			}
-
-			Assert.AreEqual (rawMessageText, result, "Reserialized message is not identical to the original.");
 		}
 
 		[Test]
-		public void TestReserializationEmptyParts ()
+		public async void TestReserializationEmptyParts ()
 		{
 			string rawMessageText = @"Date: Fri, 22 Jan 2016 8:44:05 -0500 (EST)
 From: MimeKit Unit Tests <unit.tests@mimekit.org>
@@ -207,7 +234,6 @@ Content-Description: this part contains a single blank line
 
 --Interpart.Boundary.IeCBvV20M2YtEoUA0A--
 ".Replace ("\r\n", "\n");
-			string result;
 
 			using (var source = new MemoryStream (Encoding.UTF8.GetBytes (rawMessageText))) {
 				var parser = new MimeParser (source, MimeFormat.Default);
@@ -219,15 +245,26 @@ Content-Description: this part contains a single blank line
 
 					message.WriteTo (options, serialized);
 
-					result = Encoding.UTF8.GetString (serialized.ToArray ());
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (rawMessageText, result, "Reserialized message is not identical to the original.");
+				}
+
+				using (var serialized = new MemoryStream ()) {
+					var options = FormatOptions.Default.Clone ();
+					options.NewLineFormat = NewLineFormat.Unix;
+
+					await message.WriteToAsync (options, serialized);
+
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (rawMessageText, result, "Reserialized (async) message is not identical to the original.");
 				}
 			}
-
-			Assert.AreEqual (rawMessageText, result, "Reserialized message is not identical to the original.");
 		}
 
 		[Test]
-		public void TestReserializationMessageParts ()
+		public async void TestReserializationMessageParts ()
 		{
 			string rawMessageText = @"Path: flop.mcom.com!news.Stanford.EDU!agate!tcsi.tcs.com!uunet!vixen.cso.uiuc.edu!gateway
 From: Internet-Drafts@CNRI.Reston.VA.US
@@ -302,7 +339,6 @@ Content-ID: <spankulate4@hubba.hubba.hubba>
 
 --NextPart--
 ".Replace ("\r\n", "\n");
-			string result;
 
 			using (var source = new MemoryStream (Encoding.UTF8.GetBytes (rawMessageText))) {
 				var parser = new MimeParser (source, MimeFormat.Default);
@@ -314,11 +350,22 @@ Content-ID: <spankulate4@hubba.hubba.hubba>
 
 					message.WriteTo (options, serialized);
 
-					result = Encoding.UTF8.GetString (serialized.ToArray ());
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (rawMessageText, result, "Reserialized message is not identical to the original.");
+				}
+
+				using (var serialized = new MemoryStream ()) {
+					var options = FormatOptions.Default.Clone ();
+					options.NewLineFormat = NewLineFormat.Unix;
+
+					await message.WriteToAsync (options, serialized);
+
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (rawMessageText, result, "Reserialized (async) message is not identical to the original.");
 				}
 			}
-
-			Assert.AreEqual (rawMessageText, result, "Reserialized message is not identical to the original.");
 		}
 
 		[Test]
@@ -333,13 +380,22 @@ Content-ID: <spankulate4@hubba.hubba.hubba>
 			mail.Bcc.Add (new MailAddress ("bcc@bcc.com", "The Blind Carbon-Copied Recipient"));
 			mail.Subject = "This is the message subject";
 			mail.Priority = MailPriority.High;
-			mail.Body = null;
+			mail.Body = "This is plain text.";
 
-			var text = new MemoryStream (Encoding.ASCII.GetBytes ("This is plain text."), false);
-			mail.AlternateViews.Add (new AlternateView (text, "text/plain"));
+			//var text = new MemoryStream (Encoding.ASCII.GetBytes ("This is plain text."), false);
+			//mail.AlternateViews.Add (new AlternateView (text, "text/plain"));
 
 			var html = new MemoryStream (Encoding.ASCII.GetBytes ("This is HTML."), false);
-			mail.AlternateViews.Add (new AlternateView (html, "text/html"));
+			var view = new AlternateView (html, "text/html");
+
+			var imageData = new byte[1024];
+			var image = new MemoryStream (imageData, false);
+			view.LinkedResources.Add (new LinkedResource (image, "image/jpeg") { ContentId = "id@jpeg", ContentLink = new Uri ("link", UriKind.Relative) });
+			view.BaseUri = new Uri ("http://example.com");
+
+			mail.AlternateViews.Add (view);
+
+			mail.Attachments.Add (new Attachment (new MemoryStream (imageData, false), "empty.jpeg", "image/jpeg"));
 
 			var message = (MimeMessage) mail;
 
@@ -357,12 +413,35 @@ Content-ID: <spankulate4@hubba.hubba.hubba>
 			Assert.AreEqual (mail.Bcc[0].Address, ((MailboxAddress) message.Bcc[0]).Address, "The bcc addresses do not match.");
 			Assert.AreEqual (mail.Subject, message.Subject, "The message subjects do not match.");
 			Assert.AreEqual (MessagePriority.Urgent, message.Priority, "The message priority does not match.");
-			Assert.IsTrue (message.Body is Multipart, "The top-level MIME part should be a multipart.");
-			Assert.IsTrue (message.Body.ContentType.IsMimeType ("multipart", "alternative"), "The top-level MIME part should be multipart/alternative.");
+			Assert.IsInstanceOf<Multipart> (message.Body, "The top-level MIME part should be a multipart/mixed.");
 
-			var multipart = (Multipart) message.Body;
+			var mixed = (Multipart) message.Body;
 
-			Assert.AreEqual (2, multipart.Count, "Expected 2 MIME parts within the multipart/alternative.");
+			Assert.AreEqual ("multipart/mixed", mixed.ContentType.MimeType, "The top-level MIME part should be a multipart/mixed.");
+			Assert.AreEqual (2, mixed.Count, "Expected 2 MIME parts within the multipart/mixed");
+			Assert.IsInstanceOf<MultipartAlternative> (mixed[0], "Expected the first part the multipart/mixed to be a multipart/alternative");
+			Assert.IsInstanceOf<MimePart> (mixed[1], "Expected the first part the multipart/mixed to be a MimePart");
+
+			var attachment = (MimePart) mixed[1];
+			Assert.AreEqual ("empty.jpeg", attachment.FileName, "Expected the attachment to have a filename");
+
+			var alternative = (MultipartAlternative) mixed[0];
+
+			Assert.AreEqual (2, alternative.Count, "Expected 2 MIME parts within the multipart/alternative.");
+			Assert.IsTrue (alternative[1] is MultipartRelated, "The second MIME part should be a multipart/related.");
+
+			var related = (MultipartRelated) alternative[1];
+
+			Assert.AreEqual (2, related.Count, "Expected 2 MIME parts within the multipart/related.");
+			Assert.AreEqual ("http://example.com/", related.ContentBase.ToString ());
+			Assert.IsTrue (related[0] is TextPart, "The first part of the multipart/related should be the html part");
+			Assert.IsNull (((TextPart) related[0]).ContentLocation);
+			Assert.IsNull (((TextPart) related[0]).ContentBase);
+
+			var jpeg = (MimePart) related[1];
+			Assert.AreEqual ("id@jpeg", jpeg.ContentId);
+			Assert.AreEqual ("image/jpeg", jpeg.ContentType.MimeType);
+			Assert.AreEqual ("link", jpeg.ContentLocation.OriginalString);
 		}
 
 		[Test]
@@ -371,7 +450,7 @@ Content-ID: <spankulate4@hubba.hubba.hubba>
 			var message = new MimeMessage ();
 			message.Body = new TextPart ("plain") {
 				ContentTransferEncoding = ContentEncoding.Base64,
-				ContentObject = new ContentObject (new MemoryStream (new byte[1], false))
+				Content = new MimeContent (new MemoryStream (new byte[1], false))
 			};
 
 			try {

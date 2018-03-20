@@ -1,9 +1,9 @@
-//
+﻿//
 // MessageDeliveryStatus.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -83,13 +83,13 @@ namespace MimeKit {
 		public HeaderListCollection StatusGroups {
 			get {
 				if (groups == null) {
-					if (ContentObject == null) {
-						ContentObject = new ContentObject (new MemoryBlockStream ());
+					if (Content == null) {
+						Content = new MimeContent (new MemoryBlockStream ());
 						groups = new HeaderListCollection ();
 					} else {
 						groups = new HeaderListCollection ();
 
-						using (var stream = ContentObject.Open ()) {
+						using (var stream = Content.Open ()) {
 							var parser = new MimeParser (stream, MimeFormat.Entity);
 
 							while (!parser.IsEndOfStream) {
@@ -116,7 +116,7 @@ namespace MimeKit {
 
 			stream.Position = 0;
 
-			ContentObject = new ContentObject (stream);
+			Content = new MimeContent (stream);
 		}
 
 		/// <summary>

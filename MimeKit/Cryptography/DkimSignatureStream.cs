@@ -1,9 +1,9 @@
-//
+﻿//
 // DkimSignatureStream.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -344,8 +344,18 @@ namespace MimeKit.Cryptography {
 		/// <c>false</c> to release only the unmanaged resources.</param>
 		protected override void Dispose (bool disposing)
 		{
+			if (disposing && !disposed) {
+#if ENABLE_NATIVE_DKIM
+				var sss = Signer as SystemSecuritySigner;
+
+				if (sss != null)
+					sss.Dispose ();
+#endif
+
+				disposed = true;
+			}
+
 			base.Dispose (disposing);
-			disposed = true;
 		}
 	}
 }

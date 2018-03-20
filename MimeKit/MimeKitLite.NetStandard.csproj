@@ -3,14 +3,14 @@
   <PropertyGroup>
     <Description>An Open Source library for creating and parsing MIME, S/MIME, PGP messages on desktop and mobile platforms.</Description>
     <AssemblyTitle>MimeKit Lite</AssemblyTitle>
-    <VersionPrefix>1.18.2</VersionPrefix>
+    <VersionPrefix>2.0.1</VersionPrefix>
     <Authors>Jeffrey Stedfast</Authors>
-    <TargetFramework>netstandard1.3</TargetFramework>
+    <TargetFrameworks>netstandard1.3;netstandard1.6;netstandard2.0</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <AssemblyName>MimeKitLite</AssemblyName>
     <PackageId>MimeKitLite</PackageId>
-    <PackageTags>mime;mbox;email;parser;tnef;net40;net45;netstandard;xamarin;android;ios;monodroid;monotouch;win8;wp81</PackageTags>
+    <PackageTags>mime;mbox;mail;email;parser;tnef;net45;netstandard;netstandard1.3;netstandard1.6;netstandard2.0;xamarin;android;ios;monodroid;monoandroid;win8;wp81</PackageTags>
     <PackageProjectUrl>https://github.com/jstedfast/MimeKit</PackageProjectUrl>
     <PackageLicenseUrl>https://github.com/jstedfast/MimeKit/blob/master/License.md</PackageLicenseUrl>
     <GenerateAssemblyTitleAttribute>false</GenerateAssemblyTitleAttribute>
@@ -22,18 +22,15 @@
     <GenerateAssemblyInformationalVersionAttribute>false</GenerateAssemblyInformationalVersionAttribute>
     <GenerateAssemblyFileVersionAttribute>false</GenerateAssemblyFileVersionAttribute>
     <GenerateAssemblyVersionAttribute>false</GenerateAssemblyVersionAttribute>
-    <RootNamespace>MimeKitLite</RootNamespace>
-  </PropertyGroup>
-
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'netstandard1.3' ">
-    <DefineConstants>$(DefineConstants);USE_HTTP_CLIENT;NETSTANDARD</DefineConstants>
+    <RootNamespace>MimeKit</RootNamespace>
+    <DefineConstants>$(DefineConstants);NETSTANDARD</DefineConstants>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyOriginatorKeyFile>mimekit.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
     <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
   </PropertyGroup>
 
-  <ItemGroup Condition=" '$(TargetFramework)' == 'netstandard1.3' ">
+  <ItemGroup Condition=" '$(TargetFramework)' == 'netstandard1.3' Or '$(TargetFramework)' == 'netstandard1.6' Or '$(TargetFramework)' == 'netstandard2.0' ">
     <PackageReference Include="System.Runtime.Serialization.Primitives" Version="4.3.0" />
     <PackageReference Include="System.Reflection.TypeExtensions" Version="4.3.0" />
     <PackageReference Include="System.Globalization.Extensions" Version="4.3.0" />
@@ -135,11 +132,11 @@
     <Compile Include="Utils\ParseUtils.cs" />
     <Compile Include="Utils\Rfc2047.cs" />
     <Compile Include="Utils\StringBuilderExtensions.cs" />
+    <Compile Include="AsyncMimeParser.cs" />
     <Compile Include="AttachmentCollection.cs" />
     <Compile Include="BodyBuilder.cs" />
     <Compile Include="ContentDisposition.cs" />
     <Compile Include="ContentEncoding.cs" />
-    <Compile Include="ContentObject.cs" />
     <Compile Include="ContentType.cs" />
     <Compile Include="DomainList.cs" />
     <Compile Include="EncodingConstraint.cs" />
@@ -150,7 +147,7 @@
     <Compile Include="HeaderList.cs" />
     <Compile Include="HeaderListChangedEventArgs.cs" />
     <Compile Include="HeaderListCollection.cs" />
-    <Compile Include="IContentObject.cs" />
+    <Compile Include="IMimeContent.cs" />
     <Compile Include="InternetAddress.cs" />
     <Compile Include="InternetAddressList.cs" />
     <Compile Include="MailboxAddress.cs" />
@@ -161,6 +158,7 @@
     <Compile Include="MessagePart.cs" />
     <Compile Include="MessagePartial.cs" />
     <Compile Include="MessagePriority.cs" />
+    <Compile Include="MimeContent.cs" />
     <Compile Include="MimeEntity.cs" />
     <Compile Include="MimeEntityConstructorArgs.cs" />
     <Compile Include="MimeFormat.cs" />

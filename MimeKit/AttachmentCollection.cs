@@ -1,9 +1,9 @@
-//
+﻿//
 // AttachmentCollection.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc.
+// Copyright (c) 2013-2018 Xamarin Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -142,7 +142,7 @@ namespace MimeKit {
 			content.Position = 0;
 
 			attachment.ContentTransferEncoding = filter.GetBestEncoding (EncodingConstraint.SevenBit);
-			attachment.ContentObject = new ContentObject (content);
+			attachment.Content = new MimeContent (content);
 		}
 
 		static ContentType GetMimeType (string fileName)

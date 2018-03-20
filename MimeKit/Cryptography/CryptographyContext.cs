@@ -1,9 +1,9 @@
-//
+﻿//
 // CryptographyContext.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,7 +26,9 @@
 
 using System;
 using System.IO;
+using System.Threading;
 using System.Reflection;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 
 namespace MimeKit.Cryptography {
@@ -342,7 +344,7 @@ namespace MimeKit.Cryptography {
 		public abstract bool CanEncrypt (MailboxAddress mailbox);
 
 		/// <summary>
-		/// Cryptographically signs the content.
+		/// Cryptographically sign the content.
 		/// </summary>
 		/// <remarks>
 		/// Cryptographically signs the content using the specified signer and digest algorithm.
@@ -369,7 +371,7 @@ namespace MimeKit.Cryptography {
 		public abstract MimePart Sign (MailboxAddress signer, DigestAlgorithm digestAlgo, Stream content);
 
 		/// <summary>
-		/// Verifies the specified content using the detached signatureData.
+		/// Verify the specified content using the detached signatureData.
 		/// </summary>
 		/// <remarks>
 		/// Verifies the specified content using the detached signatureData.
@@ -377,21 +379,44 @@ namespace MimeKit.Cryptography {
 		/// <returns>A list of digital signatures.</returns>
 		/// <param name="content">The content.</param>
 		/// <param name="signatureData">The signature data.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <para><paramref name="content"/> is <c>null</c>.</para>
 		/// <para>-or-</para>
 		/// <para><paramref name="signatureData"/> is <c>null</c>.</para>
 		/// </exception>
-		public abstract DigitalSignatureCollection Verify (Stream content, Stream signatureData);
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		public abstract DigitalSignatureCollection Verify (Stream content, Stream signatureData, CancellationToken cancellationToken = default (CancellationToken));
 
 		/// <summary>
-		/// Encrypts the specified content for the specified recipients.
+		/// Asynchronously verify the specified content using the detached signatureData.
+		/// </summary>
+		/// <remarks>
+		/// Verifies the specified content using the detached signatureData.
+		/// </remarks>
+		/// <returns>A list of digital signatures.</returns>
+		/// <param name="content">The content.</param>
+		/// <param name="signatureData">The signature data.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="content"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="signatureData"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		public abstract Task<DigitalSignatureCollection> VerifyAsync (Stream content, Stream signatureData, CancellationToken cancellationToken = default (CancellationToken));
+
+		/// <summary>
+		/// Encrypt the specified content for the specified recipients.
 		/// </summary>
 		/// <remarks>
 		/// Encrypts the specified content for the specified recipients.
 		/// </remarks>
-		/// <returns>A new <see cref="MimeKit.MimePart"/> instance
-		/// containing the encrypted data.</returns>
+		/// <returns>A new <see cref="MimeKit.MimePart"/> instance containing the encrypted data.</returns>
 		/// <param name="recipients">The recipients.</param>
 		/// <param name="content">The content.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -405,17 +430,21 @@ namespace MimeKit.Cryptography {
 		public abstract MimePart Encrypt (IEnumerable<MailboxAddress> recipients, Stream content);
 
 		/// <summary>
-		/// Decrypts the specified encryptedData.
+		/// Decrypt the specified encryptedData.
 		/// </summary>
 		/// <remarks>
 		/// Decrypts the specified encryptedData.
 		/// </remarks>
 		/// <returns>The decrypted <see cref="MimeKit.MimeEntity"/>.</returns>
 		/// <param name="encryptedData">The encrypted data.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="encryptedData"/> is <c>null</c>.
 		/// </exception>
-		public abstract MimeEntity Decrypt (Stream encryptedData);
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was cancelled via the cancellation token.
+		/// </exception>
+		public abstract MimeEntity Decrypt (Stream encryptedData, CancellationToken cancellationToken = default (CancellationToken));
 
 		/// <summary>
 		/// Imports the public certificates or keys from the specified stream.

@@ -1,9 +1,9 @@
-//
+﻿//
 // MimeEntity.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc.
+// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,7 @@ using System.IO;
 using System.Text;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 
 #if PORTABLE
@@ -390,7 +391,7 @@ namespace MimeKit {
 		public abstract void Prepare (EncodingConstraint constraint, int maxLineLength = 78);
 
 		/// <summary>
-		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
+		/// Write the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// <para>Writes the headers to the output stream, followed by a blank line.</para>
@@ -399,7 +400,7 @@ namespace MimeKit {
 		/// <param name="options">The formatting options.</param>
 		/// <param name="stream">The output stream.</param>
 		/// <param name="contentOnly"><c>true</c> if only the content should be written; otherwise, <c>false</c>.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <para><paramref name="options"/> is <c>null</c>.</para>
 		/// <para>-or-</para>
@@ -424,7 +425,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
+		/// Asynchronously write the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// <para>Writes the headers to the output stream, followed by a blank line.</para>
@@ -432,7 +433,43 @@ namespace MimeKit {
 		/// </remarks>
 		/// <param name="options">The formatting options.</param>
 		/// <param name="stream">The output stream.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="contentOnly"><c>true</c> if only the content should be written; otherwise, <c>false</c>.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="options"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="stream"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public virtual Task WriteToAsync (FormatOptions options, Stream stream, bool contentOnly, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			if (options == null)
+				throw new ArgumentNullException (nameof (options));
+
+			if (stream == null)
+				throw new ArgumentNullException (nameof (stream));
+
+			if (!contentOnly)
+				return Headers.WriteToAsync (options, stream, cancellationToken);
+
+			return Task.FromResult (0);
+		}
+
+		/// <summary>
+		/// Write the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
+		/// </summary>
+		/// <remarks>
+		/// <para>Writes the headers to the output stream, followed by a blank line.</para>
+		/// <para>Subclasses should override this method to write the content of the entity.</para>
+		/// </remarks>
+		/// <param name="options">The formatting options.</param>
+		/// <param name="stream">The output stream.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <para><paramref name="options"/> is <c>null</c>.</para>
 		/// <para>-or-</para>
@@ -450,14 +487,40 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
+		/// Asynchronously write the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
+		/// </summary>
+		/// <remarks>
+		/// <para>Writes the headers to the output stream, followed by a blank line.</para>
+		/// <para>Subclasses should override this method to write the content of the entity.</para>
+		/// </remarks>
+		/// <param name="options">The formatting options.</param>
+		/// <param name="stream">The output stream.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="options"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="stream"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public Task WriteToAsync (FormatOptions options, Stream stream, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return WriteToAsync (options, stream, false, cancellationToken);
+		}
+
+		/// <summary>
+		/// Write the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// Writes the entity to the output stream.
 		/// </remarks>
 		/// <param name="stream">The output stream.</param>
 		/// <param name="contentOnly"><c>true</c> if only the content should be written; otherwise, <c>false</c>.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="stream"/> is <c>null</c>.
 		/// </exception>
@@ -473,13 +536,36 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
+		/// Adsynchronously write the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// Writes the entity to the output stream.
 		/// </remarks>
 		/// <param name="stream">The output stream.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="contentOnly"><c>true</c> if only the content should be written; otherwise, <c>false</c>.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="stream"/> is <c>null</c>.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public Task WriteToAsync (Stream stream, bool contentOnly, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return WriteToAsync (FormatOptions.Default, stream, contentOnly, cancellationToken);
+		}
+
+		/// <summary>
+		/// Write the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
+		/// </summary>
+		/// <remarks>
+		/// Writes the entity to the output stream.
+		/// </remarks>
+		/// <param name="stream">The output stream.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="stream"/> is <c>null</c>.
 		/// </exception>
@@ -494,9 +580,31 @@ namespace MimeKit {
 			WriteTo (FormatOptions.Default, stream, false, cancellationToken);
 		}
 
+		/// <summary>
+		/// Asynchronously write the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
+		/// </summary>
+		/// <remarks>
+		/// Writes the entity to the output stream.
+		/// </remarks>
+		/// <param name="stream">The output stream.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="stream"/> is <c>null</c>.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public Task WriteToAsync (Stream stream, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return WriteToAsync (FormatOptions.Default, stream, false, cancellationToken);
+		}
+
 #if !PORTABLE
 		/// <summary>
-		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file.
+		/// Write the <see cref="MimeKit.MimeEntity"/> to the specified file.
 		/// </summary>
 		/// <remarks>
 		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file using the provided formatting options.
@@ -504,7 +612,7 @@ namespace MimeKit {
 		/// <param name="options">The formatting options.</param>
 		/// <param name="fileName">The file.</param>
 		/// <param name="contentOnly"><c>true</c> if only the content should be written; otherwise, <c>false</c>.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <para><paramref name="options"/> is <c>null</c>.</para>
 		/// <para>-or-</para>
@@ -543,14 +651,61 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file.
+		/// Asynchronously write the <see cref="MimeKit.MimeEntity"/> to the specified file.
 		/// </summary>
 		/// <remarks>
 		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file using the provided formatting options.
 		/// </remarks>
 		/// <param name="options">The formatting options.</param>
 		/// <param name="fileName">The file.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="contentOnly"><c>true</c> if only the content should be written; otherwise, <c>false</c>.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="options"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="fileName"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.ArgumentException">
+		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
+		/// contains one or more invalid characters as defined by
+		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.IO.DirectoryNotFoundException">
+		/// <paramref name="fileName"/> is an invalid file path.
+		/// </exception>
+		/// <exception cref="System.IO.FileNotFoundException">
+		/// The specified file path could not be found.
+		/// </exception>
+		/// <exception cref="System.UnauthorizedAccessException">
+		/// The user does not have access to write to the specified file.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public async Task WriteToAsync (FormatOptions options, string fileName, bool contentOnly, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			if (options == null)
+				throw new ArgumentNullException (nameof (options));
+
+			if (fileName == null)
+				throw new ArgumentNullException (nameof (fileName));
+
+			using (var stream = File.Open (fileName, FileMode.Create, FileAccess.Write))
+				await WriteToAsync (options, stream, contentOnly, cancellationToken).ConfigureAwait (false);
+		}
+
+		/// <summary>
+		/// Write the <see cref="MimeKit.MimeEntity"/> to the specified file.
+		/// </summary>
+		/// <remarks>
+		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file using the provided formatting options.
+		/// </remarks>
+		/// <param name="options">The formatting options.</param>
+		/// <param name="fileName">The file.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <para><paramref name="options"/> is <c>null</c>.</para>
 		/// <para>-or-</para>
@@ -589,14 +744,60 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file.
+		/// Asynchronously write the <see cref="MimeKit.MimeEntity"/> to the specified file.
+		/// </summary>
+		/// <remarks>
+		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file using the provided formatting options.
+		/// </remarks>
+		/// <param name="options">The formatting options.</param>
+		/// <param name="fileName">The file.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="options"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="fileName"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.ArgumentException">
+		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
+		/// contains one or more invalid characters as defined by
+		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.IO.DirectoryNotFoundException">
+		/// <paramref name="fileName"/> is an invalid file path.
+		/// </exception>
+		/// <exception cref="System.IO.FileNotFoundException">
+		/// The specified file path could not be found.
+		/// </exception>
+		/// <exception cref="System.UnauthorizedAccessException">
+		/// The user does not have access to write to the specified file.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public async Task WriteToAsync (FormatOptions options, string fileName, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			if (options == null)
+				throw new ArgumentNullException (nameof (options));
+
+			if (fileName == null)
+				throw new ArgumentNullException (nameof (fileName));
+
+			using (var stream = File.Open (fileName, FileMode.Create, FileAccess.Write))
+				await WriteToAsync (options, stream, false, cancellationToken).ConfigureAwait (false);
+		}
+
+		/// <summary>
+		/// Write the <see cref="MimeKit.MimeEntity"/> to the specified file.
 		/// </summary>
 		/// <remarks>
 		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file using the default formatting options.
 		/// </remarks>
 		/// <param name="fileName">The file.</param>
 		/// <param name="contentOnly"><c>true</c> if only the content should be written; otherwise, <c>false</c>.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="fileName"/> is <c>null</c>.
 		/// </exception>
@@ -622,11 +823,44 @@ namespace MimeKit {
 		/// </exception>
 		public void WriteTo (string fileName, bool contentOnly, CancellationToken cancellationToken = default (CancellationToken))
 		{
-			if (fileName == null)
-				throw new ArgumentNullException (nameof (fileName));
+			WriteTo (FormatOptions.Default, fileName, contentOnly, cancellationToken);
+		}
 
-			using (var stream = File.Open (fileName, FileMode.Create, FileAccess.Write))
-				WriteTo (FormatOptions.Default, stream, contentOnly, cancellationToken);
+		/// <summary>
+		/// Asynchronously write the <see cref="MimeKit.MimeEntity"/> to the specified file.
+		/// </summary>
+		/// <remarks>
+		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file using the default formatting options.
+		/// </remarks>
+		/// <param name="fileName">The file.</param>
+		/// <param name="contentOnly"><c>true</c> if only the content should be written; otherwise, <c>false</c>.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="fileName"/> is <c>null</c>.
+		/// </exception>
+		/// <exception cref="System.ArgumentException">
+		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
+		/// contains one or more invalid characters as defined by
+		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.IO.DirectoryNotFoundException">
+		/// <paramref name="fileName"/> is an invalid file path.
+		/// </exception>
+		/// <exception cref="System.IO.FileNotFoundException">
+		/// The specified file path could not be found.
+		/// </exception>
+		/// <exception cref="System.UnauthorizedAccessException">
+		/// The user does not have access to write to the specified file.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public Task WriteToAsync (string fileName, bool contentOnly, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return WriteToAsync (FormatOptions.Default, fileName, contentOnly, cancellationToken);
 		}
 
 		/// <summary>
@@ -636,7 +870,7 @@ namespace MimeKit {
 		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file using the default formatting options.
 		/// </remarks>
 		/// <param name="fileName">The file.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="fileName"/> is <c>null</c>.
 		/// </exception>
@@ -668,7 +902,47 @@ namespace MimeKit {
 			using (var stream = File.Open (fileName, FileMode.Create, FileAccess.Write))
 				WriteTo (FormatOptions.Default, stream, false, cancellationToken);
 		}
-#endif
+
+		/// <summary>
+		/// Asynchronously writes the <see cref="MimeKit.MimeEntity"/> to the specified file.
+		/// </summary>
+		/// <remarks>
+		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file using the default formatting options.
+		/// </remarks>
+		/// <param name="fileName">The file.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="fileName"/> is <c>null</c>.
+		/// </exception>
+		/// <exception cref="System.ArgumentException">
+		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
+		/// contains one or more invalid characters as defined by
+		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.IO.DirectoryNotFoundException">
+		/// <paramref name="fileName"/> is an invalid file path.
+		/// </exception>
+		/// <exception cref="System.IO.FileNotFoundException">
+		/// The specified file path could not be found.
+		/// </exception>
+		/// <exception cref="System.UnauthorizedAccessException">
+		/// The user does not have access to write to the specified file.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public async Task WriteToAsync (string fileName, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			if (fileName == null)
+				throw new ArgumentNullException (nameof (fileName));
+
+			using (var stream = File.Open (fileName, FileMode.Create, FileAccess.Write))
+				await WriteToAsync (FormatOptions.Default, stream, false, cancellationToken).ConfigureAwait (false);
+		}
+#endif // !PORTABLE
 
 		/// <summary>
 		/// Removes the header.
@@ -866,7 +1140,7 @@ namespace MimeKit {
 		/// <param name="options">The parser options.</param>
 		/// <param name="stream">The stream.</param>
 		/// <param name="persistent"><c>true</c> if the stream is persistent; otherwise <c>false</c>.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <para><paramref name="options"/> is <c>null</c>.</para>
 		/// <para>-or-</para>
@@ -895,6 +1169,50 @@ namespace MimeKit {
 		}
 
 		/// <summary>
+		/// Asynchronously load a <see cref="MimeEntity"/> from the specified stream.
+		/// </summary>
+		/// <remarks>
+		/// <para>Loads a <see cref="MimeEntity"/> from the given stream, using the
+		/// specified <see cref="ParserOptions"/>.</para>
+		/// <para>If <paramref name="persistent"/> is <c>true</c> and <paramref name="stream"/> is seekable, then
+		/// the <see cref="MimeParser"/> will not copy the content of <see cref="MimePart"/>s into memory. Instead,
+		/// it will use a <see cref="MimeKit.IO.BoundStream"/> to reference a substream of <paramref name="stream"/>.
+		/// This has the potential to not only save mmeory usage, but also improve <see cref="MimeParser"/>
+		/// performance.</para>
+		/// </remarks>
+		/// <returns>The parsed MIME entity.</returns>
+		/// <param name="options">The parser options.</param>
+		/// <param name="stream">The stream.</param>
+		/// <param name="persistent"><c>true</c> if the stream is persistent; otherwise <c>false</c>.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="options"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="stream"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.FormatException">
+		/// There was an error parsing the entity.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public static Task<MimeEntity> LoadAsync (ParserOptions options, Stream stream, bool persistent, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			if (options == null)
+				throw new ArgumentNullException (nameof (options));
+
+			if (stream == null)
+				throw new ArgumentNullException (nameof (stream));
+
+			var parser = new MimeParser (options, stream, MimeFormat.Entity, persistent);
+
+			return parser.ParseEntityAsync (cancellationToken);
+		}
+
+		/// <summary>
 		/// Load a <see cref="MimeEntity"/> from the specified stream.
 		/// </summary>
 		/// <remarks>
@@ -904,7 +1222,7 @@ namespace MimeKit {
 		/// <returns>The parsed MIME entity.</returns>
 		/// <param name="options">The parser options.</param>
 		/// <param name="stream">The stream.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <para><paramref name="options"/> is <c>null</c>.</para>
 		/// <para>-or-</para>
@@ -925,6 +1243,36 @@ namespace MimeKit {
 		}
 
 		/// <summary>
+		/// Asynchronously load a <see cref="MimeEntity"/> from the specified stream.
+		/// </summary>
+		/// <remarks>
+		/// Loads a <see cref="MimeEntity"/> from the given stream, using the
+		/// specified <see cref="ParserOptions"/>.
+		/// </remarks>
+		/// <returns>The parsed MIME entity.</returns>
+		/// <param name="options">The parser options.</param>
+		/// <param name="stream">The stream.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="options"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="stream"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.FormatException">
+		/// There was an error parsing the entity.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public static Task<MimeEntity> LoadAsync (ParserOptions options, Stream stream, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return LoadAsync (options, stream, false, cancellationToken);
+		}
+
+		/// <summary>
 		/// Load a <see cref="MimeEntity"/> from the specified stream.
 		/// </summary>
 		/// <remarks>
@@ -939,7 +1287,7 @@ namespace MimeKit {
 		/// <returns>The parsed MIME entity.</returns>
 		/// <param name="stream">The stream.</param>
 		/// <param name="persistent"><c>true</c> if the stream is persistent; otherwise <c>false</c>.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="stream"/> is <c>null</c>.
 		/// </exception>
@@ -958,6 +1306,39 @@ namespace MimeKit {
 		}
 
 		/// <summary>
+		/// Asynchronously load a <see cref="MimeEntity"/> from the specified stream.
+		/// </summary>
+		/// <remarks>
+		/// <para>Loads a <see cref="MimeEntity"/> from the given stream, using the
+		/// default <see cref="ParserOptions"/>.</para>
+		/// <para>If <paramref name="persistent"/> is <c>true</c> and <paramref name="stream"/> is seekable, then
+		/// the <see cref="MimeParser"/> will not copy the content of <see cref="MimePart"/>s into memory. Instead,
+		/// it will use a <see cref="MimeKit.IO.BoundStream"/> to reference a substream of <paramref name="stream"/>.
+		/// This has the potential to not only save mmeory usage, but also improve <see cref="MimeParser"/>
+		/// performance.</para>
+		/// </remarks>
+		/// <returns>The parsed MIME entity.</returns>
+		/// <param name="stream">The stream.</param>
+		/// <param name="persistent"><c>true</c> if the stream is persistent; otherwise <c>false</c>.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="stream"/> is <c>null</c>.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.FormatException">
+		/// There was an error parsing the entity.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public static Task<MimeEntity> LoadAsync (Stream stream, bool persistent, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return LoadAsync (ParserOptions.Default, stream, persistent, cancellationToken);
+		}
+
+		/// <summary>
 		/// Load a <see cref="MimeEntity"/> from the specified stream.
 		/// </summary>
 		/// <remarks>
@@ -966,7 +1347,7 @@ namespace MimeKit {
 		/// </remarks>
 		/// <returns>The parsed MIME entity.</returns>
 		/// <param name="stream">The stream.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="stream"/> is <c>null</c>.
 		/// </exception>
@@ -984,6 +1365,33 @@ namespace MimeKit {
 			return Load (ParserOptions.Default, stream, false, cancellationToken);
 		}
 
+		/// <summary>
+		/// Asynchronously load a <see cref="MimeEntity"/> from the specified stream.
+		/// </summary>
+		/// <remarks>
+		/// Loads a <see cref="MimeEntity"/> from the given stream, using the
+		/// default <see cref="ParserOptions"/>.
+		/// </remarks>
+		/// <returns>The parsed MIME entity.</returns>
+		/// <param name="stream">The stream.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="stream"/> is <c>null</c>.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.FormatException">
+		/// There was an error parsing the entity.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public static Task<MimeEntity> LoadAsync (Stream stream, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return LoadAsync (ParserOptions.Default, stream, false, cancellationToken);
+		}
+
 #if !PORTABLE
 		/// <summary>
 		/// Load a <see cref="MimeEntity"/> from the specified file.
@@ -995,7 +1403,7 @@ namespace MimeKit {
 		/// <returns>The parsed entity.</returns>
 		/// <param name="options">The parser options.</param>
 		/// <param name="fileName">The name of the file to load.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <para><paramref name="options"/> is <c>null</c>.</para>
 		/// <para>-or-</para>
@@ -1037,6 +1445,57 @@ namespace MimeKit {
 		}
 
 		/// <summary>
+		/// Asynchronously load a <see cref="MimeEntity"/> from the specified file.
+		/// </summary>
+		/// <remarks>
+		/// Loads a <see cref="MimeEntity"/> from the file at the give file path,
+		/// using the specified <see cref="ParserOptions"/>.
+		/// </remarks>
+		/// <returns>The parsed entity.</returns>
+		/// <param name="options">The parser options.</param>
+		/// <param name="fileName">The name of the file to load.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="options"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="fileName"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.ArgumentException">
+		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
+		/// contains one or more invalid characters as defined by
+		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// </exception>
+		/// <exception cref="System.IO.DirectoryNotFoundException">
+		/// <paramref name="fileName"/> is an invalid file path.
+		/// </exception>
+		/// <exception cref="System.IO.FileNotFoundException">
+		/// The specified file path could not be found.
+		/// </exception>
+		/// <exception cref="System.UnauthorizedAccessException">
+		/// The user does not have access to read the specified file.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.FormatException">
+		/// There was an error parsing the entity.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public static async Task<MimeEntity> LoadAsync (ParserOptions options, string fileName, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			if (options == null)
+				throw new ArgumentNullException (nameof (options));
+
+			if (fileName == null)
+				throw new ArgumentNullException (nameof (fileName));
+
+			using (var stream = File.Open (fileName, FileMode.Open, FileAccess.Read))
+				return await LoadAsync (options, stream, cancellationToken).ConfigureAwait (false);
+		}
+
+		/// <summary>
 		/// Load a <see cref="MimeEntity"/> from the specified file.
 		/// </summary>
 		/// <remarks>
@@ -1045,7 +1504,7 @@ namespace MimeKit {
 		/// </remarks>
 		/// <returns>The parsed entity.</returns>
 		/// <param name="fileName">The name of the file to load.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="fileName"/> is <c>null</c>.
 		/// </exception>
@@ -1076,6 +1535,47 @@ namespace MimeKit {
 		{
 			return Load (ParserOptions.Default, fileName, cancellationToken);
 		}
+
+		/// <summary>
+		/// Asynchroinously load a <see cref="MimeEntity"/> from the specified file.
+		/// </summary>
+		/// <remarks>
+		/// Loads a <see cref="MimeEntity"/> from the file at the give file path,
+		/// using the default <see cref="ParserOptions"/>.
+		/// </remarks>
+		/// <returns>The parsed entity.</returns>
+		/// <param name="fileName">The name of the file to load.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="fileName"/> is <c>null</c>.
+		/// </exception>
+		/// <exception cref="System.ArgumentException">
+		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
+		/// contains one or more invalid characters as defined by
+		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// </exception>
+		/// <exception cref="System.IO.DirectoryNotFoundException">
+		/// <paramref name="fileName"/> is an invalid file path.
+		/// </exception>
+		/// <exception cref="System.IO.FileNotFoundException">
+		/// The specified file path could not be found.
+		/// </exception>
+		/// <exception cref="System.UnauthorizedAccessException">
+		/// The user does not have access to read the specified file.
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.FormatException">
+		/// There was an error parsing the entity.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public static Task<MimeEntity> LoadAsync (string fileName, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return LoadAsync (ParserOptions.Default, fileName, cancellationToken);
+		}
 #endif // !PORTABLE
 
 		/// <summary>
@@ -1089,7 +1589,7 @@ namespace MimeKit {
 		/// <param name="options">The parser options.</param>
 		/// <param name="contentType">The Content-Type of the stream.</param>
 		/// <param name="content">The content stream.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <para><paramref name="options"/> is <c>null</c>.</para>
 		/// <para>-or-</para>
@@ -1131,6 +1631,58 @@ namespace MimeKit {
 		}
 
 		/// <summary>
+		/// Asynchronously load a <see cref="MimeEntity"/> from the specified content stream.
+		/// </summary>
+		/// <remarks>
+		/// This method is mostly meant for use with APIs such as <see cref="System.Net.HttpWebResponse"/>
+		/// where the headers are parsed separately from the content.
+		/// </remarks>
+		/// <returns>The parsed MIME entity.</returns>
+		/// <param name="options">The parser options.</param>
+		/// <param name="contentType">The Content-Type of the stream.</param>
+		/// <param name="content">The content stream.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="options"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="contentType"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="content"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.FormatException">
+		/// There was an error parsing the entity.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public static Task<MimeEntity> LoadAsync (ParserOptions options, ContentType contentType, Stream content, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			if (options == null)
+				throw new ArgumentNullException (nameof (options));
+
+			if (contentType == null)
+				throw new ArgumentNullException (nameof (contentType));
+
+			if (content == null)
+				throw new ArgumentNullException (nameof (content));
+
+			var format = FormatOptions.CloneDefault ();
+			format.NewLineFormat = NewLineFormat.Dos;
+
+			var encoded = contentType.Encode (format, Encoding.UTF8);
+			var header = string.Format ("Content-Type:{0}\r\n", encoded);
+			var chained = new ChainedStream ();
+
+			chained.Add (new MemoryStream (Encoding.UTF8.GetBytes (header), false));
+			chained.Add (content);
+
+			return LoadAsync (options, chained, cancellationToken);
+		}
+
+		/// <summary>
 		/// Load a <see cref="MimeEntity"/> from the specified content stream.
 		/// </summary>
 		/// <remarks>
@@ -1140,7 +1692,7 @@ namespace MimeKit {
 		/// <returns>The parsed MIME entity.</returns>
 		/// <param name="contentType">The Content-Type of the stream.</param>
 		/// <param name="content">The content stream.</param>
-		/// <param name="cancellationToken">A cancellation token.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <para><paramref name="contentType"/> is <c>null</c>.</para>
 		/// <para>-or-</para>
@@ -1158,6 +1710,36 @@ namespace MimeKit {
 		public static MimeEntity Load (ContentType contentType, Stream content, CancellationToken cancellationToken = default (CancellationToken))
 		{
 			return Load (ParserOptions.Default, contentType, content, cancellationToken);
+		}
+
+		/// <summary>
+		/// Asynchronously load a <see cref="MimeEntity"/> from the specified content stream.
+		/// </summary>
+		/// <remarks>
+		/// This method is mostly meant for use with APIs such as <see cref="System.Net.HttpWebResponse"/>
+		/// where the headers are parsed separately from the content.
+		/// </remarks>
+		/// <returns>The parsed MIME entity.</returns>
+		/// <param name="contentType">The Content-Type of the stream.</param>
+		/// <param name="content">The content stream.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="contentType"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="content"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.OperationCanceledException">
+		/// The operation was canceled via the cancellation token.
+		/// </exception>
+		/// <exception cref="System.FormatException">
+		/// There was an error parsing the entity.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		public static Task<MimeEntity> LoadAsync (ContentType contentType, Stream content, CancellationToken cancellationToken = default (CancellationToken))
+		{
+			return LoadAsync (ParserOptions.Default, contentType, content, cancellationToken);
 		}
 	}
 }

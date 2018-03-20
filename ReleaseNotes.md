@@ -1,5 +1,61 @@
 # Release Notes
 
+### MimeKit 2.0.1
+
+* Improved the HTML parser logic to better handle a number of edge cases.
+* MimeKit will now automatically download CRLs based on the CRL Distribution Point
+  certificate extension if any HTTP URLs are defined (LDAP and FTP are not yet supported)
+  when verifying S/MIME digital signatures using a derivative of the
+  BouncyCastleSecureMimeContext backend (the WindowsSecureMimeContext gets this for free
+  from System.Security's CMS implementation).
+* Fixed OpenPgpContext.RetrievePublicKeyRingAsync() to use the filtered stream.
+* Added support for using the Blowfish encryption algorithm with S/MIME (only supported
+  in the BouncyCastle backends).
+* Added support for using the SEED encryption algorithm with S/MIME (also only supported
+  in the BouncyCastle backends).
+* Added an optional 'algorithm' argument to OpenPgpContext.GenerateKeyPair() to allow
+  specifying the symmetric key algorithm to use in generating the key pair. This defaults
+  to AES-256, which is the same value used in older versions of MimeKit.
+
+### MimeKit 2.0.0
+
+* Added IDkimPublicKeyLocator.LookupPublicKeyAsync() and MimeMessage.VerifyAsync() to support
+  asynchronous DNS lookups of DKIM public keys.
+* Fixed tokenization of unquoted HTML attributes containing entities.
+* Vastly improved the WindowsSecureMimeContext to do everything using System.Security
+  instead of a mix of System.Security and Bouncy Castle.
+* Refactored SecureMimeContext into a base SecureMimeContext and a
+  BouncyCastleSecureMimeContext that contained all of the Bouncy Castle-specific logic.
+* Added useful extension methods to facilitate conversion between System.Security and
+  Bouncy Castle crypto types (such as X509Certificates and AsymmetricAlgorithms).
+* Renamed the IContentObject interface to IMimeContent.
+* Renamed the ContentObject class to MimeContent.
+* Renamed the MimePart.ContentObject property to MimePart.Content.
+* Dropped support for .NET 3.5 and .NET 4.0.
+
+### MimeKit 1.22.0
+
+* Fixed a buffering bug in MimeParser's header parser. (issue #358)
+* Set the TnefReader charset on extracted text/plain and text/html bodies. (issue #357)
+* Added safeguard to protect against malformed nested group addresses which could cause
+  a stack overflow in the parser. ParserOptions now has a way of limiting the recursive
+  depth of rfc822 group addresses using the MaxAddressGroupDepth property. (issue #355)
+* Fixed the S/MIME certificate database for .NETStandard by using GetFieldValue() instead
+  of GetBytes() which is not supported on .NETStandard. (issue #351)
+
+### MimeKit 1.20.0
+
+* Added async support for writing MimeMessage, MimeEntity, HeaderList and ContentObject.
+* Added async support for parsing MimeMessage, MimeEntity, and HeaderList.
+* Added async support to MimeKit.IO streams.
+* Removed methods marked [Obsolete] (which have been marked obsolete for several years now).
+* Improved performance of writing messages by a small amount.
+* Fixed SecureMimeDigitalSignature to capture the signature digest algorithm used by the sending
+  client. (issue #341)
+* Fixed the S/MIME decoder to correctly determine the RC2 algorithm used by the sending client.
+  (issue #337)
+* Fixed a bug in BoundStream.Seek().
+
 ### MimeKit 1.18.1
 
 * Added CanSign() and CanEncrypt() methods to CryptographyContext for checking

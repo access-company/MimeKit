@@ -1,9 +1,9 @@
-//
+﻿//
 // ContentType.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc.
+// Copyright (c) 2013-2018 Xamarin Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -240,29 +240,6 @@ namespace MimeKit {
 				else
 					Parameters.Remove ("name");
 			}
-		}
-
-		/// <summary>
-		/// Checks if the this instance of <see cref="MimeKit.ContentType"/> matches
-		/// the specified media type and subtype.
-		/// </summary>
-		/// <remarks>
-		/// If the specified <paramref name="mediaType"/> or <paramref name="mediaSubtype"/>
-		/// are <c>"*"</c>, they match anything.
-		/// </remarks>
-		/// <returns><c>true</c> if the <see cref="ContentType"/> matches the
-		/// provided media type and subtype.</returns>
-		/// <param name="mediaType">The media type.</param>
-		/// <param name="mediaSubtype">The media subtype.</param>
-		/// <exception cref="System.ArgumentNullException">
-		/// <para><paramref name="mediaType"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="mediaSubtype"/> is <c>null</c>.</para>
-		/// </exception>
-		[Obsolete ("Use IsMimeType (string mediaType, string mediaSubtype) instead.")]
-		public bool Matches (string mediaType, string mediaSubtype)
-		{
-			return IsMimeType (mediaType, mediaSubtype);
 		}
 
 		/// <summary>

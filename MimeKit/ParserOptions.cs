@@ -1,9 +1,9 @@
-//
+﻿//
 // ParserOptions.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -92,6 +92,18 @@ namespace MimeKit {
 		public bool AllowAddressesWithoutDomain { get; set; }
 
 		/// <summary>
+		/// Gets or sets the maximum address group depth the parser should accept.
+		/// </summary>
+		/// <remarks>
+		/// <para>This option exists in order to define the maximum recursive depth of an rfc822 group address
+		/// that the parser should accept before bailing out with the assumption that the address is maliciously
+		/// formed. If the value is set too large, then it is possible that a maliciously formed set of
+		/// recursive group addresses could cause a stack overflow.</para>
+		/// </remarks>
+		/// <value>The max address group depth.</value>
+		public int MaxAddressGroupDepth { get; set; }
+
+		/// <summary>
 		/// Gets or sets the compliance mode that should be used when parsing Content-Type and Content-Disposition parameters.
 		/// </summary>
 		/// <remarks>
@@ -158,6 +170,7 @@ namespace MimeKit {
 			CharsetEncoding = CharsetUtils.UTF8;
 			AllowAddressesWithoutDomain = false;
 			RespectContentLength = false;
+			MaxAddressGroupDepth = 3;
 		}
 
 		/// <summary>
@@ -175,6 +188,7 @@ namespace MimeKit {
 			options.AllowAddressesWithoutDomain = AllowAddressesWithoutDomain;
 			options.ParameterComplianceMode = ParameterComplianceMode;
 			options.Rfc2047ComplianceMode = Rfc2047ComplianceMode;
+			options.MaxAddressGroupDepth = MaxAddressGroupDepth;
 			options.RespectContentLength = RespectContentLength;
 			options.CharsetEncoding = CharsetEncoding;
 

@@ -1,9 +1,9 @@
-//
+﻿//
 // TextPart.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -292,19 +292,19 @@ namespace MimeKit {
 		/// is set, it will be used in order to convert the raw content into unicode.
 		/// If that fails or if the charset parameter is not set, iso-8859-1 will be
 		/// used instead.</para>
-		/// <para>For more control, use <see cref="GetText(System.Text.Encoding)"/>
-		/// or <see cref="GetText(System.String)"/>.</para>
+		/// <para>For more control, use <see cref="GetText(Encoding)"/>
+		/// or <see cref="GetText(String)"/>.</para>
 		/// </remarks>
 		/// <value>The text.</value>
 		public string Text {
 			get {
-				if (ContentObject == null)
+				if (Content == null)
 					return string.Empty;
 
 				var charset = ContentType.Parameters["charset"];
 
 				using (var memory = new MemoryStream ()) {
-					ContentObject.DecodeTo (memory);
+					Content.DecodeTo (memory);
 
 #if !PORTABLE && !NETSTANDARD
 					var content = memory.GetBuffer ();
@@ -399,11 +399,11 @@ namespace MimeKit {
 			if (encoding == null)
 				throw new ArgumentNullException (nameof (encoding));
 
-			if (ContentObject == null)
+			if (Content == null)
 				return string.Empty;
 
 			using (var memory = new MemoryStream ()) {
-				ContentObject.DecodeTo (memory);
+				Content.DecodeTo (memory);
 
 #if !PORTABLE && !NETSTANDARD
 				var buffer = memory.GetBuffer ();
@@ -465,7 +465,7 @@ namespace MimeKit {
 
 			ContentType.Parameters["charset"] = CharsetUtils.GetMimeCharset (encoding);
 			var content = new MemoryStream (encoding.GetBytes (text));
-			ContentObject = new ContentObject (content);
+			Content = new MimeContent (content);
 		}
 
 		/// <summary>

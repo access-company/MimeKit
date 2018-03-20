@@ -1,9 +1,9 @@
-//
+﻿//
 // DkimSigner.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,9 @@
 
 using System;
 using System.IO;
+#if ENABLE_NATIVE_DKIM
+using System.Security.Cryptography;
+#endif
 
 using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Asn1.Pkcs;
@@ -109,6 +112,33 @@ namespace MimeKit.Cryptography {
 			Domain = domain;
 		}
 
+		static AsymmetricKeyParameter LoadPrivateKey (Stream stream)
+		{
+			AsymmetricKeyParameter key = null;
+
+			using (var reader = new StreamReader (stream)) {
+				var pem = new PemReader (reader);
+
+				var keyObject = pem.ReadObject ();
+
+				if (keyObject != null) {
+					key = keyObject as AsymmetricKeyParameter;
+
+					if (key == null) {
+						var pair = keyObject as AsymmetricCipherKeyPair;
+
+						if (pair != null)
+							key = pair.Private;
+					}
+				}
+			}
+
+			if (key == null || !key.IsPrivate)
+				throw new FormatException ("Private key not found.");
+
+			return key;
+		}
+
 #if !PORTABLE
 		/// <summary>
 		/// Initializes a new instance of the <see cref="MimeKit.Cryptography.DkimSigner"/> class.
@@ -161,32 +191,10 @@ namespace MimeKit.Cryptography {
 			if (selector == null)
 				throw new ArgumentNullException (nameof (selector));
 
-			AsymmetricKeyParameter key = null;
-
-			using (var stream = File.OpenRead (fileName)) {
-				using (var reader = new StreamReader (stream)) {
-					var pem = new PemReader (reader);
-
-					var keyObject = pem.ReadObject ();
-
-					if (keyObject != null) {
-						key = keyObject as AsymmetricKeyParameter;
-
-						if (key == null) {
-							var pair = keyObject as AsymmetricCipherKeyPair;
-
-							if (pair != null)
-								key = pair.Private;
-						}
-					}
-				}
-			}
-
-			if (key == null || !key.IsPrivate)
-				throw new FormatException ("Private key not found.");
+			using (var stream = File.OpenRead (fileName))
+				PrivateKey = LoadPrivateKey (stream);
 
 			SignatureAlgorithm = algorithm;
-			PrivateKey = key;
 			Selector = selector;
 			Domain = domain;
 		}
@@ -226,30 +234,8 @@ namespace MimeKit.Cryptography {
 			if (selector == null)
 				throw new ArgumentNullException (nameof (selector));
 
-			AsymmetricKeyParameter key = null;
-
-			using (var reader = new StreamReader (stream)) {
-				var pem = new PemReader (reader);
-
-				var keyObject = pem.ReadObject ();
-
-				if (keyObject != null) {
-					key = keyObject as AsymmetricKeyParameter;
-
-					if (key == null) {
-						var pair = keyObject as AsymmetricCipherKeyPair;
-
-						if (pair != null)
-							key = pair.Private;
-					}
-				}
-			}
-
-			if (key == null || !key.IsPrivate)
-				throw new FormatException ("Private key not found.");
-
-			SignatureAlgorithm = DkimSignatureAlgorithm.RsaSha256;
-			PrivateKey = key;
+			PrivateKey = LoadPrivateKey (stream);
+			SignatureAlgorithm = algorithm;
 			Selector = selector;
 			Domain = domain;
 		}
@@ -262,7 +248,7 @@ namespace MimeKit.Cryptography {
 		/// </remarks>
 		/// <value>The private key.</value>
 		protected AsymmetricKeyParameter PrivateKey {
-			get; private set;
+			get; set;
 		}
 
 		/// <summary>
@@ -333,6 +319,9 @@ namespace MimeKit.Cryptography {
 		/// <returns>The digest signer.</returns>
 		public virtual ISigner DigestSigner {
 			get {
+#if ENABLE_NATIVE_DKIM
+				return new SystemSecuritySigner (SignatureAlgorithm, PrivateKey.AsAsymmetricAlgorithm ());
+#else
 				DerObjectIdentifier id;
 
 				if (SignatureAlgorithm == DkimSignatureAlgorithm.RsaSha256)
@@ -345,7 +334,78 @@ namespace MimeKit.Cryptography {
 				signer.Init (true, PrivateKey);
 
 				return signer;
+#endif
 			}
 		}
 	}
+
+#if ENABLE_NATIVE_DKIM
+	class SystemSecuritySigner : ISigner
+	{
+		readonly RSACryptoServiceProvider rsa;
+		readonly HashAlgorithm hash;
+		readonly string oid;
+
+		public SystemSecuritySigner (DkimSignatureAlgorithm algorithm, AsymmetricAlgorithm key)
+		{
+			rsa = key as RSACryptoServiceProvider;
+
+			switch (algorithm) {
+			case DkimSignatureAlgorithm.RsaSha256:
+				oid = SecureMimeContext.GetDigestOid (DigestAlgorithm.Sha256);
+				AlgorithmName = "RSASHA256";
+				hash = SHA256.Create ();
+				break;
+			default:
+				oid = SecureMimeContext.GetDigestOid (DigestAlgorithm.Sha1);
+				AlgorithmName = "RSASHA1";
+				hash = SHA1.Create ();
+				break;
+			}
+		}
+
+		public string AlgorithmName {
+			get; private set;
+		}
+
+		public void BlockUpdate (byte[] input, int inOff, int length)
+		{
+			hash.TransformBlock (input, inOff, length, null, 0);
+		}
+
+		public byte[] GenerateSignature ()
+		{
+			hash.TransformFinalBlock (new byte[0], 0, 0);
+
+			return rsa.SignHash (hash.Hash, oid);
+		}
+
+		public void Init (bool forSigning, ICipherParameters parameters)
+		{
+			throw new NotImplementedException ();
+		}
+
+		public void Reset ()
+		{
+			hash.Initialize ();
+		}
+
+		public void Update (byte input)
+		{
+			hash.TransformBlock (new byte[] { input }, 0, 1, null, 0);
+		}
+
+		public bool VerifySignature (byte[] signature)
+		{
+			hash.TransformFinalBlock (new byte[0], 0, 0);
+
+			return rsa.VerifyHash (hash.Hash, oid, signature);
+		}
+
+		public void Dispose ()
+		{
+			rsa.Dispose ();
+		}
+	}
+#endif
 }

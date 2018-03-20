@@ -1,9 +1,9 @@
-//
+﻿//
 // ApplicationPgpSignature.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -34,8 +34,9 @@ namespace MimeKit.Cryptography {
 	/// <remarks>
 	/// <para>An application/pgp-signature part contains detatched pgp signature data
 	/// and is typically contained within a <see cref="MultipartSigned"/> part.</para>
-	/// <para>To verify the signature, use the <see cref="MultipartSigned.Verify()"/>
-	/// method on the parent multipart/signed part.</para>
+	/// <para>To verify the signature, use the one of the
+	/// <a href="Overload_MimeKit_Cryptography_MultipartSigned_Verify.htm">Verify</a>
+	/// methods on the parent multipart/signed part.</para>
 	/// </remarks>
 	public class ApplicationPgpSignature : MimePart
 	{
@@ -75,7 +76,7 @@ namespace MimeKit.Cryptography {
 		{
 			ContentDisposition = new ContentDisposition (ContentDisposition.Attachment);
 			ContentTransferEncoding = ContentEncoding.SevenBit;
-			ContentObject = new ContentObject (stream);
+			Content = new MimeContent (stream);
 			FileName = "signature.pgp";
 		}
 

@@ -1,9 +1,9 @@
-//
+﻿//
 // SecureMimeDigitalCertificate.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,7 +27,6 @@
 using System;
 
 using Org.BouncyCastle.X509;
-using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Parameters;
 
 namespace MimeKit.Cryptography {
@@ -39,7 +38,17 @@ namespace MimeKit.Cryptography {
 	/// </remarks>
 	public class SecureMimeDigitalCertificate : IDigitalCertificate
 	{
-		internal SecureMimeDigitalCertificate (X509Certificate certificate)
+		/// <summary>
+		/// Initializes a new instance of the <see cref="MimeKit.Cryptography.SecureMimeDigitalCertificate"/> class.
+		/// </summary>
+		/// <remarks>
+		/// Creates a new <see cref="SecureMimeDigitalCertificate"/>.
+		/// </remarks>
+		/// <param name="certificate">An X.509 certificate.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="certificate"/> is <c>null</c>.
+		/// </exception>
+		public SecureMimeDigitalCertificate (X509Certificate certificate)
 		{
 			Certificate = certificate;
 
@@ -58,15 +67,11 @@ namespace MimeKit.Cryptography {
 			Fingerprint = certificate.GetFingerprint ();
 		}
 
-		SecureMimeDigitalCertificate ()
-		{
-		}
-
 		/// <summary>
-		/// Gets the <see cref="Org.BouncyCastle.X509.X509Certificate" />.
+		/// Get the X.509 certificate.
 		/// </summary>
 		/// <remarks>
-		/// Gets the <see cref="Org.BouncyCastle.X509.X509Certificate" />.
+		/// Gets the X.509 certificate.
 		/// </remarks>
 		/// <value>The certificate.</value>
 		public X509Certificate Certificate {
@@ -146,7 +151,7 @@ namespace MimeKit.Cryptography {
 		/// </remarks>
 		/// <value>The name of the owner.</value>
 		public string Name {
-			get { return Certificate.GetSubjectName (); }
+			get { return Certificate.GetCommonName (); }
 		}
 
 		#endregion

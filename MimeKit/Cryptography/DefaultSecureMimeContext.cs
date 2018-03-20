@@ -1,9 +1,9 @@
-//
+﻿//
 // DefaultSecureMimeContext.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -29,14 +29,11 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 
-using Org.BouncyCastle.Cms;
-using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Pkcs;
 using Org.BouncyCastle.Pkix;
 using Org.BouncyCastle.X509;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Asn1.X509;
-using Org.BouncyCastle.Asn1.Smime;
 using Org.BouncyCastle.X509.Store;
 
 namespace MimeKit.Cryptography {
@@ -47,9 +44,9 @@ namespace MimeKit.Cryptography {
 	/// <remarks>
 	/// The default S/MIME context is designed to be usable on any platform
 	/// where there exists a .NET runtime by storing certificates, CRLs, and
-	/// (encrypted) private keys in a SQLite database.
+	/// (encrypted) private keys in a SQL database.
 	/// </remarks>
-	public class DefaultSecureMimeContext : SecureMimeContext
+	public class DefaultSecureMimeContext : BouncyCastleSecureMimeContext
 	{
 		const X509CertificateRecordFields CmsRecipientFields = X509CertificateRecordFields.Algorithms | X509CertificateRecordFields.Certificate;
 		const X509CertificateRecordFields CmsSignerFields = X509CertificateRecordFields.Certificate | X509CertificateRecordFields.PrivateKey;
@@ -328,27 +325,22 @@ namespace MimeKit.Cryptography {
 			return dbase.GetCrlStore ();
 		}
 
-		static EncryptionAlgorithm[] DecodeEncryptionAlgorithms (byte[] rawData)
+		/// <summary>
+		/// Get the date &amp; time for the next scheduled certificate revocation list update for the specified issuer.
+		/// </summary>
+		/// <remarks>
+		/// Gets the date &amp; time for the next scheduled certificate revocation list update for the specified issuer.
+		/// </remarks>
+		/// <returns>The date &amp; time for the next update (in UTC).</returns>
+		/// <param name="issuer">The issuer.</param>
+		protected override DateTime GetNextCertificateRevocationListUpdate (X509Name issuer)
 		{
-			using (var memory = new MemoryStream (rawData, false)) {
-				using (var asn1 = new Asn1InputStream (memory)) {
-					var algorithms = new List<EncryptionAlgorithm> ();
-					var sequence = asn1.ReadObject () as Asn1Sequence;
+			var nextUpdate = DateTime.MinValue.ToUniversalTime ();
 
-					if (sequence == null)
-						return null;
+			foreach (var record in dbase.Find (issuer, X509CrlRecordFields.NextUpdate))
+				nextUpdate = record.NextUpdate > nextUpdate ? record.NextUpdate : nextUpdate;
 
-					for (int i = 0; i < sequence.Count; i++) {
-						var identifier = AlgorithmIdentifier.GetInstance (sequence[i]);
-						EncryptionAlgorithm algorithm;
-
-						if (TryGetEncryptionAlgorithm (identifier, out algorithm))
-							algorithms.Add (algorithm);
-					}
-
-					return algorithms.ToArray ();
-				}
-			}
+			return nextUpdate;
 		}
 
 		/// <summary>
@@ -362,7 +354,7 @@ namespace MimeKit.Cryptography {
 		/// the mailbox address for database lookups.</para>
 		/// </remarks>
 		/// <returns>A <see cref="CmsRecipient"/>.</returns>
-		/// <param name="mailbox">The mailbox.</param>
+		/// <param name="mailbox">The recipient's mailbox address.</param>
 		/// <exception cref="CertificateNotFoundException">
 		/// A certificate for the specified <paramref name="mailbox"/> could not be found.
 		/// </exception>
@@ -373,17 +365,9 @@ namespace MimeKit.Cryptography {
 					continue;
 
 				var recipient = new CmsRecipient (record.Certificate);
-				if (record.Algorithms == null) {
-					var capabilities = record.Certificate.GetExtensionValue (SmimeAttributes.SmimeCapabilities);
-					if (capabilities != null) {
-						var algorithms = DecodeEncryptionAlgorithms (capabilities.GetOctets ());
 
-						if (algorithms != null)
-							recipient.EncryptionAlgorithms = algorithms;
-					}
-				} else {
+				if (record.Algorithms != null)
 					recipient.EncryptionAlgorithms = record.Algorithms;
-				}
 
 				return recipient;
 			}
@@ -402,7 +386,7 @@ namespace MimeKit.Cryptography {
 		/// the mailbox address for database lookups.</para>
 		/// </remarks>
 		/// <returns>A <see cref="CmsSigner"/>.</returns>
-		/// <param name="mailbox">The mailbox.</param>
+		/// <param name="mailbox">The signer's mailbox address.</param>
 		/// <param name="digestAlgo">The preferred digest algorithm.</param>
 		/// <exception cref="CertificateNotFoundException">
 		/// A certificate for the specified <paramref name="mailbox"/> could not be found.

@@ -1,9 +1,9 @@
-//
+﻿//
 // TnefPart.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -156,7 +156,7 @@ namespace MimeKit.Tnef {
 							}
 						}
 
-						rtf.ContentObject = new ContentObject (content);
+						rtf.Content = new MimeContent (content);
 						content.Position = 0;
 
 						builder.Attachments.Add (rtf);
@@ -168,7 +168,14 @@ namespace MimeKit.Tnef {
 						prop.PropertyTag.ValueTnefType == TnefPropertyType.Binary) {
 						var html = new TextPart ("html");
 						html.ContentType.Name = "body.html";
-						html.Text = prop.ReadValueAsString ();
+						Encoding encoding;
+
+						if (prop.PropertyTag.ValueTnefType != TnefPropertyType.Unicode)
+							encoding = Encoding.GetEncoding (reader.MessageCodepage);
+						else
+							encoding = CharsetUtils.UTF8;
+
+						html.SetText (encoding, prop.ReadValueAsString ());
 
 						builder.Attachments.Add (html);
 					}
@@ -179,9 +186,28 @@ namespace MimeKit.Tnef {
 						prop.PropertyTag.ValueTnefType == TnefPropertyType.Binary) {
 						var plain = new TextPart ("plain");
 						plain.ContentType.Name = "body.txt";
-						plain.Text = prop.ReadValueAsString ();
+						Encoding encoding;
+
+						if (prop.PropertyTag.ValueTnefType != TnefPropertyType.Unicode)
+							encoding = Encoding.GetEncoding (reader.MessageCodepage);
+						else
+							encoding = CharsetUtils.UTF8;
+
+						plain.SetText (encoding, prop.ReadValueAsString ());
 
 						builder.Attachments.Add (plain);
+					}
+					break;
+				case TnefPropertyId.Importance:
+					switch (prop.ReadValueAsInt32 ()) {
+					case 2: message.Importance = MessageImportance.High; break;
+					case 0: message.Importance = MessageImportance.Low; break;
+					}
+					break;
+				case TnefPropertyId.Priority:
+					switch (prop.ReadValueAsInt32 ()) {
+					case 2: message.Priority = MessagePriority.Urgent; break;
+					case 0: message.Priority = MessagePriority.NonUrgent; break;
 					}
 					break;
 				}
@@ -273,7 +299,7 @@ namespace MimeKit.Tnef {
 							content.Position = 0;
 
 							attachment.ContentTransferEncoding = filter.GetBestEncoding (EncodingConstraint.SevenBit);
-							attachment.ContentObject = new ContentObject (content);
+							attachment.Content = new MimeContent (content);
 							filter.Reset ();
 
 							builder.Attachments.Add (attachment);
@@ -342,7 +368,7 @@ namespace MimeKit.Tnef {
 					attachData = prop.ReadValueAsBytes ();
 					filter.Flush (attachData, 0, attachData.Length, out outIndex, out outLength);
 					attachment.ContentTransferEncoding = filter.GetBestEncoding (EncodingConstraint.EightBit);
-					attachment.ContentObject = new ContentObject (new MemoryStream (attachData, false));
+					attachment.Content = new MimeContent (new MemoryStream (attachData, false));
 					filter.Reset ();
 
 					builder.Attachments.Add (attachment);
@@ -396,12 +422,12 @@ namespace MimeKit.Tnef {
 		/// </remarks>
 		/// <returns>A message representing the TNEF data in MIME format.</returns>
 		/// <exception cref="System.InvalidOperationException">
-		/// The <see cref="MimeKit.MimePart.ContentObject"/> property is <c>null</c>.
+		/// The <see cref="MimeKit.MimePart.Content"/> property is <c>null</c>.
 		/// </exception>
 		public MimeMessage ConvertToMessage ()
 		{
-			if (ContentObject == null)
-				throw new InvalidOperationException ("Cannot parse TNEF data without a ContentObject.");
+			if (Content == null)
+				throw new InvalidOperationException ("Cannot parse null TNEF data.");
 
 			int codepage = 0;
 
@@ -410,7 +436,7 @@ namespace MimeKit.Tnef {
 					codepage = 0;
 			}
 
-			using (var reader = new TnefReader (ContentObject.Open (), codepage, TnefComplianceMode.Loose)) {
+			using (var reader = new TnefReader (Content.Open (), codepage, TnefComplianceMode.Loose)) {
 				return ExtractTnefMessage (reader);
 			}
 		}
@@ -423,7 +449,7 @@ namespace MimeKit.Tnef {
 		/// </remarks>
 		/// <returns>The attachments.</returns>
 		/// <exception cref="System.InvalidOperationException">
-		/// The <see cref="MimeKit.MimePart.ContentObject"/> property is <c>null</c>.
+		/// The <see cref="MimeKit.MimePart.Content"/> property is <c>null</c>.
 		/// </exception>
 		public IEnumerable<MimeEntity> ExtractAttachments ()
 		{

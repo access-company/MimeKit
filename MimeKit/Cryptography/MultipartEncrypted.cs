@@ -1,9 +1,9 @@
-//
+﻿//
 // MultipartEncrypted.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,8 @@
 //
 
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 
 using Org.BouncyCastle.Bcpg.OpenPgp;
@@ -87,463 +89,6 @@ namespace MimeKit.Cryptography {
 
 			visitor.VisitMultipartEncrypted (this);
 		}
-
-		#region Obsolete
-
-		/// <summary>
-		/// Create a multipart/encrypted MIME part by signing and encrypting the specified entity.
-		/// </summary>
-		/// <remarks>
-		/// Signs the entity using the supplied signer and digest algorithm and then encrypts to
-		/// the specified recipients, encapsulating the result in a new multipart/encrypted part.
-		/// </remarks>
-		/// <returns>A new <see cref="MultipartEncrypted"/> instance containing
-		/// the signed and encrypted version of the specified entity.</returns>
-		/// <param name="ctx">The OpenPGP cryptography context to use for signing and encrypting.</param>
-		/// <param name="signer">The signer to use to sign the entity.</param>
-		/// <param name="digestAlgo">The digest algorithm to use for signing.</param>
-		/// <param name="recipients">The recipients for the encrypted entity.</param>
-		/// <param name="entity">The entity to sign and encrypt.</param>
-		/// <exception cref="System.ArgumentNullException">
-		/// <para><paramref name="ctx"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="signer"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="recipients"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="entity"/> is <c>null</c>.</para>
-		/// </exception>
-		/// <exception cref="PrivateKeyNotFoundException">
-		/// The private key for <paramref name="signer"/> could not be found.
-		/// </exception>
-		/// <exception cref="PublicKeyNotFoundException">
-		/// A public key for one or more of the <paramref name="recipients"/> could not be found.
-		/// </exception>
-		/// <exception cref="System.OperationCanceledException">
-		/// The user chose to cancel the password prompt.
-		/// </exception>
-		/// <exception cref="System.UnauthorizedAccessException">
-		/// 3 bad attempts were made to unlock the secret key.
-		/// </exception>
-		[Obsolete ("Use the equivalent SignAndEncrypt() method instead.")]
-		public static MultipartEncrypted Create (OpenPgpContext ctx, MailboxAddress signer, DigestAlgorithm digestAlgo, IEnumerable<MailboxAddress> recipients, MimeEntity entity)
-		{
-			return SignAndEncrypt (ctx, signer, digestAlgo, recipients, entity);
-		}
-
-		/// <summary>
-		/// Create a multipart/encrypted MIME part by signing and encrypting the specified entity.
-		/// </summary>
-		/// <remarks>
-		/// Signs the entity using the supplied signer and digest algorithm and then encrypts to
-		/// the specified recipients, encapsulating the result in a new multipart/encrypted part.
-		/// </remarks>
-		/// <returns>A new <see cref="MultipartEncrypted"/> instance containing
-		/// the signed and encrypted version of the specified entity.</returns>
-		/// <param name="signer">The signer to use to sign the entity.</param>
-		/// <param name="digestAlgo">The digest algorithm to use for signing.</param>
-		/// <param name="recipients">The recipients for the encrypted entity.</param>
-		/// <param name="entity">The entity to sign and encrypt.</param>
-		/// <exception cref="System.ArgumentNullException">
-		/// <para><paramref name="signer"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="recipients"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="entity"/> is <c>null</c>.</para>
-		/// </exception>
-		/// <exception cref="System.NotSupportedException">
-		/// A default <see cref="OpenPgpContext"/> has not been registered.
-		/// </exception>
-		/// <exception cref="PrivateKeyNotFoundException">
-		/// The private key for <paramref name="signer"/> could not be found.
-		/// </exception>
-		/// <exception cref="PublicKeyNotFoundException">
-		/// A public key for one or more of the <paramref name="recipients"/> could not be found.
-		/// </exception>
-		/// <exception cref="System.OperationCanceledException">
-		/// The user chose to cancel the password prompt.
-		/// </exception>
-		/// <exception cref="System.UnauthorizedAccessException">
-		/// 3 bad attempts were made to unlock the secret key.
-		/// </exception>
-		[Obsolete ("Use the equivalent SignAndEncrypt() method instead.")]
-		public static MultipartEncrypted Create (MailboxAddress signer, DigestAlgorithm digestAlgo, IEnumerable<MailboxAddress> recipients, MimeEntity entity)
-		{
-			return SignAndEncrypt (signer, digestAlgo, recipients, entity);
-		}
-
-		/// <summary>
-		/// Create a multipart/encrypted MIME part by signing and encrypting the specified entity.
-		/// </summary>
-		/// <remarks>
-		/// Signs the entity using the supplied signer and digest algorithm and then encrypts to
-		/// the specified recipients, encapsulating the result in a new multipart/encrypted part.
-		/// </remarks>
-		/// <returns>A new <see cref="MultipartEncrypted"/> instance containing
-		/// the signed and encrypted version of the specified entity.</returns>
-		/// <param name="ctx">The OpenPGP cryptography context to use for singing and encrypting.</param>
-		/// <param name="signer">The signer to use to sign the entity.</param>
-		/// <param name="digestAlgo">The digest algorithm to use for signing.</param>
-		/// <param name="cipherAlgo">The encryption algorithm.</param>
-		/// <param name="recipients">The recipients for the encrypted entity.</param>
-		/// <param name="entity">The entity to sign and encrypt.</param>
-		/// <exception cref="System.ArgumentNullException">
-		/// <para><paramref name="ctx"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="signer"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="recipients"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="entity"/> is <c>null</c>.</para>
-		/// </exception>
-		/// <exception cref="System.ArgumentException">
-		/// <para><paramref name="signer"/> cannot be used for signing.</para>
-		/// <para>-or-</para>
-		/// <para>One or more of the recipient keys cannot be used for encrypting.</para>
-		/// <para>-or-</para>
-		/// <para>No recipients were specified.</para>
-		/// </exception>
-		/// <exception cref="System.ArgumentOutOfRangeException">
-		/// The <paramref name="digestAlgo"/> was out of range.
-		/// </exception>
-		/// <exception cref="System.NotSupportedException">
-		/// <para>The <paramref name="digestAlgo"/> is not supported.</para>
-		/// <para>-or-</para>
-		/// <para>The <paramref name="cipherAlgo"/> is not supported.</para>
-		/// </exception>
-		/// <exception cref="System.OperationCanceledException">
-		/// The user chose to cancel the password prompt.
-		/// </exception>
-		/// <exception cref="System.UnauthorizedAccessException">
-		/// 3 bad attempts were made to unlock the secret key.
-		/// </exception>
-		[Obsolete ("Use the equivalent SignAndEncrypt() method instead.")]
-		public static MultipartEncrypted Create (OpenPgpContext ctx, PgpSecretKey signer, DigestAlgorithm digestAlgo, EncryptionAlgorithm cipherAlgo, IEnumerable<PgpPublicKey> recipients, MimeEntity entity)
-		{
-			return SignAndEncrypt (ctx, signer, digestAlgo, cipherAlgo, recipients, entity);
-		}
-
-		/// <summary>
-		/// Create a multipart/encrypted MIME part by signing and encrypting the specified entity.
-		/// </summary>
-		/// <remarks>
-		/// Signs the entity using the supplied signer and digest algorithm and then encrypts to
-		/// the specified recipients, encapsulating the result in a new multipart/encrypted part.
-		/// </remarks>
-		/// <returns>A new <see cref="MultipartEncrypted"/> instance containing
-		/// the signed and encrypted version of the specified entity.</returns>
-		/// <param name="ctx">The OpenPGP cryptography context to use for singing and encrypting.</param>
-		/// <param name="signer">The signer to use to sign the entity.</param>
-		/// <param name="digestAlgo">The digest algorithm to use for signing.</param>
-		/// <param name="recipients">The recipients for the encrypted entity.</param>
-		/// <param name="entity">The entity to sign and encrypt.</param>
-		/// <exception cref="System.ArgumentNullException">
-		/// <para><paramref name="ctx"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="signer"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="recipients"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="entity"/> is <c>null</c>.</para>
-		/// </exception>
-		/// <exception cref="System.ArgumentException">
-		/// <para><paramref name="signer"/> cannot be used for signing.</para>
-		/// <para>-or-</para>
-		/// <para>One or more of the recipient keys cannot be used for encrypting.</para>
-		/// <para>-or-</para>
-		/// <para>No recipients were specified.</para>
-		/// </exception>
-		/// <exception cref="System.ArgumentOutOfRangeException">
-		/// The <paramref name="digestAlgo"/> was out of range.
-		/// </exception>
-		/// <exception cref="System.NotSupportedException">
-		/// The <paramref name="digestAlgo"/> is not supported.
-		/// </exception>
-		/// <exception cref="System.OperationCanceledException">
-		/// The user chose to cancel the password prompt.
-		/// </exception>
-		/// <exception cref="System.UnauthorizedAccessException">
-		/// 3 bad attempts were made to unlock the secret key.
-		/// </exception>
-		[Obsolete ("Use the equivalent SignAndEncrypt() method instead.")]
-		public static MultipartEncrypted Create (OpenPgpContext ctx, PgpSecretKey signer, DigestAlgorithm digestAlgo, IEnumerable<PgpPublicKey> recipients, MimeEntity entity)
-		{
-			return SignAndEncrypt (ctx, signer, digestAlgo, recipients, entity);
-		}
-
-		/// <summary>
-		/// Create a multipart/encrypted MIME part by signing and encrypting the specified entity.
-		/// </summary>
-		/// <remarks>
-		/// Signs the entity using the supplied signer and digest algorithm and then encrypts to
-		/// the specified recipients, encapsulating the result in a new multipart/encrypted part.
-		/// </remarks>
-		/// <returns>A new <see cref="MultipartEncrypted"/> instance containing
-		/// the signed and encrypted version of the specified entity.</returns>
-		/// <param name="signer">The signer to use to sign the entity.</param>
-		/// <param name="digestAlgo">The digest algorithm to use for signing.</param>
-		/// <param name="cipherAlgo">The encryption algorithm.</param>
-		/// <param name="recipients">The recipients for the encrypted entity.</param>
-		/// <param name="entity">The entity to sign and encrypt.</param>
-		/// <exception cref="System.ArgumentNullException">
-		/// <para><paramref name="signer"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="recipients"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="entity"/> is <c>null</c>.</para>
-		/// </exception>
-		/// <exception cref="System.ArgumentException">
-		/// <para><paramref name="signer"/> cannot be used for signing.</para>
-		/// <para>-or-</para>
-		/// <para>One or more of the recipient keys cannot be used for encrypting.</para>
-		/// <para>-or-</para>
-		/// <para>No recipients were specified.</para>
-		/// </exception>
-		/// <exception cref="System.ArgumentOutOfRangeException">
-		/// The <paramref name="digestAlgo"/> was out of range.
-		/// </exception>
-		/// <exception cref="System.NotSupportedException">
-		/// <para>A default <see cref="OpenPgpContext"/> has not been registered.</para>
-		/// <para>-or-</para>
-		/// <para>The <paramref name="digestAlgo"/> is not supported.</para>
-		/// <para>-or-</para>
-		/// <para>The <paramref name="cipherAlgo"/> is not supported.</para>
-		/// </exception>
-		/// <exception cref="System.OperationCanceledException">
-		/// The user chose to cancel the password prompt.
-		/// </exception>
-		/// <exception cref="System.UnauthorizedAccessException">
-		/// 3 bad attempts were made to unlock the secret key.
-		/// </exception>
-		[Obsolete ("Use the equivalent SignAndEncrypt() method instead.")]
-		public static MultipartEncrypted Create (PgpSecretKey signer, DigestAlgorithm digestAlgo, EncryptionAlgorithm cipherAlgo, IEnumerable<PgpPublicKey> recipients, MimeEntity entity)
-		{
-			return SignAndEncrypt (signer, digestAlgo, cipherAlgo, recipients, entity);
-		}
-
-		/// <summary>
-		/// Create a multipart/encrypted MIME part by signing and encrypting the specified entity.
-		/// </summary>
-		/// <remarks>
-		/// Signs the entity using the supplied signer and digest algorithm and then encrypts to
-		/// the specified recipients, encapsulating the result in a new multipart/encrypted part.
-		/// </remarks>
-		/// <returns>A new <see cref="MultipartEncrypted"/> instance containing
-		/// the signed and encrypted version of the specified entity.</returns>
-		/// <param name="signer">The signer to use to sign the entity.</param>
-		/// <param name="digestAlgo">The digest algorithm to use for signing.</param>
-		/// <param name="recipients">The recipients for the encrypted entity.</param>
-		/// <param name="entity">The entity to sign and encrypt.</param>
-		/// <exception cref="System.ArgumentNullException">
-		/// <para><paramref name="signer"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="recipients"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="entity"/> is <c>null</c>.</para>
-		/// </exception>
-		/// <exception cref="System.ArgumentException">
-		/// <para><paramref name="signer"/> cannot be used for signing.</para>
-		/// <para>-or-</para>
-		/// <para>One or more of the recipient keys cannot be used for encrypting.</para>
-		/// <para>-or-</para>
-		/// <para>No recipients were specified.</para>
-		/// </exception>
-		/// <exception cref="System.ArgumentOutOfRangeException">
-		/// The <paramref name="digestAlgo"/> was out of range.
-		/// </exception>
-		/// <exception cref="System.NotSupportedException">
-		/// <para>A default <see cref="OpenPgpContext"/> has not been registered.</para>
-		/// <para>-or-</para>
-		/// <para>The <paramref name="digestAlgo"/> is not supported.</para>
-		/// </exception>
-		/// <exception cref="System.OperationCanceledException">
-		/// The user chose to cancel the password prompt.
-		/// </exception>
-		/// <exception cref="System.UnauthorizedAccessException">
-		/// 3 bad attempts were made to unlock the secret key.
-		/// </exception>
-		[Obsolete ("Use the equivalent SignAndEncrypt() method instead.")]
-		public static MultipartEncrypted Create (PgpSecretKey signer, DigestAlgorithm digestAlgo, IEnumerable<PgpPublicKey> recipients, MimeEntity entity)
-		{
-			return SignAndEncrypt (signer, digestAlgo, recipients, entity);
-		}
-
-		/// <summary>
-		/// Create a multipart/encrypted MIME part by encrypting the specified entity.
-		/// </summary>
-		/// <remarks>
-		/// Encrypts the entity to the specified recipients, encapsulating the result in a
-		/// new multipart/encrypted part.
-		/// </remarks>
-		/// <returns>A new <see cref="MultipartEncrypted"/> instance containing
-		/// the encrypted version of the specified entity.</returns>
-		/// <param name="ctx">The OpenPGP cryptography context to use for encrypting.</param>
-		/// <param name="recipients">The recipients for the encrypted entity.</param>
-		/// <param name="entity">The entity to sign and encrypt.</param>
-		/// <exception cref="System.ArgumentNullException">
-		/// <para><paramref name="ctx"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="recipients"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="entity"/> is <c>null</c>.</para>
-		/// </exception>
-		/// <exception cref="PublicKeyNotFoundException">
-		/// A public key for one or more of the <paramref name="recipients"/> could not be found.
-		/// </exception>
-		[Obsolete ("Use the equivalent Encrypt() method instead.")]
-		public static MultipartEncrypted Create (OpenPgpContext ctx, IEnumerable<MailboxAddress> recipients, MimeEntity entity)
-		{
-			return Encrypt (ctx, recipients, entity);
-		}
-
-		/// <summary>
-		/// Create a multipart/encrypted MIME part by encrypting the specified entity.
-		/// </summary>
-		/// <remarks>
-		/// Encrypts the entity to the specified recipients, encapsulating the result in a
-		/// new multipart/encrypted part.
-		/// </remarks>
-		/// <returns>A new <see cref="MultipartEncrypted"/> instance containing
-		/// the encrypted version of the specified entity.</returns>
-		/// <param name="recipients">The recipients for the encrypted entity.</param>
-		/// <param name="entity">The entity to sign and encrypt.</param>
-		/// <exception cref="System.ArgumentNullException">
-		/// <para><paramref name="recipients"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="entity"/> is <c>null</c>.</para>
-		/// </exception>
-		/// <exception cref="System.NotSupportedException">
-		/// A default <see cref="OpenPgpContext"/> has not been registered.
-		/// </exception>
-		/// <exception cref="PublicKeyNotFoundException">
-		/// A public key for one or more of the <paramref name="recipients"/> could not be found.
-		/// </exception>
-		[Obsolete ("Use the equivalent Encrypt() method instead.")]
-		public static MultipartEncrypted Create (IEnumerable<MailboxAddress> recipients, MimeEntity entity)
-		{
-			return Encrypt (recipients, entity);
-		}
-
-		/// <summary>
-		/// Create a multipart/encrypted MIME part by encrypting the specified entity.
-		/// </summary>
-		/// <remarks>
-		/// Encrypts the entity to the specified recipients, encapsulating the result in a
-		/// new multipart/encrypted part.
-		/// </remarks>
-		/// <returns>A new <see cref="MultipartEncrypted"/> instance containing
-		/// the encrypted version of the specified entity.</returns>
-		/// <param name="ctx">The OpenPGP cryptography context to use for encrypting.</param>
-		/// <param name="algorithm">The encryption algorithm.</param>
-		/// <param name="recipients">The recipients for the encrypted entity.</param>
-		/// <param name="entity">The entity to sign and encrypt.</param>
-		/// <exception cref="System.ArgumentNullException">
-		/// <para><paramref name="ctx"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="recipients"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="entity"/> is <c>null</c>.</para>
-		/// </exception>
-		/// <exception cref="System.ArgumentException">
-		/// One or more of the recipient keys cannot be used for encrypting.
-		/// </exception>
-		/// <exception cref="System.NotSupportedException">
-		/// THe specified encryption algorithm is not supported.
-		/// </exception>
-		[Obsolete ("Use the equivalent Encrypt() method instead.")]
-		public static MultipartEncrypted Create (OpenPgpContext ctx, EncryptionAlgorithm algorithm, IEnumerable<PgpPublicKey> recipients, MimeEntity entity)
-		{
-			return Encrypt (ctx, algorithm, recipients, entity);
-		}
-
-		/// <summary>
-		/// Create a multipart/encrypted MIME part by encrypting the specified entity.
-		/// </summary>
-		/// <remarks>
-		/// Encrypts the entity to the specified recipients, encapsulating the result in a
-		/// new multipart/encrypted part.
-		/// </remarks>
-		/// <returns>A new <see cref="MultipartEncrypted"/> instance containing
-		/// the encrypted version of the specified entity.</returns>
-		/// <param name="ctx">The OpenPGP cryptography context to use for encrypting.</param>
-		/// <param name="recipients">The recipients for the encrypted entity.</param>
-		/// <param name="entity">The entity to sign and encrypt.</param>
-		/// <exception cref="System.ArgumentNullException">
-		/// <para><paramref name="ctx"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="recipients"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="entity"/> is <c>null</c>.</para>
-		/// </exception>
-		/// <exception cref="System.ArgumentException">
-		/// One or more of the recipient keys cannot be used for encrypting.
-		/// </exception>
-		[Obsolete ("Use the equivalent Encrypt() method instead.")]
-		public static MultipartEncrypted Create (OpenPgpContext ctx, IEnumerable<PgpPublicKey> recipients, MimeEntity entity)
-		{
-			return Encrypt (ctx, recipients, entity);
-		}
-
-		/// <summary>
-		/// Create a multipart/encrypted MIME part by encrypting the specified entity.
-		/// </summary>
-		/// <remarks>
-		/// Encrypts the entity to the specified recipients, encapsulating the result in a
-		/// new multipart/encrypted part.
-		/// </remarks>
-		/// <returns>A new <see cref="MultipartEncrypted"/> instance containing
-		/// the encrypted version of the specified entity.</returns>
-		/// <param name="algorithm">The encryption algorithm.</param>
-		/// <param name="recipients">The recipients for the encrypted entity.</param>
-		/// <param name="entity">The entity to sign and encrypt.</param>
-		/// <exception cref="System.ArgumentNullException">
-		/// <para><paramref name="recipients"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="entity"/> is <c>null</c>.</para>
-		/// </exception>
-		/// <exception cref="System.ArgumentException">
-		/// One or more of the recipient keys cannot be used for encrypting.
-		/// </exception>
-		/// <exception cref="System.NotSupportedException">
-		/// <para>A default <see cref="OpenPgpContext"/> has not been registered.</para>
-		/// <para>-or-</para>
-		/// <para>The specified encryption algorithm is not supported.</para>
-		/// </exception>
-		[Obsolete ("Use the equivalent Encrypt() method instead.")]
-		public static MultipartEncrypted Create (EncryptionAlgorithm algorithm, IEnumerable<PgpPublicKey> recipients, MimeEntity entity)
-		{
-			return Encrypt (algorithm, recipients, entity);
-		}
-
-		/// <summary>
-		/// Create a multipart/encrypted MIME part by encrypting the specified entity.
-		/// </summary>
-		/// <remarks>
-		/// Encrypts the entity to the specified recipients, encapsulating the result in a
-		/// new multipart/encrypted part.
-		/// </remarks>
-		/// <returns>A new <see cref="MultipartEncrypted"/> instance containing
-		/// the encrypted version of the specified entity.</returns>
-		/// <param name="recipients">The recipients for the encrypted entity.</param>
-		/// <param name="entity">The entity to sign and encrypt.</param>
-		/// <exception cref="System.ArgumentNullException">
-		/// <para><paramref name="recipients"/> is <c>null</c>.</para>
-		/// <para>-or-</para>
-		/// <para><paramref name="entity"/> is <c>null</c>.</para>
-		/// </exception>
-		/// <exception cref="System.ArgumentException">
-		/// One or more of the recipient keys cannot be used for encrypting.
-		/// </exception>
-		/// <exception cref="System.NotSupportedException">
-		/// A default <see cref="OpenPgpContext"/> has not been registered.
-		/// </exception>
-		[Obsolete ("Use the equivalent Encrypt() method instead.")]
-		public static MultipartEncrypted Create (IEnumerable<PgpPublicKey> recipients, MimeEntity entity)
-		{
-			return Encrypt (recipients, entity);
-		}
-
-		#endregion
 
 		/// <summary>
 		/// Create a multipart/encrypted MIME part by signing and encrypting the specified entity.
@@ -748,9 +293,8 @@ namespace MimeKit.Cryptography {
 			if (entity == null)
 				throw new ArgumentNullException (nameof (entity));
 
-			using (var ctx = (OpenPgpContext) CryptographyContext.Create ("application/pgp-encrypted")) {
+			using (var ctx = (OpenPgpContext) CryptographyContext.Create ("application/pgp-encrypted"))
 				return SignAndEncrypt (ctx, signer, digestAlgo, cipherAlgo, recipients, entity);
-			}
 		}
 
 		/// <summary>
@@ -799,9 +343,8 @@ namespace MimeKit.Cryptography {
 			if (entity == null)
 				throw new ArgumentNullException (nameof (entity));
 
-			using (var ctx = (OpenPgpContext) CryptographyContext.Create ("application/pgp-encrypted")) {
+			using (var ctx = (OpenPgpContext) CryptographyContext.Create ("application/pgp-encrypted"))
 				return SignAndEncrypt (ctx, signer, digestAlgo, recipients, entity);
-			}
 		}
 
 		/// <summary>
@@ -1014,9 +557,8 @@ namespace MimeKit.Cryptography {
 			if (entity == null)
 				throw new ArgumentNullException (nameof (entity));
 
-			using (var ctx = (OpenPgpContext) CryptographyContext.Create ("application/pgp-encrypted")) {
+			using (var ctx = (OpenPgpContext) CryptographyContext.Create ("application/pgp-encrypted"))
 				return SignAndEncrypt (ctx, signer, digestAlgo, cipherAlgo, recipients, entity);
-			}
 		}
 
 		/// <summary>
@@ -1071,9 +613,8 @@ namespace MimeKit.Cryptography {
 			if (entity == null)
 				throw new ArgumentNullException (nameof (entity));
 
-			using (var ctx = (OpenPgpContext) CryptographyContext.Create ("application/pgp-encrypted")) {
+			using (var ctx = (OpenPgpContext) CryptographyContext.Create ("application/pgp-encrypted"))
 				return SignAndEncrypt (ctx, signer, digestAlgo, recipients, entity);
-			}
 		}
 
 		/// <summary>
@@ -1225,9 +766,8 @@ namespace MimeKit.Cryptography {
 			if (entity == null)
 				throw new ArgumentNullException (nameof (entity));
 
-			using (var ctx = (OpenPgpContext) CryptographyContext.Create ("application/pgp-encrypted")) {
+			using (var ctx = (OpenPgpContext) CryptographyContext.Create ("application/pgp-encrypted"))
 				return Encrypt (ctx, algorithm, recipients, entity);
-			}
 		}
 
 		/// <summary>
@@ -1260,9 +800,8 @@ namespace MimeKit.Cryptography {
 			if (entity == null)
 				throw new ArgumentNullException (nameof (entity));
 
-			using (var ctx = (OpenPgpContext) CryptographyContext.Create ("application/pgp-encrypted")) {
+			using (var ctx = (OpenPgpContext) CryptographyContext.Create ("application/pgp-encrypted"))
 				return Encrypt (ctx, recipients, entity);
-			}
 		}
 
 		/// <summary>
@@ -1414,9 +953,8 @@ namespace MimeKit.Cryptography {
 			if (entity == null)
 				throw new ArgumentNullException (nameof (entity));
 
-			using (var ctx = (OpenPgpContext) CryptographyContext.Create ("application/pgp-encrypted")) {
+			using (var ctx = (OpenPgpContext) CryptographyContext.Create ("application/pgp-encrypted"))
 				return Encrypt (ctx, algorithm, recipients, entity);
-			}
 		}
 
 		/// <summary>
@@ -1449,9 +987,8 @@ namespace MimeKit.Cryptography {
 			if (entity == null)
 				throw new ArgumentNullException (nameof (entity));
 
-			using (var ctx = (OpenPgpContext) CryptographyContext.Create ("application/pgp-encrypted")) {
+			using (var ctx = (OpenPgpContext) CryptographyContext.Create ("application/pgp-encrypted"))
 				return Encrypt (ctx, recipients, entity);
-			}
 		}
 
 		/// <summary>
@@ -1464,6 +1001,7 @@ namespace MimeKit.Cryptography {
 		/// <returns>The decrypted entity.</returns>
 		/// <param name="ctx">The OpenPGP cryptography context to use for decrypting.</param>
 		/// <param name="signatures">A list of digital signatures if the data was both signed and encrypted.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="ctx"/> is <c>null</c>.
 		/// </exception>
@@ -1479,12 +1017,14 @@ namespace MimeKit.Cryptography {
 		/// The private key could not be found to decrypt the encrypted data.
 		/// </exception>
 		/// <exception cref="System.OperationCanceledException">
-		/// The user chose to cancel the password prompt.
+		/// <para>The user chose to cancel the password prompt.</para>
+		/// <para>-or-</para>
+		/// <para>The operation was cancelled via the cancellation token.</para>
 		/// </exception>
 		/// <exception cref="System.UnauthorizedAccessException">
 		/// 3 bad attempts were made to unlock the secret key.
 		/// </exception>
-		public MimeEntity Decrypt (OpenPgpContext ctx, out DigitalSignatureCollection signatures)
+		public MimeEntity Decrypt (OpenPgpContext ctx, out DigitalSignatureCollection signatures, CancellationToken cancellationToken = default (CancellationToken))
 		{
 			if (ctx == null)
 				throw new ArgumentNullException (nameof (ctx));
@@ -1510,17 +1050,17 @@ namespace MimeKit.Cryptography {
 				throw new FormatException ();
 
 			var encrypted = this[1] as MimePart;
-			if (encrypted == null || encrypted.ContentObject == null)
+			if (encrypted == null || encrypted.Content == null)
 				throw new FormatException ();
 
 			if (!encrypted.ContentType.IsMimeType ("application", "octet-stream"))
 				throw new FormatException ();
 
 			using (var memory = new MemoryBlockStream ()) {
-				encrypted.ContentObject.DecodeTo (memory);
+				encrypted.Content.DecodeTo (memory, cancellationToken);
 				memory.Position = 0;
 
-				return ctx.Decrypt (memory, out signatures);
+				return ctx.Decrypt (memory, out signatures, cancellationToken);
 			}
 		}
 
@@ -1532,6 +1072,7 @@ namespace MimeKit.Cryptography {
 		/// </remarks>
 		/// <returns>The decrypted entity.</returns>
 		/// <param name="ctx">The OpenPGP cryptography context to use for decrypting.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="ctx"/> is <c>null</c>.
 		/// </exception>
@@ -1547,16 +1088,18 @@ namespace MimeKit.Cryptography {
 		/// The private key could not be found to decrypt the encrypted data.
 		/// </exception>
 		/// <exception cref="System.OperationCanceledException">
-		/// The user chose to cancel the password prompt.
+		/// <para>The user chose to cancel the password prompt.</para>
+		/// <para>-or-</para>
+		/// <para>The operation was cancelled via the cancellation token.</para>
 		/// </exception>
 		/// <exception cref="System.UnauthorizedAccessException">
 		/// 3 bad attempts were made to unlock the secret key.
 		/// </exception>
-		public MimeEntity Decrypt (OpenPgpContext ctx)
+		public MimeEntity Decrypt (OpenPgpContext ctx, CancellationToken cancellationToken = default (CancellationToken))
 		{
 			DigitalSignatureCollection signatures;
 
-			return Decrypt (ctx, out signatures);
+			return Decrypt (ctx, out signatures, cancellationToken);
 		}
 
 		/// <summary>
@@ -1568,6 +1111,7 @@ namespace MimeKit.Cryptography {
 		/// </remarks>
 		/// <returns>The decrypted entity.</returns>
 		/// <param name="signatures">A list of digital signatures if the data was both signed and encrypted.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.FormatException">
 		/// <para>The <c>protocol</c> parameter was not specified.</para>
 		/// <para>-or-</para>
@@ -1581,12 +1125,14 @@ namespace MimeKit.Cryptography {
 		/// The private key could not be found to decrypt the encrypted data.
 		/// </exception>
 		/// <exception cref="System.OperationCanceledException">
-		/// The user chose to cancel the password prompt.
+		/// <para>The user chose to cancel the password prompt.</para>
+		/// <para>-or-</para>
+		/// <para>The operation was cancelled via the cancellation token.</para>
 		/// </exception>
 		/// <exception cref="System.UnauthorizedAccessException">
 		/// 3 bad attempts were made to unlock the secret key.
 		/// </exception>
-		public MimeEntity Decrypt (out DigitalSignatureCollection signatures)
+		public MimeEntity Decrypt (out DigitalSignatureCollection signatures, CancellationToken cancellationToken = default (CancellationToken))
 		{
 			var protocol = ContentType.Parameters["protocol"];
 			if (string.IsNullOrEmpty (protocol))
@@ -1607,7 +1153,7 @@ namespace MimeKit.Cryptography {
 				throw new FormatException ();
 
 			var encrypted = this[1] as MimePart;
-			if (encrypted == null || encrypted.ContentObject == null)
+			if (encrypted == null || encrypted.Content == null)
 				throw new FormatException ();
 
 			if (!encrypted.ContentType.IsMimeType ("application", "octet-stream"))
@@ -1617,15 +1163,15 @@ namespace MimeKit.Cryptography {
 				using (var memory = new MemoryBlockStream ()) {
 					var pgp = ctx as OpenPgpContext;
 
-					encrypted.ContentObject.DecodeTo (memory);
+					encrypted.Content.DecodeTo (memory, cancellationToken);
 					memory.Position = 0;
 
 					if (pgp != null)
-						return pgp.Decrypt (memory, out signatures);
+						return pgp.Decrypt (memory, out signatures, cancellationToken);
 
 					signatures = null;
 
-					return ctx.Decrypt (memory);
+					return ctx.Decrypt (memory, cancellationToken);
 				}
 			}
 		}
@@ -1637,6 +1183,7 @@ namespace MimeKit.Cryptography {
 		/// Decrypts the <see cref="MultipartEncrypted"/> part.
 		/// </remarks>
 		/// <returns>The decrypted entity.</returns>
+		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.FormatException">
 		/// <para>The <c>protocol</c> parameter was not specified.</para>
 		/// <para>-or-</para>
@@ -1650,16 +1197,18 @@ namespace MimeKit.Cryptography {
 		/// The private key could not be found to decrypt the encrypted data.
 		/// </exception>
 		/// <exception cref="System.OperationCanceledException">
-		/// The user chose to cancel the password prompt.
+		/// <para>The user chose to cancel the password prompt.</para>
+		/// <para>-or-</para>
+		/// <para>The operation was cancelled via the cancellation token.</para>
 		/// </exception>
 		/// <exception cref="System.UnauthorizedAccessException">
 		/// 3 bad attempts were made to unlock the secret key.
 		/// </exception>
-		public MimeEntity Decrypt ()
+		public MimeEntity Decrypt (CancellationToken cancellationToken = default (CancellationToken))
 		{
 			DigitalSignatureCollection signatures;
 
-			return Decrypt (out signatures);
+			return Decrypt (out signatures, cancellationToken);
 		}
 	}
 }
