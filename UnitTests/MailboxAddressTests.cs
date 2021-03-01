@@ -844,7 +844,7 @@ namespace UnitTests {
 		}
 
 		#region TestLegacyEmailAddress
-		TestCaseData[] LegacyAddressNotCompliantWithRFC ()
+		static TestCaseData[] LegacyAddressNotCompliantWithRFC ()
 		{
 			var addressList = new TestCaseData[]
 			{
@@ -963,7 +963,7 @@ namespace UnitTests {
 			return addressList;
 		}
 
-		[TestCaseSource ("LegacyAddressNotCompliantWithRFC")]
+		[TestCaseSource (nameof(LegacyAddressNotCompliantWithRFC))]
 		public void TestLegacyEmailAddress (string address)
 		{
 			string text = address;
