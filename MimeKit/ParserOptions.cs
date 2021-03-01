@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -29,10 +29,6 @@ using System.Text;
 using System.Reflection;
 using System.Collections.Generic;
 
-#if PORTABLE
-using Encoding = Portable.Text.Encoding;
-#endif
-
 #if ENABLE_CRYPTO
 using MimeKit.Cryptography;
 #endif
@@ -50,7 +46,7 @@ namespace MimeKit {
 	/// </remarks>
 	public class ParserOptions
 	{
-		readonly Dictionary<string, ConstructorInfo> mimeTypes = new Dictionary<string, ConstructorInfo> ();
+		readonly Dictionary<string, ConstructorInfo> mimeTypes = new Dictionary<string, ConstructorInfo> (StringComparer.Ordinal);
 		static readonly Type[] ConstructorArgTypes = { typeof (MimeEntityConstructorArgs) };
 
 		/// <summary>
@@ -69,21 +65,31 @@ namespace MimeKit {
 		/// <para>In general, you'll probably want this value to be <see cref="RfcComplianceMode.Loose"/>
 		/// (the default) as it allows maximum interoperability with existing (broken) mail clients
 		/// and other mail software such as sloppily written perl scripts (aka spambots).</para>
-		/// <para><alert class="tip">Even in <see cref="RfcComplianceMode.Strict"/> mode, the address
-		/// parser is fairly liberal in what it accepts. Setting it to <see cref="RfcComplianceMode.Loose"/>
-		/// just makes it try harder to deal with garbage input.</alert></para>
+		/// <note type="tip">Even in <see cref="RfcComplianceMode.Strict"/> mode, the address parser
+		/// is fairly liberal in what it accepts. Setting it to <see cref="RfcComplianceMode.Loose"/>
+		/// just makes it try harder to deal with garbage input.</note>
 		/// </remarks>
 		/// <value>The RFC compliance mode.</value>
 		public RfcComplianceMode AddressParserComplianceMode { get; set; }
 
 		/// <summary>
-		/// Gets or sets whether the rfc822 address parser should allow addresses without a domain.
+		/// Gets or sets whether the rfc822 address parser should ignore unquoted commas in address names.
 		/// </summary>
 		/// <remarks>
-		/// <para>In general, you'll probably want this value to be <c>false</c> (the default) as it allows 
+		/// <para>In general, you'll probably want this value to be <c>true</c> (the default) as it allows
 		/// maximum interoperability with existing (broken) mail clients and other mail software such as
 		/// sloppily written perl scripts (aka spambots) that do not properly quote the name when it
 		/// contains a comma.</para>
+		/// </remarks>
+		/// <value><c>true</c> if the address parser should ignore unquoted commas in address names; otherwise, <c>false</c>.</value>
+		public bool AllowUnquotedCommasInAddresses { get; set; }
+
+		/// <summary>
+		/// Gets or sets whether the rfc822 address parser should allow addresses without a domain.
+		/// </summary>
+		/// <remarks>
+		/// <para>In general, you'll probably want this value to be <c>true</c> (the default) as it allows
+		/// maximum interoperability with older email messages that may contain local UNIX addresses.</para>
 		/// <para>This option exists in order to allow parsing of mailbox addresses that do not have an
 		/// @domain component. These types of addresses are rare and were typically only used when sending
 		/// mail to other users on the same UNIX system.</para>
@@ -100,8 +106,20 @@ namespace MimeKit {
 		/// formed. If the value is set too large, then it is possible that a maliciously formed set of
 		/// recursive group addresses could cause a stack overflow.</para>
 		/// </remarks>
-		/// <value>The max address group depth.</value>
+		/// <value>The maximum address group depth.</value>
 		public int MaxAddressGroupDepth { get; set; }
+
+		/// <summary>
+		/// Gets or sets the maximum MIME nesting depth the parser should accept.
+		/// </summary>
+		/// <remarks>
+		/// <para>This option exists in order to define the maximum recursive depth of MIME parts that the parser
+		/// should accept before treating further nesting as a leaf-node MIME part and not recursing any further.
+		/// If the value is set too large, then it is possible that a maliciously formed set of rdeeply nested
+		/// multipart MIME parts could cause a stack overflow.</para>
+		/// </remarks>
+		/// <value>The maximum MIME nesting depth.</value>
+		public int MaxMimeDepth { get; set; }
 
 		/// <summary>
 		/// Gets or sets the compliance mode that should be used when parsing Content-Type and Content-Disposition parameters.
@@ -110,9 +128,9 @@ namespace MimeKit {
 		/// <para>In general, you'll probably want this value to be <see cref="RfcComplianceMode.Loose"/>
 		/// (the default) as it allows maximum interoperability with existing (broken) mail clients
 		/// and other mail software such as sloppily written perl scripts (aka spambots).</para>
-		/// <para><alert class="tip">Even in <see cref="RfcComplianceMode.Strict"/> mode, the parameter
-		/// parser is fairly liberal in what it accepts. Setting it to <see cref="RfcComplianceMode.Loose"/>
-		/// just makes it try harder to deal with garbage input.</alert></para>
+		/// <note type="tip">Even in <see cref="RfcComplianceMode.Strict"/> mode, the parameter parser
+		/// is fairly liberal in what it accepts. Setting it to <see cref="RfcComplianceMode.Loose"/>
+		/// just makes it try harder to deal with garbage input.</note>
 		/// </remarks>
 		/// <value>The RFC compliance mode.</value>
 		public RfcComplianceMode ParameterComplianceMode { get; set; }
@@ -145,8 +163,8 @@ namespace MimeKit {
 		/// Gets or sets the charset encoding to use as a fallback for 8bit headers.
 		/// </summary>
 		/// <remarks>
-		/// <see cref="MimeKit.Utils.Rfc2047.DecodeText(ParserOptions, byte[])"/> and
-		/// <see cref="MimeKit.Utils.Rfc2047.DecodePhrase(ParserOptions, byte[])"/>
+		/// <see cref="Rfc2047.DecodeText(ParserOptions, byte[])"/> and
+		/// <see cref="Rfc2047.DecodePhrase(ParserOptions, byte[])"/>
 		/// use this charset encoding as a fallback when decoding 8bit text into unicode. The first
 		/// charset encoding attempted is UTF-8, followed by this charset encoding, before finally
 		/// falling back to iso-8859-1.
@@ -155,7 +173,7 @@ namespace MimeKit {
 		public Encoding CharsetEncoding { get; set; }
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.ParserOptions"/> class.
+		/// Initialize a new instance of the <see cref="ParserOptions"/> class.
 		/// </summary>
 		/// <remarks>
 		/// By default, new instances of <see cref="ParserOptions"/> enable rfc2047 work-arounds
@@ -168,13 +186,15 @@ namespace MimeKit {
 			ParameterComplianceMode = RfcComplianceMode.Loose;
 			Rfc2047ComplianceMode = RfcComplianceMode.Loose;
 			CharsetEncoding = CharsetUtils.UTF8;
-			AllowAddressesWithoutDomain = false;
+			AllowUnquotedCommasInAddresses = true;
+			AllowAddressesWithoutDomain = true;
 			RespectContentLength = false;
 			MaxAddressGroupDepth = 3;
+			MaxMimeDepth = 1024;
 		}
 
 		/// <summary>
-		/// Clones an instance of <see cref="MimeKit.ParserOptions"/>.
+		/// Clones an instance of <see cref="ParserOptions"/>.
 		/// </summary>
 		/// <remarks>
 		/// Clones a set of options, allowing you to change a specific option
@@ -185,39 +205,20 @@ namespace MimeKit {
 		{
 			var options = new ParserOptions ();
 			options.AddressParserComplianceMode = AddressParserComplianceMode;
+			options.AllowUnquotedCommasInAddresses = AllowUnquotedCommasInAddresses;
 			options.AllowAddressesWithoutDomain = AllowAddressesWithoutDomain;
 			options.ParameterComplianceMode = ParameterComplianceMode;
 			options.Rfc2047ComplianceMode = Rfc2047ComplianceMode;
 			options.MaxAddressGroupDepth = MaxAddressGroupDepth;
 			options.RespectContentLength = RespectContentLength;
 			options.CharsetEncoding = CharsetEncoding;
+			options.MaxMimeDepth = MaxMimeDepth;
 
 			foreach (var mimeType in mimeTypes)
 				options.mimeTypes.Add (mimeType.Key, mimeType.Value);
 
 			return options;
 		}
-
-#if PORTABLE
-		static ConstructorInfo GetConstructor (TypeInfo type, Type[] argTypes)
-		{
-			foreach (var ctor in type.DeclaredConstructors) {
-				var args = ctor.GetParameters ();
-
-				if (args.Length != ConstructorArgTypes.Length)
-					continue;
-
-				bool matched = true;
-				for (int i = 0; i < argTypes.Length && matched; i++)
-					matched = matched && args[i].ParameterType == argTypes[i];
-
-				if (matched)
-					return ctor;
-			}
-
-			return null;
-		}
-#endif
 
 		/// <summary>
 		/// Registers the <see cref="MimeEntity"/> subclass for the specified mime-type.
@@ -252,7 +253,7 @@ namespace MimeKit {
 
 			mimeType = mimeType.ToLowerInvariant ();
 
-#if PORTABLE || NETSTANDARD
+#if NETSTANDARD1_3 || NETSTANDARD1_6
 			var info = type.GetTypeInfo ();
 #else
 			var info = type;
@@ -263,11 +264,7 @@ namespace MimeKit {
 				!info.IsSubclassOf (typeof (MimePart)))
 				throw new ArgumentException ("The specified type must be a subclass of MessagePart, Multipart, or MimePart.", nameof (type));
 
-#if PORTABLE
-			var ctor = GetConstructor (info, ConstructorArgTypes);
-#else
 			var ctor = type.GetConstructor (ConstructorArgTypes);
-#endif
 
 			if (ctor == null)
 				throw new ArgumentException ("The specified type must have a constructor that takes a MimeEntityConstructorArgs argument.", nameof (type));
@@ -298,9 +295,13 @@ namespace MimeKit {
 			return false;
 		}
 
-		internal MimeEntity CreateEntity (ContentType contentType, IList<Header> headers, bool toplevel)
+		internal MimeEntity CreateEntity (ContentType contentType, IList<Header> headers, bool toplevel, int depth)
 		{
 			var args = new MimeEntityConstructorArgs (this, contentType, headers, toplevel);
+
+			if (depth >= MaxMimeDepth)
+				return new MimePart (args);
+
 			var subtype = contentType.MediaSubtype.ToLowerInvariant ();
 			var type = contentType.MediaType.ToLowerInvariant ();
 
@@ -323,17 +324,24 @@ namespace MimeKit {
 			// actually handle that w/o any problems.
 			if (type == "message") {
 				switch (subtype) {
+				case "global-disposition-notification":
 				case "disposition-notification":
 					return new MessageDispositionNotification (args);
+				case "global-delivery-status":
 				case "delivery-status":
 					return new MessageDeliveryStatus (args);
 				case "partial":
 					if (!IsEncoded (headers))
 						return new MessagePartial (args);
 					break;
+				case "global-headers":
+					if (!IsEncoded (headers))
+						return new TextRfc822Headers (args);
+					break;
 				case "external-body":
 				case "rfc2822":
 				case "rfc822":
+				case "global":
 				case "news":
 					if (!IsEncoded (headers))
 						return new MessagePart (args);
@@ -384,8 +392,12 @@ namespace MimeKit {
 				}
 			}
 
-			if (type == "text")
+			if (type == "text") {
+				if (subtype == "rfc822-headers" && !IsEncoded (headers))
+					return new TextRfc822Headers (args);
+
 				return new TextPart (args);
+			}
 
 			return new MimePart (args);
 		}

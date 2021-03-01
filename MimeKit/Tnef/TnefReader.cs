@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,10 +27,7 @@
 using System;
 using System.IO;
 using System.Text;
-
-#if PORTABLE
-using Encoding = Portable.Text.Encoding;
-#endif
+using System.Globalization;
 
 namespace MimeKit.Tnef {
 	/// <summary>
@@ -162,15 +159,10 @@ namespace MimeKit.Tnef {
 				try {
 					var encoding = Encoding.GetEncoding (value);
 					codepage = encoding.CodePage;
-				} catch (ArgumentOutOfRangeException ex) {
+				} catch (Exception ex) {
 					ComplianceStatus |= TnefComplianceStatus.InvalidMessageCodepage;
 					if (ComplianceMode == TnefComplianceMode.Strict)
-						throw new TnefException (TnefComplianceStatus.InvalidMessageCodepage, string.Format ("Invalid message codepage: {0}", value), ex);
-					codepage = 1252;
-				} catch (NotSupportedException ex) {
-					ComplianceStatus |= TnefComplianceStatus.InvalidMessageCodepage;
-					if (ComplianceMode == TnefComplianceMode.Strict)
-						throw new TnefException (TnefComplianceStatus.InvalidMessageCodepage, string.Format ("Unsupported message codepage: {0}", value), ex);
+						throw new TnefException (TnefComplianceStatus.InvalidMessageCodepage, string.Format (CultureInfo.InvariantCulture, "Invalid message codepage: {0}", value), ex);
 					codepage = 1252;
 				}
 			}
@@ -211,7 +203,7 @@ namespace MimeKit.Tnef {
 				if (value != 0x00010000) {
 					ComplianceStatus |= TnefComplianceStatus.InvalidTnefVersion;
 					if (ComplianceMode == TnefComplianceMode.Strict)
-						throw new TnefException (TnefComplianceStatus.InvalidTnefVersion, string.Format ("Invalid TNEF version: {0}", value));
+						throw new TnefException (TnefComplianceStatus.InvalidTnefVersion, string.Format (CultureInfo.InvariantCulture, "Invalid TNEF version: {0}", value));
 				}
 
 				version = value;
@@ -219,7 +211,7 @@ namespace MimeKit.Tnef {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Tnef.TnefReader"/> class.
+		/// Initialize a new instance of the <see cref="TnefReader"/> class.
 		/// </summary>
 		/// <remarks>
 		/// <para>When reading a TNEF stream using the <see cref="TnefComplianceMode.Strict"/> mode,
@@ -268,7 +260,7 @@ namespace MimeKit.Tnef {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Tnef.TnefReader"/> class.
+		/// Initialize a new instance of the <see cref="TnefReader"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="TnefReader"/> for the specified input stream.
@@ -283,19 +275,27 @@ namespace MimeKit.Tnef {
 
 		/// <summary>
 		/// Releases unmanaged resources and performs other cleanup operations before the
-		/// <see cref="MimeKit.Tnef.TnefReader"/> is reclaimed by garbage collection.
+		/// <see cref="TnefReader"/> is reclaimed by garbage collection.
 		/// </summary>
 		/// <remarks>
 		/// Releases unmanaged resources and performs other cleanup operations before the
-		/// <see cref="MimeKit.Tnef.TnefReader"/> is reclaimed by garbage collection.
+		/// <see cref="TnefReader"/> is reclaimed by garbage collection.
 		/// </remarks>
 		~TnefReader ()
 		{
 			Dispose (false);
 		}
 
+		void CheckDisposed ()
+		{
+			if (closed)
+				throw new ObjectDisposedException ("TnefReader");
+		}
+
 		internal int ReadAhead (int atleast)
 		{
+			CheckDisposed ();
+
 			int left = inputEnd - inputIndex;
 
 			if (left >= atleast || eos)
@@ -384,14 +384,7 @@ namespace MimeKit.Tnef {
 				AttachmentKey = ReadInt16 ();
 			} catch (EndOfStreamException) {
 				SetComplianceError (TnefComplianceStatus.StreamTruncated);
-				throw;
 			}
-		}
-
-		void CheckDisposed ()
-		{
-			if (closed)
-				throw new ObjectDisposedException ("TnefReader");
 		}
 
 		void CheckAttributeLevel ()
@@ -455,32 +448,6 @@ namespace MimeKit.Tnef {
 			}
 		}
 
-		static unsafe void Load32BitValue (byte *dest, byte[] src, int startIndex)
-		{
-			if (BitConverter.IsLittleEndian) {
-				dest[0] = src[startIndex];
-				dest[1] = src[startIndex + 1];
-				dest[2] = src[startIndex + 2];
-				dest[3] = src[startIndex + 3];
-			} else {
-				dest[0] = src[startIndex + 3];
-				dest[1] = src[startIndex + 2];
-				dest[2] = src[startIndex + 1];
-				dest[3] = src[startIndex];
-			}
-		}
-
-		static unsafe void Load64BitValue (byte *dest, byte[] src, int startIndex)
-		{
-			if (BitConverter.IsLittleEndian) {
-				for (int i = 0; i < 8; i++)
-					dest[i] = src[startIndex + i];
-			} else {
-				for (int i = 0; i < 8; i++)
-					dest[i] = src[startIndex + (7 - i)];
-			}
-		}
-
 		internal byte ReadByte ()
 		{
 			if (ReadAhead (1) < 1)
@@ -521,50 +488,47 @@ namespace MimeKit.Tnef {
 				(input[inputIndex + 2] << 16) | (input[inputIndex + 3] << 24);
 		}
 
-		internal unsafe long ReadInt64 ()
+		internal long ReadInt64 ()
 		{
 			if (ReadAhead (8) < 8)
 				throw new EndOfStreamException ();
 
-			long value;
-
-			Load32BitValue ((byte *) &value, input, inputIndex);
 			UpdateChecksum (input, inputIndex, 8);
-			inputIndex += 8;
 
-			return value;
+			return (long) input[inputIndex++] | ((long) input[inputIndex++] << 8) |
+				((long) input[inputIndex++] << 16) | ((long) input[inputIndex++] << 24) |
+				((long) input[inputIndex++] << 32) | ((long) input[inputIndex++] << 40) |
+				((long) input[inputIndex++] << 48) | ((long) input[inputIndex++] << 56);
 		}
 
-		internal unsafe float ReadSingle ()
+		static unsafe float Int32BitsToSingle (int value)
 		{
-			if (ReadAhead (4) < 4)
-				throw new EndOfStreamException ();
-
-			float value;
-
-			Load32BitValue ((byte *) &value, input, inputIndex);
-			UpdateChecksum (input, inputIndex, 4);
-			inputIndex += 4;
-
-			return value;
+			return *((float*) &value);
 		}
 
-		internal unsafe double ReadDouble ()
+		internal float ReadSingle ()
 		{
-			if (ReadAhead (8) < 8)
-				throw new EndOfStreamException ();
+			var value = ReadInt32 ();
 
-			double value;
+			return Int32BitsToSingle (value);
+		}
 
-			Load64BitValue ((byte *) &value, input, inputIndex);
-			UpdateChecksum (input, inputIndex, 8);
-			inputIndex += 8;
+		static unsafe double Int64BitsToDouble (long value)
+		{
+			return *((double*) &value);
+		}
 
-			return value;
+		internal double ReadDouble ()
+		{
+			var value = ReadInt64 ();
+
+			return Int64BitsToDouble (value);
 		}
 
 		internal bool Seek (int offset)
 		{
+			CheckDisposed ();
+
 			int left = offset - StreamOffset;
 
 			if (left <= 0)
@@ -625,6 +589,8 @@ namespace MimeKit.Tnef {
 		/// </exception>
 		public bool ReadNextAttribute ()
 		{
+			CheckDisposed ();
+
 			if (AttributeRawValueStreamOffset != 0 && !SkipAttributeRawValue ())
 				return false;
 
@@ -648,8 +614,10 @@ namespace MimeKit.Tnef {
 
 			CheckAttributeTag ();
 
-			if (AttributeRawValueLength < 0)
+			if (AttributeRawValueLength < 0) {
 				SetComplianceError (TnefComplianceStatus.InvalidAttributeLength);
+				return false;
+			}
 
 			try {
 				TnefPropertyReader.Load ();
@@ -704,6 +672,8 @@ namespace MimeKit.Tnef {
 
 			if (count < 0 || count > (buffer.Length - offset))
 				throw new ArgumentOutOfRangeException (nameof (count));
+
+			CheckDisposed ();
 
 			int dataEndOffset = AttributeRawValueStreamOffset + AttributeRawValueLength;
 			int dataLeft = dataEndOffset - StreamOffset;
@@ -766,16 +736,17 @@ namespace MimeKit.Tnef {
 		/// <c>false</c> to release only the unmanaged resources.</param>
 		protected virtual void Dispose (bool disposing)
 		{
-			InputStream.Dispose ();
+			if (disposing && !closed)
+				InputStream.Dispose ();
 		}
 
 		/// <summary>
-		/// Releases all resource used by the <see cref="MimeKit.Tnef.TnefReader"/> object.
+		/// Releases all resource used by the <see cref="TnefReader"/> object.
 		/// </summary>
-		/// <remarks>Call <see cref="Dispose()"/> when you are finished using the <see cref="MimeKit.Tnef.TnefReader"/>. The
-		/// <see cref="Dispose()"/> method leaves the <see cref="MimeKit.Tnef.TnefReader"/> in an unusable state. After calling
-		/// <see cref="Dispose()"/>, you must release all references to the <see cref="MimeKit.Tnef.TnefReader"/> so the garbage
-		/// collector can reclaim the memory that the <see cref="MimeKit.Tnef.TnefReader"/> was occupying.</remarks>
+		/// <remarks>Call <see cref="Dispose()"/> when you are finished using the <see cref="TnefReader"/>. The
+		/// <see cref="Dispose()"/> method leaves the <see cref="TnefReader"/> in an unusable state. After calling
+		/// <see cref="Dispose()"/>, you must release all references to the <see cref="TnefReader"/> so the garbage
+		/// collector can reclaim the memory that the <see cref="TnefReader"/> was occupying.</remarks>
 		public void Dispose ()
 		{
 			Dispose (true);

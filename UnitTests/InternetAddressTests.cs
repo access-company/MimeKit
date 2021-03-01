@@ -1,9 +1,9 @@
-//
+﻿//
 // InternetAddressTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -217,6 +217,16 @@ namespace UnitTests {
 		}
 
 		[Test]
+		public void TestParseMailboxWithIncompleteCommentAfterDomainLiteralAddrspec ()
+		{
+			const string text = "jeff@[127.0.0.1] (incomplete comment";
+			int tokenIndex = text.IndexOf ('(');
+			int errorIndex = text.Length;
+
+			AssertParseFailure (text, false, tokenIndex, errorIndex);
+		}
+
+		[Test]
 		public void TestParseMailboxWithIncompleteCommentAfterAddress ()
 		{
 			const string text = "<jeff@xamarin.com> (incomplete comment";
@@ -237,11 +247,100 @@ namespace UnitTests {
 		}
 
 		[Test]
+		public void TestParseIncompleteRoutedMailboxAt ()
+		{
+			const string text = "Name <@";
+			const int tokenIndex = 0;
+			int errorIndex = text.Length;
+
+			AssertParseFailure (text, false, tokenIndex, errorIndex);
+		}
+
+		[Test]
+		public void TestParseIncompleteRoutedMailbox ()
+		{
+			const string text = "Name <@route:";
+			const int tokenIndex = 0;
+			int errorIndex = text.Length;
+
+			AssertParseFailure (text, false, tokenIndex, errorIndex);
+		}
+
+		[Test]
+		public void TestParseIncompleteRoutedMailboxSpace ()
+		{
+			const string text = "Name <@route: ";
+			const int tokenIndex = 0;
+			int errorIndex = text.Length;
+
+			AssertParseFailure (text, false, tokenIndex, errorIndex);
+		}
+
+		[Test]
+		public void TestParseIncompleteCommentInRoute ()
+		{
+			const string text = "Name <@route,(comment";
+			const int tokenIndex = 0;
+			int errorIndex = text.Length;
+
+			AssertParseFailure (text, false, tokenIndex, errorIndex);
+		}
+
+		[Test]
+		public void TestParseInvalidRouteInMailbox ()
+		{
+			const string text = "Name <@route,invalid:user@example.com>";
+			const int tokenIndex = 0;
+			int errorIndex = text.IndexOf (',') + 1;
+
+			AssertParseFailure (text, false, tokenIndex, errorIndex);
+		}
+
+		[Test]
+		public void TestParseMailboxWithInternationalRoute ()
+		{
+			const string text = "User Name <@route,@伊昭傑@郵件.商務:user@domain.com>";
+
+			AssertParse (text);
+		}
+
+		[Test]
 		public void TestParseAddrspecNoAtDomain ()
 		{
 			const string text = "jeff";
 
 			AssertParse (text);
+		}
+
+		[Test]
+		public void TestParseAddrspecNoAtDomainGreaterThan ()
+		{
+			const string text = "jeff>";
+
+			AssertParse (text);
+		}
+
+		[Test]
+		public void TestParseAddrspecNoAtDomainWithIncompleteComment ()
+		{
+			const string text = "jeff (Jeffrey Stedfast";
+			int tokenIndex = 5;
+			int errorIndex = text.Length;
+
+			AssertParseFailure (text, false, tokenIndex, errorIndex);
+		}
+
+		[Test]
+		public void TestParseAddrspecNoAtDomainWithComment ()
+		{
+			const string text = "jeff (Jeffrey Stedfast)";
+
+			AssertParse (text);
+
+			var mailbox = MailboxAddress.Parse (text);
+
+			Assert.AreEqual ("Jeffrey Stedfast", mailbox.Name);
+			Assert.AreEqual ("jeff", mailbox.Address);
 		}
 
 		[Test]
@@ -282,13 +381,14 @@ namespace UnitTests {
 
 			// this should fail when we allow mailbox addresses w/o a domain
 			var options = ParserOptions.Default.Clone ();
-			options.AllowAddressesWithoutDomain = true;
+			options.AllowUnquotedCommasInAddresses = false;
+			options.AllowAddressesWithoutDomain = false;
 
 			try {
 				addr = InternetAddress.Parse (options, text);
-				Assert.Fail ("Should not have parsed \"{0}\" with AllowAddressesWithoutDomain = true", text);
+				Assert.Fail ("Should not have parsed \"{0}\" with AllowUnquotedCommasInAddresses = false", text);
 			} catch (ParseException pex) {
-				Assert.AreEqual (text.IndexOf (','), pex.TokenIndex, "TokenIndex");
+				Assert.AreEqual (0, pex.TokenIndex, "TokenIndex");
 				Assert.AreEqual (text.IndexOf (','), pex.ErrorIndex, "ErrorIndex");
 			} catch (Exception ex) {
 				Assert.Fail ("Should not have thrown {0}", ex.GetType ().Name);
@@ -424,8 +524,16 @@ namespace UnitTests {
 
 		#endregion
 
+		[Test]
+		public void TestParseMailboxWithSquareBracketsInDisplayName ()
+		{
+			const string text = "[Invalid Sender] <sender@tk2-201-10422.vs.sakura.ne.jp>";
+
+			AssertParse (text);
+		}
+
 		#region TestLegacyEmailAddress
-		TestCaseData[] LegacyAddressNotCompliantWithRFC ()
+		static TestCaseData[] LegacyAddressNotCompliantWithRFC()
 		{
 			var addressList = new TestCaseData[]
 			{
@@ -544,7 +652,7 @@ namespace UnitTests {
 			return addressList;
 		}
 
-		[TestCaseSource ("LegacyAddressNotCompliantWithRFC")]
+		[TestCaseSource (nameof(LegacyAddressNotCompliantWithRFC))]
 		public void TestLegacyEmailAddress (string address)
 		{
 			string text = address;

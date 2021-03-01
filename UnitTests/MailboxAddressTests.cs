@@ -1,9 +1,9 @@
-//
+﻿//
 // MailboxAddressTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,12 +26,14 @@
 
 using System;
 using System.Text;
+using System.Globalization;
 using System.Collections.Generic;
 
 using NUnit.Framework;
 
 using MimeKit;
 using MimeKit.Cryptography;
+using MimeKit.Utils;
 
 namespace UnitTests {
 	[TestFixture]
@@ -100,6 +102,13 @@ namespace UnitTests {
 			Assert.Throws<ArgumentNullException> (() => new SecureMailboxAddress (null, "ffff"));
 			Assert.Throws<ArgumentNullException> (() => new SecureMailboxAddress ("johnny@example.com", null));
 			Assert.Throws<ArgumentException> (() => new SecureMailboxAddress ("johnny@example.com", "not hex encoded"));
+
+			Assert.DoesNotThrow (() => new SecureMailboxAddress ("user@domain.com", "ffff"));
+			Assert.DoesNotThrow (() => new SecureMailboxAddress ("Mailbox Address", "user@domain.com", "ffff"));
+			Assert.DoesNotThrow (() => new SecureMailboxAddress (Encoding.UTF8, "Mailbox Address", "user@domain.com", "ffff"));
+			Assert.DoesNotThrow (() => new SecureMailboxAddress (new[] { "route1", "route2", "route3" }, "user@domain.com", "ffff"));
+			Assert.DoesNotThrow (() => new SecureMailboxAddress ("Routed Address", new[] { "route1", "route2", "route3" }, "user@domain.com", "ffff"));
+			Assert.DoesNotThrow (() => new SecureMailboxAddress (Encoding.UTF8, "Routed Address", new[] { "route1", "route2", "route3" }, "user@domain.com", "ffff"));
 		}
 
 		static void AssertParseFailure (string text, bool result, int tokenIndex, int errorIndex, RfcComplianceMode mode = RfcComplianceMode.Loose)
@@ -287,6 +296,16 @@ namespace UnitTests {
 		}
 
 		[Test]
+		public void TestParseMailboxWithIncompleteCommentAfterDomainLiteralAddrspec ()
+		{
+			const string text = "jeff@[127.0.0.1] (incomplete comment";
+			int tokenIndex = text.IndexOf ('(');
+			int errorIndex = text.Length;
+
+			AssertParseFailure (text, false, tokenIndex, errorIndex);
+		}
+
+		[Test]
 		public void TestParseMailboxWithIncompleteCommentAfterAddress ()
 		{
 			const string text = "<jeff@xamarin.com> (incomplete comment";
@@ -307,6 +326,64 @@ namespace UnitTests {
 		}
 
 		[Test]
+		public void TestParseIncompleteRoutedMailboxAt ()
+		{
+			const string text = "Name <@";
+			const int tokenIndex = 0;
+			int errorIndex = text.Length;
+
+			AssertParseFailure (text, false, tokenIndex, errorIndex);
+		}
+
+		[Test]
+		public void TestParseIncompleteRoutedMailbox ()
+		{
+			const string text = "Name <@route:";
+			const int tokenIndex = 0;
+			int errorIndex = text.Length;
+
+			AssertParseFailure (text, false, tokenIndex, errorIndex);
+		}
+
+		[Test]
+		public void TestParseIncompleteRoutedMailboxSpace ()
+		{
+			const string text = "Name <@route: ";
+			const int tokenIndex = 0;
+			int errorIndex = text.Length;
+
+			AssertParseFailure (text, false, tokenIndex, errorIndex);
+		}
+
+		[Test]
+		public void TestParseIncompleteCommentInRoute ()
+		{
+			const string text = "Name <@route,(comment";
+			const int tokenIndex = 0;
+			int errorIndex = text.Length;
+
+			AssertParseFailure (text, false, tokenIndex, errorIndex);
+		}
+
+		[Test]
+		public void TestParseInvalidRouteInMailbox ()
+		{
+			const string text = "Name <@route,invalid:user@example.com>";
+			const int tokenIndex = 0;
+			int errorIndex = text.IndexOf (',') + 1;
+
+			AssertParseFailure (text, false, tokenIndex, errorIndex);
+		}
+
+		[Test]
+		public void TestParseMailboxWithInternationalRoute ()
+		{
+			const string text = "User Name <@route,@伊昭傑@郵件.商務:user@domain.com>";
+
+			AssertParse (text);
+		}
+
+		[Test]
 		public void TestParseIdnAddress ()
 		{
 			const string encoded = "user@xn--v8jxj3d1dzdz08w.com";
@@ -323,6 +400,40 @@ namespace UnitTests {
 			const string text = "jeff";
 
 			AssertParse (text);
+		}
+
+		[Test]
+		public void TestParseAddrspecNoAtDomainGreaterThan ()
+		{
+			const string text = "jeff>";
+			int tokenIndex = 0;
+			int errorIndex = text.Length - 1;
+
+			AssertParseFailure (text, false, tokenIndex, errorIndex, RfcComplianceMode.Strict);
+			AssertParse (text);
+		}
+
+		[Test]
+		public void TestParseAddrspecNoAtDomainWithIncompleteComment ()
+		{
+			const string text = "jeff (Jeffrey Stedfast";
+			int tokenIndex = 5;
+			int errorIndex = text.Length;
+
+			AssertParseFailure (text, false, tokenIndex, errorIndex);
+		}
+
+		[Test]
+		public void TestParseAddrspecNoAtDomainWithComment ()
+		{
+			const string text = "jeff (Jeffrey Stedfast)";
+
+			AssertParse (text);
+
+			var mailbox = MailboxAddress.Parse (text);
+
+			Assert.AreEqual ("Jeffrey Stedfast", mailbox.Name);
+			Assert.AreEqual ("jeff", mailbox.Address);
 		}
 
 		[Test]
@@ -363,13 +474,14 @@ namespace UnitTests {
 
 			// this should fail when we allow mailbox addresses w/o a domain
 			var options = ParserOptions.Default.Clone ();
-			options.AllowAddressesWithoutDomain = true;
+			options.AllowUnquotedCommasInAddresses = false;
+			options.AllowAddressesWithoutDomain = false;
 
 			try {
 				mailbox = MailboxAddress.Parse (options, text);
-				Assert.Fail ("Should not have parsed \"{0}\" with AllowAddressesWithoutDomain = true", text);
+				Assert.Fail ("Should not have parsed \"{0}\" with AllowUnquotedCommasInAddresses = false", text);
 			} catch (ParseException pex) {
-				Assert.AreEqual (text.IndexOf (','), pex.TokenIndex, "TokenIndex");
+				Assert.AreEqual (0, pex.TokenIndex, "TokenIndex");
 				Assert.AreEqual (text.IndexOf (','), pex.ErrorIndex, "ErrorIndex");
 			} catch (Exception ex) {
 				Assert.Fail ("Should not have thrown {0}", ex.GetType ().Name);
@@ -453,34 +565,84 @@ namespace UnitTests {
 		}
 
 		[Test]
+		public void TestGetAddress ()
+		{
+			var idn = new IdnMapping ();
+			MailboxAddress mailbox;
+
+			mailbox = new MailboxAddress ("Unit Test", "點看@domain.com");
+			Assert.AreEqual ("點看@domain.com", mailbox.GetAddress (false), "IDN-decode #1");
+			Assert.AreEqual (idn.GetAscii ("點看") + "@domain.com", mailbox.GetAddress (true), "IDN-encode #1");
+
+			mailbox = new MailboxAddress ("Unit Test", idn.GetAscii ("點看") + "@domain.com");
+			Assert.AreEqual ("點看@domain.com", mailbox.GetAddress (false), "IDN-decode #2");
+			Assert.AreEqual (idn.GetAscii ("點看") + "@domain.com", mailbox.GetAddress (true), "IDN-encode #2");
+
+			mailbox = new MailboxAddress ("Unit Test", "user@名がドメイン.com");
+			Assert.AreEqual ("user@名がドメイン.com", mailbox.GetAddress (false), "IDN-decode #3");
+			Assert.AreEqual ("user@" + idn.GetAscii ("名がドメイン.com"), mailbox.GetAddress (true), "IDN-encode #3");
+
+			mailbox = new MailboxAddress ("Unit Test", "user@" + idn.GetAscii ("名がドメイン.com"));
+			Assert.AreEqual ("user@名がドメイン.com", mailbox.GetAddress (false), "IDN-decode #4");
+			Assert.AreEqual ("user@" + idn.GetAscii ("名がドメイン.com"), mailbox.GetAddress (true), "IDN-encode #4");
+
+			mailbox = new MailboxAddress ("Unit Test", "點看@名がドメイン.com");
+			Assert.AreEqual ("點看@名がドメイン.com", mailbox.GetAddress (false), "IDN-decode #5");
+			Assert.AreEqual (idn.GetAscii ("點看") + "@" + idn.GetAscii ("名がドメイン.com"), mailbox.GetAddress (true), "IDN-encode #5");
+
+			mailbox = new MailboxAddress ("Unit Test", idn.GetAscii ("點看") + "@" + idn.GetAscii ("名がドメイン.com"));
+			Assert.AreEqual ("點看@名がドメイン.com", mailbox.GetAddress (false), "IDN-decode #6");
+			Assert.AreEqual (idn.GetAscii ("點看") + "@" + idn.GetAscii ("名がドメイン.com"), mailbox.GetAddress (true), "IDN-encode #6");
+		}
+
+		[Test]
 		public void TestIsInternational ()
 		{
-			var mailbox = new MailboxAddress ("Kristoffer Brånemyr", "brånemyr@swipenet.se");
-			const string expected = "Kristoffer Brånemyr <brånemyr@swipenet.se>";
 			var options = FormatOptions.Default.Clone ();
+			options.International = true;
+			var idn = new IdnMapping ();
+			MailboxAddress mailbox;
 			string encoded;
 
-			options.International = true;
-
+			// Test IsInternational local-parts
+			mailbox = new MailboxAddress ("Unit Test", "點看@domain.com");
+			Assert.IsTrue (mailbox.IsInternational, "IsInternational local-part");
 			encoded = mailbox.ToString (options, true);
-			Assert.AreEqual (expected, encoded, "ToString");
+			Assert.AreEqual ("Unit Test <點看@domain.com>", encoded, "ToString local-part");
 
-			Assert.IsTrue (mailbox.IsInternational, "IsInternational");
+			// Test IsInternational IDN-encoded local-parts
+			mailbox = new MailboxAddress ("Unit Test", idn.GetAscii ("點看") + "@domain.com");
+			Assert.IsTrue (mailbox.IsInternational, "IsInternational IDN-encoded local-part");
+			encoded = mailbox.ToString (options, true);
+			Assert.AreEqual ("Unit Test <點看@domain.com>", encoded, "ToString IDN-encoded local-part");
 
-			mailbox = new MailboxAddress ("Kristoffer Brånemyr", "ztion@swipenet.se");
+			// Test IsInternational domain
+			mailbox = new MailboxAddress ("Unit Test", "user@名がドメイン.com");
+			Assert.IsTrue (mailbox.IsInternational, "IsInternational domain");
+			encoded = mailbox.ToString (options, true);
+			Assert.AreEqual ("Unit Test <user@名がドメイン.com>", encoded, "ToString domain");
 
+			// Test IsInternational IDN-encoded domain
+			mailbox = new MailboxAddress ("Unit Test", "user@" + idn.GetAscii ("名がドメイン.com"));
+			Assert.IsTrue (mailbox.IsInternational, "IsInternational IDN-encoded domain");
+			encoded = mailbox.ToString (options, true);
+			Assert.AreEqual ("Unit Test <user@名がドメイン.com>", encoded, "ToString IDN-encoded domain");
+
+			// Test IsInternational routes
+			mailbox = new MailboxAddress ("Unit Test", "user@domain.com");
 			Assert.IsFalse (mailbox.IsInternational, "IsInternational");
-
-			mailbox.Route.Add ("brånemyr");
-
-			Assert.IsTrue (mailbox.IsInternational, "IsInternational");
+			mailbox.Route.Add ("route1");          // non-international route
+			mailbox.Route.Add ("名がドメイン.com"); // international route
+			Assert.IsTrue (mailbox.IsInternational, "IsInternational route");
+			encoded = mailbox.ToString (options, true);
+			Assert.AreEqual ("Unit Test <@route1,@名がドメイン.com:user@domain.com>", encoded, "ToString route");
 		}
 
 		[Test]
 		public void TestIdnEncoding ()
 		{
-			//const string userAscii = "xn--c1yn36f@domain";
-			//const string userUnicode = "點看@domain";
+			const string userAscii = "xn--c1yn36f@domain.com";
+			const string userUnicode = "點看@domain.com";
 			const string domainAscii = "user@xn--v8jxj3d1dzdz08w.com";
 			const string domainUnicode = "user@名がドメイン.com";
 			string encoded;
@@ -491,11 +653,11 @@ namespace UnitTests {
 			encoded = MailboxAddress.DecodeAddrspec (domainAscii);
 			Assert.AreEqual (domainUnicode, encoded, "Domain (Decode)");
 
-			//encoded = MailboxAddress.EncodeAddrspec (userUnicode);
-			//Assert.AreEqual (userAscii, encoded, "Local-part (Encode)");
+			encoded = MailboxAddress.EncodeAddrspec (userUnicode);
+			Assert.AreEqual (userAscii, encoded, "Local-part (Encode)");
 
-			//encoded = MailboxAddress.DecodeAddrspec (userAscii);
-			//Assert.AreEqual (userUnicode, encoded, "Local-part (Decode)");
+			encoded = MailboxAddress.DecodeAddrspec (userAscii);
+			Assert.AreEqual (userUnicode, encoded, "Local-part (Decode)");
 		}
 
 		[Test]
@@ -522,6 +684,22 @@ namespace UnitTests {
 			encoded = mailbox.ToString (false);
 
 			Assert.AreEqual (expectedNoName, encoded, "ToString mailbox does not match after setting Name to null.");
+		}
+
+		[Test]
+		public void TestInternationalRoutedMailbox ()
+		{
+			const string expectedIdn = "User Name <@route,@xn--@-216a8b89fj88ctw7c.xn--lhr59c:user@domain.com>";
+			const string expected = "User Name <@route,@伊昭傑@郵件.商務:user@domain.com>";
+			var route = new[] { "route", "伊昭傑@郵件.商務" };
+			var mailbox = new MailboxAddress ("User Name", route, "user@domain.com");
+			var options = FormatOptions.Default.Clone ();
+
+			Assert.AreEqual (expectedIdn, mailbox.ToString (options, true));
+
+			options.International = true;
+
+			Assert.AreEqual (expected, mailbox.ToString (options, true));
 		}
 
 		#region Rfc7103
@@ -583,10 +761,90 @@ namespace UnitTests {
 			AssertParseFailure (text, false, 0, errorIndex, RfcComplianceMode.Strict);
 		}
 
+		[Test]
+		public void TestParseMailboxWithLatin1EncodedAddrspec ()
+		{
+			const string text = "Name <æøå@example.com>";
+			var buffer = CharsetUtils.Latin1.GetBytes (text);
+			MailboxAddress mailbox;
+
+			try {
+				Assert.IsTrue (MailboxAddress.TryParse (buffer, out mailbox), "MailboxAddress.TryParse(byte[]) should succeed.");
+			} catch (Exception ex) {
+				Assert.Fail ("MailboxAddress.TryParse(byte[]) should not throw an exception: {0}", ex);
+			}
+
+			try {
+				Assert.IsTrue (MailboxAddress.TryParse (buffer, 0, out mailbox), "MailboxAddress.TryParse(byte[], int) should succeed.");
+			} catch (Exception ex) {
+				Assert.Fail ("MailboxAddress.TryParse(byte[], int) should not throw an exception: {0}", ex);
+			}
+
+			try {
+				Assert.IsTrue (MailboxAddress.TryParse (buffer, 0, buffer.Length, out mailbox), "MailboxAddress.TryParse(byte[], int, int) should succeed.");
+			} catch (Exception ex) {
+				Assert.Fail ("MailboxAddress.TryParse(byte[], int, int) should not throw an exception: {0}", ex);
+			}
+
+			try {
+				mailbox = MailboxAddress.Parse (buffer);
+			} catch (Exception ex) {
+				Assert.Fail ("MailboxAddress.Parse(string) should not throw an exception: {0}", ex);
+			}
+
+			try {
+				mailbox = MailboxAddress.Parse (buffer, 0);
+			} catch (Exception ex) {
+				Assert.Fail ("MailboxAddress.Parse(string) should not throw an exception: {0}", ex);
+			}
+
+			try {
+				mailbox = MailboxAddress.Parse (buffer, 0, buffer.Length);
+			} catch (Exception ex) {
+				Assert.Fail ("MailboxAddress.Parse(string) should not throw an exception: {0}", ex);
+			}
+		}
+
 		#endregion
 
+		[Test]
+		public void TestParseMailboxWithSquareBracketsInDisplayName ()
+		{
+			const string text = "[Invalid Sender] <sender@tk2-201-10422.vs.sakura.ne.jp>";
+
+			AssertParse (text);
+
+			AssertParseFailure (text, false, 0, 0, RfcComplianceMode.Strict);
+		}
+
+		[Test]
+		public void TestParseMailboxWithSquareBracketsAnd8BitTextInDisplayName ()
+		{
+			const string text = "Tom Doe [Cörp Öne] <tom.doe@corpone.com>";
+
+			AssertParse (text);
+
+			AssertParseFailure (text, false, 0, 8, RfcComplianceMode.Strict);
+		}
+
+		[Test]
+		public void TestParseAddrspecWithUnicodeLocalPart ()
+		{
+			const string text = "test.täst@test.net";
+
+			AssertParse (text);
+		}
+
+		[Test]
+		public void TestParseAddrspecWitheroWidthSpace ()
+		{
+			const string text = "\u200Btest@test.co.uk";
+
+			AssertParse (text);
+		}
+
 		#region TestLegacyEmailAddress
-		TestCaseData[] LegacyAddressNotCompliantWithRFC ()
+		static TestCaseData[] LegacyAddressNotCompliantWithRFC ()
 		{
 			var addressList = new TestCaseData[]
 			{
@@ -705,7 +963,7 @@ namespace UnitTests {
 			return addressList;
 		}
 
-		[TestCaseSource ("LegacyAddressNotCompliantWithRFC")]
+		[TestCaseSource (nameof(LegacyAddressNotCompliantWithRFC))]
 		public void TestLegacyEmailAddress (string address)
 		{
 			string text = address;

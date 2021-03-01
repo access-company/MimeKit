@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -53,7 +53,7 @@ namespace MimeKit.Cryptography {
 		int max;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Cryptography.DkimHashStream"/> class.
+		/// Initialize a new instance of the <see cref="DkimHashStream"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="DkimHashStream"/>.
@@ -64,6 +64,7 @@ namespace MimeKit.Cryptography {
 		{
 #if ENABLE_NATIVE_DKIM
 			switch (algorithm) {
+			case DkimSignatureAlgorithm.Ed25519Sha256:
 			case DkimSignatureAlgorithm.RsaSha256:
 				digest = SHA256.Create ();
 				break;
@@ -73,6 +74,7 @@ namespace MimeKit.Cryptography {
 			}
 #else
 			switch (algorithm) {
+			case DkimSignatureAlgorithm.Ed25519Sha256:
 			case DkimSignatureAlgorithm.RsaSha256:
 				digest = new Sha256Digest ();
 				break;

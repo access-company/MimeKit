@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,7 @@
 
 using System;
 using System.IO;
+using System.Buffers;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -34,7 +35,7 @@ using MimeKit.IO.Filters;
 
 namespace MimeKit {
 	/// <summary>
-	/// Encapsulates a content stream used by <see cref="MimeKit.MimePart"/>.
+	/// Encapsulates a content stream used by <see cref="MimePart"/>.
 	/// </summary>
 	/// <remarks>
 	/// A <see cref="MimeContent"/> represents the content of a <see cref="MimePart"/>.
@@ -44,11 +45,11 @@ namespace MimeKit {
 	public class ContentObject : MimeContent
 	{
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.ContentObject"/> class.
+		/// Initialize a new instance of the <see cref="ContentObject"/> class.
 		/// </summary>
 		/// <remarks>
-		/// When creating new <see cref="MimeKit.MimePart"/>s, the <paramref name="encoding"/>
-		/// should typically be <see cref="MimeKit.ContentEncoding.Default"/> unless the
+		/// When creating new <see cref="MimePart"/>s, the <paramref name="encoding"/>
+		/// should typically be <see cref="ContentEncoding.Default"/> unless the
 		/// <paramref name="stream"/> has already been encoded.
 		/// </remarks>
 		/// <param name="stream">The content stream.</param>
@@ -66,7 +67,7 @@ namespace MimeKit {
 	}
 
 	/// <summary>
-	/// Encapsulates a content stream used by <see cref="MimeKit.MimePart"/>.
+	/// Encapsulates a content stream used by <see cref="MimePart"/>.
 	/// </summary>
 	/// <remarks>
 	/// A <see cref="MimeContent"/> represents the content of a <see cref="MimePart"/>.
@@ -77,12 +78,14 @@ namespace MimeKit {
 	/// </example>
 	public class MimeContent : IMimeContent
 	{
+		const int BufferLength = 4096;
+
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.MimeContent"/> class.
+		/// Initialize a new instance of the <see cref="MimeContent"/> class.
 		/// </summary>
 		/// <remarks>
-		/// When creating new <see cref="MimeKit.MimePart"/>s, the <paramref name="encoding"/>
-		/// should typically be <see cref="MimeKit.ContentEncoding.Default"/> unless the
+		/// When creating new <see cref="MimePart"/>s, the <paramref name="encoding"/>
+		/// should typically be <see cref="ContentEncoding.Default"/> unless the
 		/// <paramref name="stream"/> has already been encoded.
 		/// </remarks>
 		/// <param name="stream">The content stream.</param>
@@ -113,7 +116,7 @@ namespace MimeKit {
 		#region IContentObject implementation
 
 		/// <summary>
-		/// Gets or sets the content encoding.
+		/// Get or set the content encoding.
 		/// </summary>
 		/// <remarks>
 		/// If the <see cref="MimePart"/> was parsed from an existing stream, the
@@ -126,7 +129,18 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets the content stream.
+		/// Get the new-line format, if known.
+		/// </summary>
+		/// <remarks>
+		/// <para>This property is typically only set by the <see cref="MimeParser"/> as it parses
+		/// the content of a <see cref="MimePart"/> and is only used as a hint when verifying
+		/// digital signatures.</para>
+		/// </remarks>
+		/// <value>The new-line format, if known.</value>
+		public NewLineFormat? NewLineFormat { get; set; }
+
+		/// <summary>
+		/// Get the content stream.
 		/// </summary>
 		/// <remarks>
 		/// Gets the content stream.
@@ -137,7 +151,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Opens the decoded content stream.
+		/// Open the decoded content stream.
 		/// </summary>
 		/// <remarks>
 		/// Provides a means of reading the decoded content without having to first write it to another
@@ -155,7 +169,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Copies the content stream to the specified output stream.
+		/// Copy the content stream to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// <para>This is equivalent to simply using <see cref="System.IO.Stream.CopyTo(System.IO.Stream)"/>
@@ -179,21 +193,21 @@ namespace MimeKit {
 			if (stream == null)
 				throw new ArgumentNullException (nameof (stream));
 
+			Stream.Seek (0, SeekOrigin.Begin);
+
+			var buf = ArrayPool<byte>.Shared.Rent (BufferLength);
 			var readable = Stream as ICancellableStream;
 			var writable = stream as ICancellableStream;
-			var buf = new byte[4096];
 			int nread;
-
-			Stream.Seek (0, SeekOrigin.Begin);
 
 			try {
 				do {
 					if (readable != null) {
-						if ((nread = readable.Read (buf, 0, buf.Length, cancellationToken)) <= 0)
+						if ((nread = readable.Read (buf, 0, BufferLength, cancellationToken)) <= 0)
 							break;
 					} else {
 						cancellationToken.ThrowIfCancellationRequested ();
-						if ((nread = Stream.Read (buf, 0, buf.Length)) <= 0)
+						if ((nread = Stream.Read (buf, 0, BufferLength)) <= 0)
 							break;
 					}
 
@@ -214,11 +228,13 @@ namespace MimeKit {
 				}
 
 				throw;
+			} finally {
+				ArrayPool<byte>.Shared.Return (buf);
 			}
 		}
 
 		/// <summary>
-		/// Asynchronously copies the content stream to the specified output stream.
+		/// Asynchronously copy the content stream to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// <para>This is equivalent to simply using <see cref="System.IO.Stream.CopyTo(System.IO.Stream)"/>
@@ -226,6 +242,7 @@ namespace MimeKit {
 		/// <note type="note">If you want the decoded content, use
 		/// <see cref="DecodeTo(System.IO.Stream,System.Threading.CancellationToken)"/> instead.</note>
 		/// </remarks>
+		/// <returns>An awaitable task.</returns>
 		/// <param name="stream">The output stream.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -242,10 +259,10 @@ namespace MimeKit {
 			if (stream == null)
 				throw new ArgumentNullException (nameof (stream));
 
-			var buf = new byte[4096];
-			int nread;
-
 			Stream.Seek (0, SeekOrigin.Begin);
+
+			var buf = ArrayPool<byte>.Shared.Rent (BufferLength);
+			int nread;
 
 			try {
 				do {
@@ -264,17 +281,22 @@ namespace MimeKit {
 				}
 
 				throw;
+			} finally {
+				ArrayPool<byte>.Shared.Return (buf);
 			}
 		}
 
 		/// <summary>
-		/// Decodes the content stream into another stream.
+		/// Decode the content stream into another stream.
 		/// </summary>
 		/// <remarks>
 		/// If the content stream is encoded, this method will decode it into the output stream
 		/// using a suitable decoder based on the <see cref="Encoding"/> property, otherwise the
 		/// stream will be copied into the output stream as-is.
 		/// </remarks>
+		/// <example>
+		/// <code language="c#" source="Examples\AttachmentExamples.cs" region="SaveAttachments" />
+		/// </example>
 		/// <param name="stream">The output stream.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -286,9 +308,6 @@ namespace MimeKit {
 		/// <exception cref="System.IO.IOException">
 		/// An I/O error occurred.
 		/// </exception>
-		/// <example>
-		/// <code language="c#" source="Examples\AttachmentExamples.cs" region="SaveAttachments" />
-		/// </example>
 		public void DecodeTo (Stream stream, CancellationToken cancellationToken = default (CancellationToken))
 		{
 			if (stream == null)
@@ -302,13 +321,17 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Asynchronously decodes the content stream into another stream.
+		/// Asynchronously decode the content stream into another stream.
 		/// </summary>
 		/// <remarks>
 		/// If the content stream is encoded, this method will decode it into the output stream
 		/// using a suitable decoder based on the <see cref="Encoding"/> property, otherwise the
 		/// stream will be copied into the output stream as-is.
 		/// </remarks>
+		/// <example>
+		/// <code language="c#" source="Examples\AttachmentExamples.cs" region="SaveAttachments" />
+		/// </example>
+		/// <returns>An awaitable task.</returns>
 		/// <param name="stream">The output stream.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -320,9 +343,6 @@ namespace MimeKit {
 		/// <exception cref="System.IO.IOException">
 		/// An I/O error occurred.
 		/// </exception>
-		/// <example>
-		/// <code language="c#" source="Examples\AttachmentExamples.cs" region="SaveAttachments" />
-		/// </example>
 		public async Task DecodeToAsync (Stream stream, CancellationToken cancellationToken = default (CancellationToken))
 		{
 			if (stream == null)

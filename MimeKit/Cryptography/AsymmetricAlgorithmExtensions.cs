@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 Xamarin Inc. (www.xamarin.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -41,7 +41,7 @@ namespace MimeKit.Cryptography
 	/// </remarks>
 	public static class AsymmetricAlgorithmExtensions
 	{
-		static void GetAsymmetricKeyParameters (DSACryptoServiceProvider dsa, bool publicOnly, out AsymmetricKeyParameter pub, out AsymmetricKeyParameter key)
+		static void GetAsymmetricKeyParameters (DSA dsa, bool publicOnly, out AsymmetricKeyParameter pub, out AsymmetricKeyParameter key)
 		{
 			var dp = dsa.ExportParameters (!publicOnly);
 			var validationParameters = dp.Seed != null ? new DsaValidationParameters (dp.Seed, dp.Counter) : null;
@@ -57,26 +57,36 @@ namespace MimeKit.Cryptography
 
 		static AsymmetricKeyParameter GetAsymmetricKeyParameter (DSACryptoServiceProvider dsa)
 		{
-			AsymmetricKeyParameter pub, key;
-
-			GetAsymmetricKeyParameters (dsa, dsa.PublicOnly, out pub, out key);
+			GetAsymmetricKeyParameters (dsa, dsa.PublicOnly, out var pub, out var key);
 
 			return dsa.PublicOnly ? pub : key;
 		}
 
 		static AsymmetricCipherKeyPair GetAsymmetricCipherKeyPair (DSACryptoServiceProvider dsa)
 		{
-			AsymmetricKeyParameter pub, key;
-
 			if (dsa.PublicOnly)
 				throw new ArgumentException ("DSA key is not a private key.", "key");
 
-			GetAsymmetricKeyParameters (dsa, dsa.PublicOnly, out pub, out key);
+			GetAsymmetricKeyParameters (dsa, dsa.PublicOnly, out var pub, out var key);
 
 			return new AsymmetricCipherKeyPair (pub, key);
 		}
 
-		static void GetAsymmetricKeyParameters (RSACryptoServiceProvider rsa, bool publicOnly, out AsymmetricKeyParameter pub, out AsymmetricKeyParameter key)
+		static AsymmetricKeyParameter GetAsymmetricKeyParameter (DSA dsa)
+		{
+			GetAsymmetricKeyParameters (dsa, false, out _, out var key);
+
+			return key;
+		}
+
+		static AsymmetricCipherKeyPair GetAsymmetricCipherKeyPair (DSA dsa)
+		{
+			GetAsymmetricKeyParameters (dsa, false, out var pub, out var key);
+
+			return new AsymmetricCipherKeyPair (pub, key);
+		}
+
+		static void GetAsymmetricKeyParameters (RSA rsa, bool publicOnly, out AsymmetricKeyParameter pub, out AsymmetricKeyParameter key)
 		{
 			var rp = rsa.ExportParameters (!publicOnly);
 			var modulus = new BigInteger (1, rp.Modulus);
@@ -97,21 +107,31 @@ namespace MimeKit.Cryptography
 
 		static AsymmetricKeyParameter GetAsymmetricKeyParameter (RSACryptoServiceProvider rsa)
 		{
-			AsymmetricKeyParameter pub, key;
-
-			GetAsymmetricKeyParameters (rsa, rsa.PublicOnly, out pub, out key);
+			GetAsymmetricKeyParameters (rsa, rsa.PublicOnly, out var pub, out var key);
 
 			return rsa.PublicOnly ? pub : key;
 		}
 
 		static AsymmetricCipherKeyPair GetAsymmetricCipherKeyPair (RSACryptoServiceProvider rsa)
 		{
-			AsymmetricKeyParameter pub, key;
-
 			if (rsa.PublicOnly)
 				throw new ArgumentException ("RSA key is not a private key.", "key");
 
-			GetAsymmetricKeyParameters (rsa, rsa.PublicOnly, out pub, out key);
+			GetAsymmetricKeyParameters (rsa, rsa.PublicOnly, out var pub, out var key);
+
+			return new AsymmetricCipherKeyPair (pub, key);
+		}
+
+		static AsymmetricKeyParameter GetAsymmetricKeyParameter (RSA rsa)
+		{
+			GetAsymmetricKeyParameters (rsa, false, out _, out var key);
+
+			return key;
+		}
+
+		static AsymmetricCipherKeyPair GetAsymmetricCipherKeyPair (RSA rsa)
+		{
+			GetAsymmetricKeyParameters (rsa, false, out var pub, out var key);
 
 			return new AsymmetricCipherKeyPair (pub, key);
 		}
@@ -136,11 +156,17 @@ namespace MimeKit.Cryptography
 			if (key == null)
 				throw new ArgumentNullException (nameof (key));
 
-			if (key is DSACryptoServiceProvider)
-				return GetAsymmetricKeyParameter ((DSACryptoServiceProvider) key);
+			if (key is RSACryptoServiceProvider rsaKey)
+				return GetAsymmetricKeyParameter (rsaKey);
 
-			if (key is RSACryptoServiceProvider)
-				return GetAsymmetricKeyParameter ((RSACryptoServiceProvider) key);
+			if (key is RSA rsa)
+				return GetAsymmetricKeyParameter (rsa);
+
+			if (key is DSACryptoServiceProvider dsaKey)
+				return GetAsymmetricKeyParameter (dsaKey);
+
+			if (key is DSA dsa)
+				return GetAsymmetricKeyParameter (dsa);
 
 			// TODO: support ECDiffieHellman and ECDsa?
 
@@ -170,11 +196,17 @@ namespace MimeKit.Cryptography
 			if (key == null)
 				throw new ArgumentNullException (nameof (key));
 
-			if (key is DSACryptoServiceProvider)
-				return GetAsymmetricCipherKeyPair ((DSACryptoServiceProvider) key);
+			if (key is RSACryptoServiceProvider rsaKey)
+				return GetAsymmetricCipherKeyPair (rsaKey);
 
-			if (key is RSACryptoServiceProvider)
-				return GetAsymmetricCipherKeyPair ((RSACryptoServiceProvider) key);
+			if (key is RSA rsa)
+				return GetAsymmetricCipherKeyPair (rsa);
+
+			if (key is DSACryptoServiceProvider dsaKey)
+				return GetAsymmetricCipherKeyPair (dsaKey);
+
+			if (key is DSA dsa)
+				return GetAsymmetricCipherKeyPair (dsa);
 
 			// TODO: support ECDiffieHellman and ECDsa?
 
@@ -220,6 +252,7 @@ namespace MimeKit.Cryptography
 				parameters.Y = pub.Y.ToByteArrayUnsigned ();
 
 			var dsa = new DSACryptoServiceProvider ();
+
 			dsa.ImportParameters (parameters);
 
 			return dsa;
@@ -231,6 +264,7 @@ namespace MimeKit.Cryptography
 			parameters.Y = key.Y.ToByteArrayUnsigned ();
 
 			var dsa = new DSACryptoServiceProvider ();
+
 			dsa.ImportParameters (parameters);
 
 			return dsa;
@@ -251,6 +285,7 @@ namespace MimeKit.Cryptography
 			parameters.DQ = GetPaddedByteArray (key.DQ, parameters.Q.Length);
 
 			var rsa = new RSACryptoServiceProvider ();
+
 			rsa.ImportParameters (parameters);
 
 			return rsa;
@@ -263,6 +298,7 @@ namespace MimeKit.Cryptography
 			parameters.Modulus = key.Modulus.ToByteArrayUnsigned ();
 
 			var rsa = new RSACryptoServiceProvider ();
+
 			rsa.ImportParameters (parameters);
 
 			return rsa;
@@ -289,17 +325,17 @@ namespace MimeKit.Cryptography
 				throw new ArgumentNullException (nameof (key));
 
 			if (key.IsPrivate) {
-				if (key is DsaPrivateKeyParameters)
-					return GetAsymmetricAlgorithm ((DsaPrivateKeyParameters) key, null);
+				if (key is RsaPrivateCrtKeyParameters rsaPrivateKey)
+					return GetAsymmetricAlgorithm (rsaPrivateKey);
 
-				if (key is RsaPrivateCrtKeyParameters)
-					return GetAsymmetricAlgorithm ((RsaPrivateCrtKeyParameters) key);
+				if (key is DsaPrivateKeyParameters dsaPrivateKey)
+					return GetAsymmetricAlgorithm (dsaPrivateKey, null);
 			} else {
-				if (key is DsaPublicKeyParameters)
-					return GetAsymmetricAlgorithm ((DsaPublicKeyParameters) key);
+				if (key is RsaKeyParameters rsaPublicKey)
+					return GetAsymmetricAlgorithm (rsaPublicKey);
 
-				if (key is RsaKeyParameters)
-					return GetAsymmetricAlgorithm ((RsaKeyParameters) key);
+				if (key is DsaPublicKeyParameters dsaPublicKey)
+					return GetAsymmetricAlgorithm (dsaPublicKey);
 			}
 
 			throw new NotSupportedException (string.Format ("{0} is currently not supported.", key.GetType ().Name));
@@ -325,11 +361,11 @@ namespace MimeKit.Cryptography
 			if (key == null)
 				throw new ArgumentNullException (nameof (key));
 
-			if (key.Private is DsaPrivateKeyParameters)
-				return GetAsymmetricAlgorithm ((DsaPrivateKeyParameters) key.Private, (DsaPublicKeyParameters) key.Public);
+			if (key.Private is RsaPrivateCrtKeyParameters rsaPrivateKey)
+				return GetAsymmetricAlgorithm (rsaPrivateKey);
 
-			if (key.Private is RsaPrivateCrtKeyParameters)
-				return GetAsymmetricAlgorithm ((RsaPrivateCrtKeyParameters) key.Private);
+			if (key.Private is DsaPrivateKeyParameters dsaPrivateKey)
+				return GetAsymmetricAlgorithm (dsaPrivateKey, (DsaPublicKeyParameters) key.Public);
 
 			throw new NotSupportedException (string.Format ("{0} is currently not supported.", key.GetType ().Name));
 		}

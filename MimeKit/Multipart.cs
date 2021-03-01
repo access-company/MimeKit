@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -32,13 +32,9 @@ using System.Collections;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
-#if PORTABLE
-using Encoding = Portable.Text.Encoding;
-#endif
-
-using MimeKit.Encodings;
-using MimeKit.Utils;
 using MimeKit.IO;
+using MimeKit.Utils;
+using MimeKit.Encodings;
 
 namespace MimeKit {
 	/// <summary>
@@ -71,10 +67,10 @@ namespace MimeKit {
 		string preamble, epilogue;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Multipart"/> class.
+		/// Initialize a new instance of the <see cref="Multipart"/> class.
 		/// </summary>
 		/// <remarks>
-		/// This constructor is used by <see cref="MimeKit.MimeParser"/>.
+		/// This constructor is used by <see cref="MimeParser"/>.
 		/// </remarks>
 		/// <param name="args">Information used by the constructor.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -86,7 +82,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Multipart"/> class.
+		/// Initialize a new instance of the <see cref="Multipart"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="Multipart"/> with the specified subtype.
@@ -110,8 +106,7 @@ namespace MimeKit {
 				if (obj == null || TryInit (obj))
 					continue;
 
-				var entity = obj as MimeEntity;
-				if (entity != null) {
+				if (obj is MimeEntity entity) {
 					Add (entity);
 					continue;
 				}
@@ -121,7 +116,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Multipart"/> class.
+		/// Initialize a new instance of the <see cref="Multipart"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="Multipart"/> with the specified subtype.
@@ -132,13 +127,13 @@ namespace MimeKit {
 		/// </exception>
 		public Multipart (string subtype) : base ("multipart", subtype)
 		{
-			ContentType.Parameters["boundary"] = GenerateBoundary ();
+			ContentType.Boundary = GenerateBoundary ();
 			children = new List<MimeEntity> ();
 			WriteEndBoundary = true;
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Multipart"/> class.
+		/// Initialize a new instance of the <see cref="Multipart"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="Multipart"/> with a ContentType of multipart/mixed.
@@ -162,7 +157,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets or sets the boundary.
+		/// Get or set the boundary.
 		/// </summary>
 		/// <remarks>
 		/// Gets or sets the boundary parameter on the Content-Type header.
@@ -189,7 +184,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets or sets the preamble.
+		/// Get or set the preamble.
 		/// </summary>
 		/// <remarks>
 		/// A multipart preamble appears before the first child entity of the
@@ -228,7 +223,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets or sets the epilogue.
+		/// Get or set the epilogue.
 		/// </summary>
 		/// <remarks>
 		/// A multipart epiloque is the text that appears after the closing boundary
@@ -271,7 +266,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets or sets whether the end boundary should be written.
+		/// Get or set whether the end boundary should be written.
 		/// </summary>
 		/// <remarks>
 		/// Gets or sets whether the end boundary should be written.
@@ -285,12 +280,12 @@ namespace MimeKit {
 		/// Dispatches to the specific visit method for this MIME entity.
 		/// </summary>
 		/// <remarks>
-		/// This default implementation for <see cref="MimeKit.Multipart"/> nodes
-		/// calls <see cref="MimeKit.MimeVisitor.VisitMultipart"/>. Override this
+		/// This default implementation for <see cref="Multipart"/> nodes
+		/// calls <see cref="MimeVisitor.VisitMultipart"/>. Override this
 		/// method to call into a more specific method on a derived visitor class
-		/// of the <see cref="MimeKit.MimeVisitor"/> class. However, it should still
+		/// of the <see cref="MimeVisitor"/> class. However, it should still
 		/// support unknown visitors by calling
-		/// <see cref="MimeKit.MimeVisitor.VisitMultipart"/>.
+		/// <see cref="MimeVisitor.VisitMultipart"/>.
 		/// </remarks>
 		/// <param name="visitor">The visitor.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -356,10 +351,10 @@ namespace MimeKit {
 			return builder.ToString ();
 		}
 
-		static void WriteBytes (FormatOptions options, Stream stream, byte[] bytes, CancellationToken cancellationToken)
+		static void WriteBytes (FormatOptions options, Stream stream, byte[] bytes, bool ensureNewLine, CancellationToken cancellationToken)
 		{
 			var cancellable = stream as ICancellableStream;
-			var filter = options.CreateNewLineFilter ();
+			var filter = options.CreateNewLineFilter (ensureNewLine);
 			int index, length;
 
 			var output = filter.Flush (bytes, 0, bytes.Length, out index, out length);
@@ -372,9 +367,9 @@ namespace MimeKit {
 			}
 		}
 
-		static Task WriteBytesAsync (FormatOptions options, Stream stream, byte[] bytes, CancellationToken cancellationToken)
+		static Task WriteBytesAsync (FormatOptions options, Stream stream, byte[] bytes, bool ensureNewLine, CancellationToken cancellationToken)
 		{
-			var filter = options.CreateNewLineFilter ();
+			var filter = options.CreateNewLineFilter (ensureNewLine);
 			int index, length;
 
 			var output = filter.Flush (bytes, 0, bytes.Length, out index, out length);
@@ -405,7 +400,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Writes the <see cref="MimeKit.Multipart"/> to the specified output stream.
+		/// Write the <see cref="Multipart"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// Writes the multipart MIME entity and its subparts to the output stream.
@@ -427,9 +422,6 @@ namespace MimeKit {
 		/// </exception>
 		public override void WriteTo (FormatOptions options, Stream stream, bool contentOnly, CancellationToken cancellationToken = default (CancellationToken))
 		{
-			if (Boundary == null)
-				Boundary = GenerateBoundary ();
-
 			base.WriteTo (options, stream, contentOnly, cancellationToken);
 
 			if (ContentType.IsMimeType ("multipart", "signed")) {
@@ -444,7 +436,7 @@ namespace MimeKit {
 			var cancellable = stream as ICancellableStream;
 
 			if (RawPreamble != null && RawPreamble.Length > 0)
-				WriteBytes (options, stream, RawPreamble, cancellationToken);
+				WriteBytes (options, stream, RawPreamble, children.Count > 0 || EnsureNewLine, cancellationToken);
 
 			var boundary = Encoding.ASCII.GetBytes ("--" + Boundary + "--");
 
@@ -479,7 +471,7 @@ namespace MimeKit {
 					cancellable.Write (options.NewLineBytes, 0, options.NewLineBytes.Length, cancellationToken);
 			} else {
 				for (int i = 0; i < children.Count; i++) {
-					var msg = children[i] as MessagePart;
+					var rfc822 = children[i] as MessagePart;
 					var multi = children[i] as Multipart;
 					var part = children[i] as MimePart;
 
@@ -488,15 +480,16 @@ namespace MimeKit {
 					stream.Write (options.NewLineBytes, 0, options.NewLineBytes.Length);
 					children[i].WriteTo (options, stream, false, cancellationToken);
 
-					if (msg != null && msg.Message != null && msg.Message.Body != null) {
-						multi = msg.Message.Body as Multipart;
-						part = msg.Message.Body as MimePart;
+					if (rfc822 != null && rfc822.Message != null && rfc822.Message.Body != null) {
+						multi = rfc822.Message.Body as Multipart;
+						part = rfc822.Message.Body as MimePart;
 					}
 
 					if ((part != null && part.Content == null) ||
 						(multi != null && !multi.WriteEndBoundary))
 						continue;
 
+					cancellationToken.ThrowIfCancellationRequested ();
 					stream.Write (options.NewLineBytes, 0, options.NewLineBytes.Length);
 				}
 
@@ -513,15 +506,16 @@ namespace MimeKit {
 			}
 
 			if (RawEpilogue != null && RawEpilogue.Length > 0)
-				WriteBytes (options, stream, RawEpilogue, cancellationToken);
+				WriteBytes (options, stream, RawEpilogue, EnsureNewLine, cancellationToken);
 		}
 
 		/// <summary>
-		/// Asynchronously writes the <see cref="MimeKit.Multipart"/> to the specified output stream.
+		/// Asynchronously write the <see cref="Multipart"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
-		/// Writes the multipart MIME entity and its subparts to the output stream.
+		/// Asynchronously writes the multipart MIME entity and its subparts to the output stream.
 		/// </remarks>
+		/// <returns>An awaitable task.</returns>
 		/// <param name="options">The formatting options.</param>
 		/// <param name="stream">The output stream.</param>
 		/// <param name="contentOnly"><c>true</c> if only the content should be written; otherwise, <c>false</c>.</param>
@@ -539,9 +533,6 @@ namespace MimeKit {
 		/// </exception>
 		public override async Task WriteToAsync (FormatOptions options, Stream stream, bool contentOnly, CancellationToken cancellationToken = default (CancellationToken))
 		{
-			if (Boundary == null)
-				Boundary = GenerateBoundary ();
-
 			await base.WriteToAsync (options, stream, contentOnly, cancellationToken).ConfigureAwait (false);
 
 			if (ContentType.IsMimeType ("multipart", "signed")) {
@@ -554,7 +545,7 @@ namespace MimeKit {
 			}
 
 			if (RawPreamble != null && RawPreamble.Length > 0)
-				await WriteBytesAsync (options, stream, RawPreamble, cancellationToken).ConfigureAwait (false);
+				await WriteBytesAsync (options, stream, RawPreamble, children.Count > 0 || EnsureNewLine, cancellationToken).ConfigureAwait (false);
 
 			var boundary = Encoding.ASCII.GetBytes ("--" + Boundary + "--");
 
@@ -588,13 +579,13 @@ namespace MimeKit {
 				await stream.WriteAsync (options.NewLineBytes, 0, options.NewLineBytes.Length, cancellationToken).ConfigureAwait (false);
 
 			if (RawEpilogue != null && RawEpilogue.Length > 0)
-				await WriteBytesAsync (options, stream, RawEpilogue, cancellationToken).ConfigureAwait (false);
+				await WriteBytesAsync (options, stream, RawEpilogue, EnsureNewLine, cancellationToken).ConfigureAwait (false);
 		}
 
 		#region ICollection implementation
 
 		/// <summary>
-		/// Gets the number of parts in the multipart.
+		/// Get the number of parts in the multipart.
 		/// </summary>
 		/// <remarks>
 		/// Indicates the number of parts in the multipart.
@@ -605,7 +596,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets a value indicating whether this instance is read only.
+		/// Get a value indicating whether this instance is read only.
 		/// </summary>
 		/// <remarks>
 		/// A <see cref="Multipart"/> is never read-only.
@@ -616,7 +607,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Adds the specified part.
+		/// Add an entity to the multipart.
 		/// </summary>
 		/// <remarks>
 		/// Adds the specified part to the multipart.
@@ -635,7 +626,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Clears the multipart.
+		/// Clear a multipart.
 		/// </summary>
 		/// <remarks>
 		/// Removes all of the parts within the multipart.
@@ -647,7 +638,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Checks if the <see cref="Multipart"/> contains the specified part.
+		/// Check if the <see cref="Multipart"/> contains the specified part.
 		/// </summary>
 		/// <remarks>
 		/// Determines whether or not the multipart contains the specified part.
@@ -667,7 +658,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Copies all of the entities in the <see cref="Multipart"/> to the specified array.
+		/// Copy all of the entities in the <see cref="Multipart"/> to the specified array.
 		/// </summary>
 		/// <remarks>
 		/// Copies all of the entities within the <see cref="Multipart"/> into the array,
@@ -687,7 +678,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Removes the specified part.
+		/// Remove an entity from the multipart.
 		/// </summary>
 		/// <remarks>
 		/// Removes the specified part, if it exists within the multipart.
@@ -715,7 +706,7 @@ namespace MimeKit {
 		#region IList implementation
 
 		/// <summary>
-		/// Gets the index of the specified part.
+		/// Get the index of an entity.
 		/// </summary>
 		/// <remarks>
 		/// Finds the index of the specified part, if it exists.
@@ -734,7 +725,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Inserts the part at the specified index.
+		/// Insert an entity into the <see cref="Multipart"/> at the specified index.
 		/// </summary>
 		/// <remarks>
 		/// Inserts the part into the multipart at the specified index.
@@ -760,10 +751,10 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Removes the part at the specified index.
+		/// Remove an entity from the <see cref="Multipart"/> at the specified index.
 		/// </summary>
 		/// <remarks>
-		/// Removes the part at the specified index.
+		/// Removes the entity at the specified index.
 		/// </remarks>
 		/// <param name="index">The index.</param>
 		/// <exception cref="System.ArgumentOutOfRangeException">
@@ -776,7 +767,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets or sets the <see cref="MimeEntity"/> at the specified index.
+		/// Get or set the <see cref="MimeEntity"/> at the specified index.
 		/// </summary>
 		/// <remarks>
 		/// Gets or sets the <see cref="MimeEntity"/> at the specified index.
@@ -805,7 +796,7 @@ namespace MimeKit {
 		#region IEnumerable implementation
 
 		/// <summary>
-		/// Gets the enumerator for the children of the <see cref="Multipart"/>.
+		/// Get the enumerator for the children of the <see cref="Multipart"/>.
 		/// </summary>
 		/// <remarks>
 		/// Gets the enumerator for the children of the <see cref="Multipart"/>.
@@ -821,7 +812,7 @@ namespace MimeKit {
 		#region IEnumerable implementation
 
 		/// <summary>
-		/// Gets the enumerator for the children of the <see cref="Multipart"/>.
+		/// Get the enumerator for the children of the <see cref="Multipart"/>.
 		/// </summary>
 		/// <remarks>
 		/// Gets the enumerator for the children of the <see cref="Multipart"/>.

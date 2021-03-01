@@ -1,9 +1,9 @@
-//
+﻿//
 // CmsRecipientTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -49,6 +49,7 @@ namespace UnitTests.Cryptography {
 			Assert.Throws<ArgumentNullException> (() => new CmsRecipient ((string) null));
 
 			var recipients = new CmsRecipientCollection ();
+
 			Assert.AreEqual (0, recipients.Count);
 			Assert.IsFalse (recipients.IsReadOnly);
 			Assert.Throws<ArgumentNullException> (() => recipients.Add (null));
@@ -61,16 +62,17 @@ namespace UnitTests.Cryptography {
 
 		static void AssertDefaultValues (CmsRecipient recipient, X509Certificate certificate)
 		{
-			Assert.AreEqual (certificate, recipient.Certificate);
-			Assert.AreEqual (1, recipient.EncryptionAlgorithms.Length);
-			Assert.AreEqual (EncryptionAlgorithm.TripleDes, recipient.EncryptionAlgorithms[0]);
-			Assert.AreEqual (SubjectIdentifierType.IssuerAndSerialNumber, recipient.RecipientIdentifierType);
+			Assert.AreEqual (certificate, recipient.Certificate, "Certificate");
+			Assert.AreEqual (1, recipient.EncryptionAlgorithms.Length, "EncryptionAlgorithms");
+			Assert.AreEqual (EncryptionAlgorithm.TripleDes, recipient.EncryptionAlgorithms[0], "EncryptionAlgorithm");
+			Assert.AreEqual (SubjectIdentifierType.IssuerAndSerialNumber, recipient.RecipientIdentifierType, "RecipientIdentifierType");
+			Assert.IsNull (recipient.RsaEncryptionPadding, "RsaEncryptionPadding");
 		}
 
 		[Test]
 		public void TestDefaultValues ()
 		{
-			var path = Path.Combine ("..", "..", "TestData", "smime", "certificate-authority.crt");
+			var path = Path.Combine (TestHelper.ProjectDir, "TestData", "smime", "StartComCertificationAuthority.crt");
 			var recipient = new CmsRecipient (path);
 			var certificate = recipient.Certificate;
 
@@ -88,6 +90,52 @@ namespace UnitTests.Cryptography {
 			recipient = new CmsRecipient (new X509Certificate2 (path));
 
 			AssertDefaultValues (recipient, certificate);
+		}
+
+		[Test]
+		public void TestRecipientIdentifierType ()
+		{
+			var path = Path.Combine (TestHelper.ProjectDir, "TestData", "smime", "StartComCertificationAuthority.crt");
+			var recipient = new CmsRecipient (path, SubjectIdentifierType.SubjectKeyIdentifier);
+			var certificate = recipient.Certificate;
+
+			Assert.AreEqual (SubjectIdentifierType.SubjectKeyIdentifier, recipient.RecipientIdentifierType);
+
+			using (var stream = File.OpenRead (path))
+				recipient = new CmsRecipient (stream, SubjectIdentifierType.SubjectKeyIdentifier);
+			Assert.AreEqual (SubjectIdentifierType.SubjectKeyIdentifier, recipient.RecipientIdentifierType);
+
+			recipient = new CmsRecipient (certificate, SubjectIdentifierType.SubjectKeyIdentifier);
+			Assert.AreEqual (SubjectIdentifierType.SubjectKeyIdentifier, recipient.RecipientIdentifierType);
+
+			recipient = new CmsRecipient (new X509Certificate2 (File.ReadAllBytes (path)), SubjectIdentifierType.SubjectKeyIdentifier);
+			Assert.AreEqual (SubjectIdentifierType.SubjectKeyIdentifier, recipient.RecipientIdentifierType);
+		}
+
+		[Test]
+		public void TestCollectionAddRemove ()
+		{
+			var path = Path.Combine (TestHelper.ProjectDir, "TestData", "smime", "StartComCertificationAuthority.crt");
+			var recipients = new CmsRecipientCollection ();
+			var recipient = new CmsRecipient (path);
+			var array = new CmsRecipient[1];
+
+			Assert.IsFalse (recipients.Contains (recipient), "Contains: False");
+			Assert.IsFalse (recipients.Remove (recipient), "Remove: False");
+
+			recipients.Add (recipient);
+
+			Assert.AreEqual (1, recipients.Count, "Count");
+			Assert.IsTrue (recipients.Contains (recipient), "Contains: True");
+
+			recipients.CopyTo (array, 0);
+			Assert.AreEqual (recipient, array[0], "CopyTo");
+
+			Assert.IsTrue (recipients.Remove (recipient), "Remove: True");
+
+			Assert.AreEqual (0, recipients.Count, "Count");
+
+			recipients.Clear ();
 		}
 	}
 }

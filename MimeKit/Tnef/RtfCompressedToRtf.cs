@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,15 +25,10 @@
 //
 
 using System;
+using System.Text;
 
 using MimeKit.IO.Filters;
 using MimeKit.Utils;
-
-#if PORTABLE
-using Encoding = Portable.Text.Encoding;
-#else
-using Encoding = System.Text.Encoding;
-#endif
 
 namespace MimeKit.Tnef {
 	/// <summary>
@@ -76,10 +71,10 @@ namespace MimeKit.Tnef {
 		int size;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Tnef.RtfCompressedToRtf"/> class.
+		/// Initialize a new instance of the <see cref="RtfCompressedToRtf"/> class.
 		/// </summary>
 		/// <remarks>
-		/// Creates a new <see cref="MimeKit.Tnef.RtfCompressedToRtf"/> converter filter.
+		/// Creates a new <see cref="RtfCompressedToRtf"/> converter filter.
 		/// </remarks>
 		public RtfCompressedToRtf ()
 		{
@@ -112,6 +107,11 @@ namespace MimeKit.Tnef {
 
 		bool TryReadInt32 (byte[] buffer, ref int index, int endIndex, out int value)
 		{
+			if (index == endIndex) {
+				value = saved;
+				return false;
+			}
+
 			int nread = (saved >> 24) & 0xFF;
 
 			saved &= 0x00FFFFFF;
@@ -242,7 +242,7 @@ namespace MimeKit.Tnef {
 			outputLength = 0;
 			outputIndex = 0;
 
-			while (index < endIndex) {
+			while (index < endIndex && state != FilterState.Complete) {
 				byte value = input[index++];
 
 				crc32.Update (value);
@@ -313,8 +313,6 @@ namespace MimeKit.Tnef {
 					} else {
 						state = FilterState.BeginControlRun;
 					}
-					break;
-				case FilterState.Complete:
 					break;
 				}
 			}

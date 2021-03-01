@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,11 +27,8 @@
 using System;
 using System.Linq;
 using System.Text;
+using System.Globalization;
 using System.Collections.Generic;
-
-#if PORTABLE
-using Encoding = Portable.Text.Encoding;
-#endif
 
 using MimeKit.Utils;
 
@@ -46,7 +43,7 @@ namespace MimeKit {
 	public class GroupAddress : InternetAddress
 	{
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.GroupAddress"/> class.
+		/// Initialize a new instance of the <see cref="GroupAddress"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="GroupAddress"/> with the specified name and list of addresses. The
@@ -65,7 +62,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.GroupAddress"/> class.
+		/// Initialize a new instance of the <see cref="GroupAddress"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="GroupAddress"/> with the specified name and list of addresses.
@@ -77,7 +74,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.GroupAddress"/> class.
+		/// Initialize a new instance of the <see cref="GroupAddress"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="GroupAddress"/> with the specified name. The specified
@@ -95,7 +92,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.GroupAddress"/> class.
+		/// Initialize a new instance of the <see cref="GroupAddress"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="GroupAddress"/> with the specified name.
@@ -121,23 +118,21 @@ namespace MimeKit {
 		/// Gets the members of the group.
 		/// </summary>
 		/// <remarks>
-		/// Represents the member addresses of the group. Typically the member addresses
-		/// will be of the <see cref="MailboxAddress"/> variety, but it is possible
-		/// for groups to contain other groups.
+		/// <para>Represents the member addresses of the group. If the group address properly conforms
+		/// to the internet standards, every group member should be of the <see cref="MailboxAddress"/>
+		/// variety. When handling group addresses constructed by third-party software, it is possible
+		/// for groups to contain members of the <see cref="GroupAddress"/> variety.</para>
+		/// <para>When constructing new messages, it is recommended that address groups not contain
+		/// anything other than <see cref="MailboxAddress"/> members in order to comply with internet
+		/// standards.</para>
 		/// </remarks>
 		/// <value>The list of members.</value>
 		public InternetAddressList Members {
 			get; private set;
 		}
 
-		internal override void Encode (FormatOptions options, StringBuilder builder, ref int lineLength)
+		internal override void Encode (FormatOptions options, StringBuilder builder, bool firstToken, ref int lineLength)
 		{
-			if (builder == null)
-				throw new ArgumentNullException (nameof (builder));
-
-			if (lineLength < 0)
-				throw new ArgumentOutOfRangeException (nameof (lineLength));
-
 			if (!string.IsNullOrEmpty (Name)) {
 				string name;
 
@@ -151,11 +146,11 @@ namespace MimeKit {
 				if (lineLength + name.Length > options.MaxLineLength) {
 					if (name.Length > options.MaxLineLength) {
 						// we need to break up the name...
-						builder.AppendFolded (options, name, ref lineLength);
+						builder.AppendFolded (options, firstToken, name, ref lineLength);
 					} else {
 						// the name itself is short enough to fit on a single line,
 						// but only if we write it on a line by itself
-						if (lineLength > 1) {
+						if (!firstToken && lineLength > 1) {
 							builder.LineWrap (options);
 							lineLength = 1;
 						}
@@ -173,7 +168,7 @@ namespace MimeKit {
 			builder.Append (": ");
 			lineLength += 2;
 
-			Members.Encode (options, builder, ref lineLength);
+			Members.Encode (options, builder, false, ref lineLength);
 
 			builder.Append (';');
 			lineLength++;
@@ -205,7 +200,7 @@ namespace MimeKit {
 			if (encode) {
 				int lineLength = 0;
 
-				Encode (options, builder, ref lineLength);
+				Encode (options, builder, true, ref lineLength);
 			} else {
 				builder.Append (Name);
 				builder.Append (':');
@@ -227,14 +222,14 @@ namespace MimeKit {
 		#region IEquatable implementation
 
 		/// <summary>
-		/// Determines whether the specified <see cref="MimeKit.GroupAddress"/> is equal to the current <see cref="MimeKit.GroupAddress"/>.
+		/// Determines whether the specified <see cref="GroupAddress"/> is equal to the current <see cref="GroupAddress"/>.
 		/// </summary>
 		/// <remarks>
 		/// Compares two group addresses to determine if they are identical or not.
 		/// </remarks>
-		/// <param name="other">The <see cref="MimeKit.GroupAddress"/> to compare with the current <see cref="MimeKit.GroupAddress"/>.</param>
-		/// <returns><c>true</c> if the specified <see cref="MimeKit.GroupAddress"/> is equal to the current
-		/// <see cref="MimeKit.GroupAddress"/>; otherwise, <c>false</c>.</returns>
+		/// <param name="other">The <see cref="GroupAddress"/> to compare with the current <see cref="GroupAddress"/>.</param>
+		/// <returns><c>true</c> if the specified <see cref="GroupAddress"/> is equal to the current
+		/// <see cref="GroupAddress"/>; otherwise, <c>false</c>.</returns>
 		public override bool Equals (InternetAddress other)
 		{
 			var group = other as GroupAddress;
@@ -271,7 +266,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Tries to parse the given input buffer into a new <see cref="MimeKit.GroupAddress"/> instance.
+		/// Try to parse the given input buffer into a new <see cref="GroupAddress"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses a single <see cref="GroupAddress"/>. If the address is not a group address or
@@ -311,7 +306,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Tries to parse the given input buffer into a new <see cref="MimeKit.GroupAddress"/> instance.
+		/// Try to parse the given input buffer into a new <see cref="GroupAddress"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses a single <see cref="GroupAddress"/>. If the address is not a group address or
@@ -335,7 +330,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Tries to parse the given input buffer into a new <see cref="MimeKit.GroupAddress"/> instance.
+		/// Try to parse the given input buffer into a new <see cref="GroupAddress"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses a single <see cref="GroupAddress"/>. If the address is not a group address or
@@ -373,7 +368,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Tries to parse the given input buffer into a new <see cref="MimeKit.GroupAddress"/> instance.
+		/// Try to parse the given input buffer into a new <see cref="GroupAddress"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses a single <see cref="GroupAddress"/>. If the address is not a group address or
@@ -395,7 +390,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Tries to parse the given input buffer into a new <see cref="MimeKit.GroupAddress"/> instance.
+		/// Try to parse the given input buffer into a new <see cref="GroupAddress"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses a single <see cref="GroupAddress"/>. If the address is not a group address or
@@ -429,7 +424,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Tries to parse the given input buffer into a new <see cref="MimeKit.GroupAddress"/> instance.
+		/// Try to parse the given input buffer into a new <see cref="GroupAddress"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses a single <see cref="GroupAddress"/>. If the address is not a group address or
@@ -447,7 +442,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Tries to parse the given text into a new <see cref="MimeKit.GroupAddress"/> instance.
+		/// Try to parse the given text into a new <see cref="GroupAddress"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses a single <see cref="GroupAddress"/>. If the address is not a group address or
@@ -484,7 +479,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Tries to parse the given text into a new <see cref="MimeKit.GroupAddress"/> instance.
+		/// Try to parse the given text into a new <see cref="GroupAddress"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses a single <see cref="GroupAddress"/>. If the address is not a group address or
@@ -502,13 +497,13 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Parses the given input buffer into a new <see cref="MimeKit.GroupAddress"/> instance.
+		/// Parse the given input buffer into a new <see cref="GroupAddress"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses a single <see cref="GroupAddress"/>. If the address is not a group address or
 		/// there is more than a single group address, then parsing will fail.
 		/// </remarks>
-		/// <returns>The parsed <see cref="MimeKit.GroupAddress"/>.</returns>
+		/// <returns>The parsed <see cref="GroupAddress"/>.</returns>
 		/// <param name="options">The parser options to use.</param>
 		/// <param name="buffer">The input buffer.</param>
 		/// <param name="startIndex">The starting index of the input buffer.</param>
@@ -539,19 +534,19 @@ namespace MimeKit {
 			ParseUtils.SkipCommentsAndWhiteSpace (buffer, ref index, endIndex, true);
 
 			if (index != endIndex)
-				throw new ParseException (string.Format ("Unexpected token at offset {0}", index), index, index);
+				throw new ParseException (string.Format (CultureInfo.InvariantCulture, "Unexpected token at offset {0}", index), index, index);
 
 			return group;
 		}
 
 		/// <summary>
-		/// Parses the given input buffer into a new <see cref="MimeKit.GroupAddress"/> instance.
+		/// Parse the given input buffer into a new <see cref="GroupAddress"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses a single <see cref="GroupAddress"/>. If the address is not a group address or
 		/// there is more than a single group address, then parsing will fail.
 		/// </remarks>
-		/// <returns>The parsed <see cref="MimeKit.GroupAddress"/>.</returns>
+		/// <returns>The parsed <see cref="GroupAddress"/>.</returns>
 		/// <param name="buffer">The input buffer.</param>
 		/// <param name="startIndex">The starting index of the input buffer.</param>
 		/// <param name="length">The number of bytes in the input buffer to parse.</param>
@@ -571,13 +566,13 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Parses the given input buffer into a new <see cref="MimeKit.GroupAddress"/> instance.
+		/// Parse the given input buffer into a new <see cref="GroupAddress"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses a single <see cref="GroupAddress"/>. If the address is not a group address or
 		/// there is more than a single group address, then parsing will fail.
 		/// </remarks>
-		/// <returns>The parsed <see cref="MimeKit.GroupAddress"/>.</returns>
+		/// <returns>The parsed <see cref="GroupAddress"/>.</returns>
 		/// <param name="options">The parser options to use.</param>
 		/// <param name="buffer">The input buffer.</param>
 		/// <param name="startIndex">The starting index of the input buffer.</param>
@@ -606,19 +601,19 @@ namespace MimeKit {
 			ParseUtils.SkipCommentsAndWhiteSpace (buffer, ref index, endIndex, true);
 
 			if (index != endIndex)
-				throw new ParseException (string.Format ("Unexpected token at offset {0}", index), index, index);
+				throw new ParseException (string.Format (CultureInfo.InvariantCulture, "Unexpected token at offset {0}", index), index, index);
 
 			return group;
 		}
 
 		/// <summary>
-		/// Parses the given input buffer into a new <see cref="MimeKit.GroupAddress"/> instance.
+		/// Parse the given input buffer into a new <see cref="GroupAddress"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses a single <see cref="GroupAddress"/>. If the address is not a group address or
 		/// there is more than a single group address, then parsing will fail.
 		/// </remarks>
-		/// <returns>The parsed <see cref="MimeKit.GroupAddress"/>.</returns>
+		/// <returns>The parsed <see cref="GroupAddress"/>.</returns>
 		/// <param name="buffer">The input buffer.</param>
 		/// <param name="startIndex">The starting index of the input buffer.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -636,13 +631,13 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Parses the given input buffer into a new <see cref="MimeKit.GroupAddress"/> instance.
+		/// Parse the given input buffer into a new <see cref="GroupAddress"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses a single <see cref="GroupAddress"/>. If the address is not a group address or
 		/// there is more than a single group address, then parsing will fail.
 		/// </remarks>
-		/// <returns>The parsed <see cref="MimeKit.GroupAddress"/>.</returns>
+		/// <returns>The parsed <see cref="GroupAddress"/>.</returns>
 		/// <param name="options">The parser options to use.</param>
 		/// <param name="buffer">The input buffer.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -667,19 +662,19 @@ namespace MimeKit {
 			ParseUtils.SkipCommentsAndWhiteSpace (buffer, ref index, endIndex, true);
 
 			if (index != endIndex)
-				throw new ParseException (string.Format ("Unexpected token at offset {0}", index), index, index);
+				throw new ParseException (string.Format (CultureInfo.InvariantCulture, "Unexpected token at offset {0}", index), index, index);
 
 			return group;
 		}
 
 		/// <summary>
-		/// Parses the given input buffer into a new <see cref="MimeKit.GroupAddress"/> instance.
+		/// Parse the given input buffer into a new <see cref="GroupAddress"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses a single <see cref="GroupAddress"/>. If the address is not a group address or
 		/// there is more than a single group address, then parsing will fail.
 		/// </remarks>
-		/// <returns>The parsed <see cref="MimeKit.GroupAddress"/>.</returns>
+		/// <returns>The parsed <see cref="GroupAddress"/>.</returns>
 		/// <param name="buffer">The input buffer.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="buffer"/> is <c>null</c>.
@@ -693,13 +688,13 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Parses the given text into a new <see cref="MimeKit.GroupAddress"/> instance.
+		/// Parse the given text into a new <see cref="GroupAddress"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses a single <see cref="GroupAddress"/>. If the address is not a group address or
 		/// there is more than a single group address, then parsing will fail.
 		/// </remarks>
-		/// <returns>The parsed <see cref="MimeKit.GroupAddress"/>.</returns>
+		/// <returns>The parsed <see cref="GroupAddress"/>.</returns>
 		/// <param name="options">The parser options to use.</param>
 		/// <param name="text">The text.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -729,19 +724,19 @@ namespace MimeKit {
 			ParseUtils.SkipCommentsAndWhiteSpace (buffer, ref index, endIndex, true);
 
 			if (index != endIndex)
-				throw new ParseException (string.Format ("Unexpected token at offset {0}", index), index, index);
+				throw new ParseException (string.Format (CultureInfo.InvariantCulture, "Unexpected token at offset {0}", index), index, index);
 
 			return group;
 		}
 
 		/// <summary>
-		/// Parses the given text into a new <see cref="MimeKit.GroupAddress"/> instance.
+		/// Parse the given text into a new <see cref="GroupAddress"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses a single <see cref="GroupAddress"/>. If the address is not a group address or
 		/// there is more than a single group address, then parsing will fail.
 		/// </remarks>
-		/// <returns>The parsed <see cref="MimeKit.GroupAddress"/>.</returns>
+		/// <returns>The parsed <see cref="GroupAddress"/>.</returns>
 		/// <param name="text">The text.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="text"/> is <c>null</c>.

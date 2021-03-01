@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc.
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,7 @@
 
 using System;
 using System.IO;
+using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -39,13 +40,18 @@ namespace MimeKit {
 	/// <remarks>
 	/// The <see cref="AttachmentCollection"/> is only used when building a message body with a <see cref="BodyBuilder"/>.
 	/// </remarks>
+	/// <example>
+	/// <code language="c#" source="Examples\BodyBuilder.cs" region="Complex" />
+	/// </example>
 	public class AttachmentCollection : IList<MimeEntity>
 	{
+		const int BufferLength = 4096;
+
 		readonly List<MimeEntity> attachments;
 		readonly bool linked;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.AttachmentCollection"/> class.
+		/// Initialize a new instance of the <see cref="AttachmentCollection"/> class.
 		/// </summary>
 		/// <remarks>
 		/// <para>Creates a new <see cref="AttachmentCollection"/>.</para>
@@ -60,7 +66,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.AttachmentCollection"/> class.
+		/// Initialize a new instance of the <see cref="AttachmentCollection"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="AttachmentCollection"/>.
@@ -94,10 +100,10 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets or sets the <see cref="MimeKit.MimeEntity"/> at the specified index.
+		/// Gets or sets the <see cref="MimeEntity"/> at the specified index.
 		/// </summary>
 		/// <remarks>
-		/// Gets or sets the <see cref="MimeKit.MimeEntity"/> at the specified index.
+		/// Gets or sets the <see cref="MimeEntity"/> at the specified index.
 		/// </remarks>
 		/// <value>The attachment at the specified index.</value>
 		/// <param name="index">The index.</param>
@@ -128,20 +134,32 @@ namespace MimeKit {
 		static void LoadContent (MimePart attachment, Stream stream)
 		{
 			var content = new MemoryBlockStream ();
-			var filter = new BestEncodingFilter ();
-			var buf = new byte[4096];
-			int index, length;
-			int nread;
 
-			while ((nread = stream.Read (buf, 0, buf.Length)) > 0) {
-				filter.Filter (buf, 0, nread, out index, out length);
-				content.Write (buf, 0, nread);
+			if (attachment.ContentType.IsMimeType ("text", "*")) {
+				var buf = ArrayPool<byte>.Shared.Rent (BufferLength);
+				var filter = new BestEncodingFilter ();
+				int index, length;
+				int nread;
+
+				try {
+					while ((nread = stream.Read (buf, 0, BufferLength)) > 0) {
+						filter.Filter (buf, 0, nread, out index, out length);
+						content.Write (buf, 0, nread);
+					}
+
+					filter.Flush (buf, 0, 0, out index, out length);
+				} finally {
+					ArrayPool<byte>.Shared.Return (buf);
+				}
+
+				attachment.ContentTransferEncoding = filter.GetBestEncoding (EncodingConstraint.SevenBit);
+			} else {
+				attachment.ContentTransferEncoding = ContentEncoding.Base64;
+				stream.CopyTo (content, 4096);
 			}
 
-			filter.Flush (buf, 0, 0, out index, out length);
 			content.Position = 0;
 
-			attachment.ContentTransferEncoding = filter.GetBestEncoding (EncodingConstraint.SevenBit);
 			attachment.Content = new MimeContent (content);
 		}
 
@@ -152,27 +170,42 @@ namespace MimeKit {
 			return ContentType.Parse (mimeType);
 		}
 
-		MimePart CreateAttachment (ContentType contentType, string fileName, Stream stream)
+		static string GetFileName (string path)
 		{
-			MimePart attachment;
+			int index = path.LastIndexOf (Path.DirectorySeparatorChar);
 
-			if (contentType.IsMimeType ("text", "*")) {
-				attachment = new TextPart (contentType.MediaSubtype);
-				foreach (var param in contentType.Parameters)
-					attachment.ContentType.Parameters.Add (param);
+			return index > 0 ? path.Substring (index + 1) : path;
+		}
 
-				// TODO: should we try to auto-detect charsets if no charset parameter is specified?
+		MimeEntity CreateAttachment (ContentType contentType, string path, Stream stream)
+		{
+			var fileName = GetFileName (path);
+			MimeEntity attachment;
+
+			if (contentType.IsMimeType ("message", "rfc822")) {
+				var message = MimeMessage.Load (stream);
+
+				attachment = new MessagePart { Message = message };
 			} else {
-				attachment = new MimePart (contentType);
+				MimePart part;
+
+				if (contentType.IsMimeType ("text", "*")) {
+					// TODO: should we try to auto-detect charsets if no charset parameter is specified?
+					part = new TextPart (contentType);
+				} else {
+					part = new MimePart (contentType);
+				}
+
+				LoadContent (part, stream);
+				attachment = part;
 			}
 
-			attachment.FileName = Path.GetFileName (fileName);
-			attachment.IsAttachment = !linked;
+			attachment.ContentDisposition = new ContentDisposition (linked ? ContentDisposition.Inline : ContentDisposition.Attachment);
+			attachment.ContentDisposition.FileName = fileName;
+			attachment.ContentType.Name = fileName;
 
 			if (linked)
-				attachment.ContentLocation = new Uri (Path.GetFileName (fileName), UriKind.Relative);
-
-			LoadContent (attachment, stream);
+				attachment.ContentLocation = new Uri (fileName, UriKind.Relative);
 
 			return attachment;
 		}
@@ -351,7 +384,6 @@ namespace MimeKit {
 			return attachment;
 		}
 
-#if !PORTABLE
 		/// <summary>
 		/// Add the specified attachment.
 		/// </summary>
@@ -406,6 +438,9 @@ namespace MimeKit {
 		/// <remarks>
 		/// <para>Adds the specified file as an attachment.</para>
 		/// </remarks>
+		/// <example>
+		/// <code language="c#" source="Examples\BodyBuilder.cs" region="Complex" />
+		/// </example>
 		/// <returns>The newly added attachment <see cref="MimeEntity"/>.</returns>
 		/// <param name="fileName">The name of the file.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -413,8 +448,7 @@ namespace MimeKit {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.IO.DirectoryNotFoundException">
 		/// <paramref name="fileName"/> is an invalid file path.
@@ -444,7 +478,6 @@ namespace MimeKit {
 				return attachment;
 			}
 		}
-#endif
 
 		/// <summary>
 		/// Add the specified attachment.

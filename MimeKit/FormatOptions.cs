@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -50,6 +50,12 @@ namespace MimeKit {
 		/// The DOS New-Line format (<c>"\r\n"</c>).
 		/// </summary>
 		Dos,
+
+		/// <summary>
+		/// A mixed New-Line format where some lines use Unix-based line endings and
+		/// other lines use DOS-based line endings.
+		/// </summary>
+		Mixed,
 	}
 
 	/// <summary>
@@ -73,7 +79,10 @@ namespace MimeKit {
 		ParameterEncodingMethod parameterEncodingMethod;
 		bool allowMixedHeaderCharsets;
 		NewLineFormat newLineFormat;
+		bool verifyingSignature;
+		bool ensureNewLine;
 		bool international;
+		int maxLineLength;
 
 		/// <summary>
 		/// The default formatting options.
@@ -86,25 +95,43 @@ namespace MimeKit {
 		public static readonly FormatOptions Default;
 
 		/// <summary>
-		/// Gets the maximum line length used by the encoders. The encoders
+		/// Gets or sets the maximum line length used by the encoders. The encoders
 		/// use this value to determine where to place line breaks.
 		/// </summary>
 		/// <remarks>
 		/// Specifies the maximum line length to use when line-wrapping headers.
 		/// </remarks>
 		/// <value>The maximum line length.</value>
+		/// <exception cref="ArgumentOutOfRangeException">
+		/// <paramref name="value"/> is out of range. It must be between 60 and 998.
+		/// </exception>
+		/// <exception cref="System.InvalidOperationException">
+		/// <see cref="Default"/> cannot be changed.
+		/// </exception>
 		public int MaxLineLength {
-			get { return DefaultMaxLineLength; }
+			get { return maxLineLength; }
+			set {
+				if (this == Default)
+					throw new InvalidOperationException ("The default formatting options cannot be changed.");
+
+				if (value < MinimumLineLength || value > MaximumLineLength)
+					throw new ArgumentOutOfRangeException (nameof (value));
+
+				maxLineLength = value;
+			}
 		}
 
 		/// <summary>
-		/// Gets or sets the new-line format.
+		/// Get or set the new-line format.
 		/// </summary>
 		/// <remarks>
 		/// Specifies the new-line encoding to use when writing the message
 		/// or entity to a stream.
 		/// </remarks>
 		/// <value>The new-line format.</value>
+		/// <exception cref="System.ArgumentOutOfRangeException">
+		/// <paramref name="value"> is not a valid <see cref="NewLineFormat"/>.</paramref>
+		/// </exception>
 		/// <exception cref="System.InvalidOperationException">
 		/// <see cref="Default"/> cannot be changed.
 		/// </exception>
@@ -114,7 +141,39 @@ namespace MimeKit {
 				if (this == Default)
 					throw new InvalidOperationException ("The default formatting options cannot be changed.");
 
-				newLineFormat = value;
+				switch (newLineFormat) {
+				case NewLineFormat.Unix:
+				case NewLineFormat.Dos:
+					newLineFormat = value;
+					break;
+				default:
+					throw new ArgumentOutOfRangeException (nameof (value));
+				}
+			}
+		}
+
+		/// <summary>
+		/// Get or set whether the formatter should ensure that messages end with a new-line sequence.
+		/// </summary>
+		/// <remarks>
+		/// <para>By default, when writing a <see cref="MimeMessage"/> to a stream, the serializer attempts to
+		/// maintain byte-for-byte compatibility with the original stream that the message was parsed from.
+		/// This means that if the ogirinal message stream did not end with a new-line sequence, then the
+		/// output of writing the message back to a stream will also not end with a new-line sequence.</para>
+		/// <para>To override this behavior, you can set this property to <c>true</c> in order to ensure
+		/// that writing the message back to a stream will always end with a new-line sequence.</para>
+		/// </remarks>
+		/// <value><c>true</c> in order to ensure that the message will end with a new-line sequence; otherwise, <c>false</c>.</value>
+		/// <exception cref="System.InvalidOperationException">
+		/// <see cref="Default"/> cannot be changed.
+		/// </exception>
+		public bool EnsureNewLine {
+			get { return ensureNewLine; }
+			set {
+				if (this == Default)
+					throw new InvalidOperationException ("The default formatting options cannot be changed.");
+
+				ensureNewLine = value;
 			}
 		}
 
@@ -136,8 +195,13 @@ namespace MimeKit {
 			get { return NewLineFormats[(int) NewLineFormat]; }
 		}
 
+		internal bool VerifyingSignature {
+			get { return verifyingSignature; }
+			set { verifyingSignature = value; }
+		}
+
 		/// <summary>
-		/// Gets the message headers that should be hidden.
+		/// Get the message headers that should be hidden.
 		/// </summary>
 		/// <remarks>
 		/// <para>Specifies the set of headers that should be removed when
@@ -152,7 +216,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets or sets whether the new "Internationalized Email" formatting standards should be used.
+		/// Get or set whether the new "Internationalized Email" formatting standards should be used.
 		/// </summary>
 		/// <remarks>
 		/// <para>The new "Internationalized Email" format is defined by
@@ -178,11 +242,11 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets or sets whether the formatter should allow mixed charsets in the headers.
+		/// Get or set whether the formatter should allow mixed charsets in the headers.
 		/// </summary>
 		/// <remarks>
-		/// <para>When this option is enabled, the MIME formatter will try to use US-ASCII and/or
-		/// ISO-8859-1 to encode headers when appropriate rather than being forced to use the
+		/// <para>When this option is enabled, the MIME formatter will try to use us-ascii and/or
+		/// iso-8859-1 to encode headers when appropriate rather than being forced to use the
 		/// specified charset for all encoded-word tokens in order to maximize readability.</para>
 		/// <para>Unfortunately, mail clients like Outlook and Thunderbird do not treat
 		/// encoded-word tokens individually and assume that all tokens are encoded using the
@@ -192,7 +256,7 @@ namespace MimeKit {
 		/// <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=317263">
 		/// https://bugzilla.mozilla.org/show_bug.cgi?id=317263</a>.</para>
 		/// </remarks>
-		/// <value><c>true</c> if the formatter should be allowed to use ISO-8859-1 when encoding headers; otherwise, <c>false</c>.</value>
+		/// <value><c>true</c> if the formatter should be allowed to use us-ascii and/or iso-8859-1 when encoding headers; otherwise, <c>false</c>.</value>
 		public bool AllowMixedHeaderCharsets {
 			get { return allowMixedHeaderCharsets; }
 			set {
@@ -204,12 +268,12 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// The method to use for encoding Content-Type and Content-Disposition parameter values.
+		/// Get or set the method to use for encoding Content-Type and Content-Disposition parameter values.
 		/// </summary>
 		/// <remarks>
 		/// <para>The method to use for encoding Content-Type and Content-Disposition parameter
 		/// values when the <see cref="Parameter.EncodingMethod"/> is set to
-		/// <see cref="MimeKit.ParameterEncodingMethod.Default"/>.</para>
+		/// <see cref="ParameterEncodingMethod.Default"/>.</para>
 		/// <para>The MIME specifications specify that the proper method for encoding Content-Type
 		/// and Content-Disposition parameter values is the method described in
 		/// <a href="https://tools.ietf.org/html/rfc2231">rfc2231</a>. However, it is common for
@@ -243,7 +307,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.FormatOptions"/> class.
+		/// Initialize a new instance of the <see cref="FormatOptions"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new set of formatting options for use with methods such as
@@ -253,8 +317,9 @@ namespace MimeKit {
 		{
 			HiddenHeaders = new HashSet<HeaderId> ();
 			parameterEncodingMethod = ParameterEncodingMethod.Rfc2231;
-			//maxLineLength = DefaultMaxLineLength;
+			maxLineLength = DefaultMaxLineLength;
 			allowMixedHeaderCharsets = false;
+			ensureNewLine = false;
 			international = false;
 
 			if (Environment.NewLine.Length == 1)
@@ -264,7 +329,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Clones an instance of <see cref="MimeKit.FormatOptions"/>.
+		/// Clones an instance of <see cref="FormatOptions"/>.
 		/// </summary>
 		/// <remarks>
 		/// Clones the formatting options.
@@ -273,11 +338,13 @@ namespace MimeKit {
 		public FormatOptions Clone ()
 		{
 			var options = new FormatOptions ();
-			//options.maxLineLength = maxLineLength;
+			options.maxLineLength = maxLineLength;
 			options.newLineFormat = newLineFormat;
+			options.ensureNewLine = ensureNewLine;
 			options.HiddenHeaders = new HashSet<HeaderId> (HiddenHeaders);
 			options.allowMixedHeaderCharsets = allowMixedHeaderCharsets;
 			options.parameterEncodingMethod = parameterEncodingMethod;
+			options.verifyingSignature = verifyingSignature;
 			options.international = international;
 			return options;
 		}

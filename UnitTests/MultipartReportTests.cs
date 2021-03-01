@@ -1,9 +1,9 @@
-//
+﻿//
 // MultipartReportTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -47,6 +47,14 @@ namespace UnitTests {
 			Assert.Throws<ArgumentNullException> (() => report.ReportType = null);
 
 			Assert.Throws<ArgumentNullException> (() => report.Accept (null));
+		}
+
+		[Test]
+		public void TestParamCtor ()
+		{
+			var report = new MultipartReport ("disposition-notification", new MimePart ());
+
+			Assert.AreEqual (1, report.Count);
 		}
 	}
 }

@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,7 @@
 //
 
 using System.Text;
+using System.Collections.Generic;
 
 namespace MimeKit.Utils {
 	static class StringBuilderExtensions
@@ -44,7 +45,33 @@ namespace MimeKit.Utils {
 			return text;
 		}
 
-		public static StringBuilder AppendFolded (this StringBuilder text, FormatOptions options, string value, ref int lineLength)
+		public static void AppendTokens (this StringBuilder text, FormatOptions options, ref int lineLength, List<string> tokens)
+		{
+			var spaces = string.Empty;
+
+			foreach (var token in tokens) {
+				if (string.IsNullOrWhiteSpace (token)) {
+					spaces = token;
+					continue;
+				}
+
+				if (lineLength + spaces.Length + token.Length > options.MaxLineLength) {
+					text.Append (options.NewLine);
+					spaces = string.Empty;
+					text.Append ('\t');
+					lineLength = 1;
+				} else {
+					lineLength += spaces.Length;
+					text.Append (spaces);
+					spaces = string.Empty;
+				}
+
+				lineLength += token.Length;
+				text.Append (token);
+			}
+		}
+
+		public static StringBuilder AppendFolded (this StringBuilder text, FormatOptions options, bool firstToken, string value, ref int lineLength)
 		{
 			int wordIndex = 0;
 			int lwspIndex;
@@ -66,6 +93,10 @@ namespace MimeKit.Utils {
 							lwspIndex++;
 						}
 					}
+
+					// consume the end-quote
+					if (lwspIndex < value.Length)
+						lwspIndex++;
 				} else {
 					// normal word
 					while (lwspIndex < value.Length && !char.IsWhiteSpace (value[lwspIndex]))
@@ -73,13 +104,14 @@ namespace MimeKit.Utils {
 				}
 
 				int length = lwspIndex - wordIndex;
-				if (lineLength > 1 && (lineLength + length) > options.MaxLineLength) {
+				if (!firstToken && lineLength > 1 && (lineLength + length) > options.MaxLineLength) {
 					text.LineWrap (options);
 					lineLength = 1;
 				}
 
 				text.Append (value, wordIndex, length);
 				lineLength += length;
+				firstToken = false;
 
 				wordIndex = lwspIndex;
 				while (wordIndex < value.Length && char.IsWhiteSpace (value[wordIndex]))
@@ -106,7 +138,7 @@ namespace MimeKit.Utils {
 			case 0x0B: text.Append ("\\v"); break;
 			case 0x0D: text.Append ("\\r"); break;
 			default:
-				if (c < 020 || c > 0x7e) {
+				if (c < 0x20 || c > 0x7e) {
 					text.AppendFormat ("\\x{0:x2}", c);
 				} else {
 					text.Append ((char) c);

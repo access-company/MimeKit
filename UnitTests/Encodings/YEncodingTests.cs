@@ -1,9 +1,9 @@
-//
+﻿//
 // YEncodingTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -39,6 +39,8 @@ namespace UnitTests.Encodings {
 	[TestFixture]
 	public class YEncodingTests
 	{
+		static readonly string DataDir = Path.Combine (TestHelper.ProjectDir, "TestData", "yenc");
+
 		[Test]
 		public void TestArgumentExceptions ()
 		{
@@ -48,7 +50,7 @@ namespace UnitTests.Encodings {
 		[Test]
 		public void TestYDecodeSimpleMessage ()
 		{
-			using (var file = File.OpenRead ("../../TestData/yenc/simple.msg")) {
+			using (var file = File.OpenRead (Path.Combine (DataDir, "simple.msg"))) {
 				var message = MimeMessage.Load (file);
 
 				using (var decoded = new MemoryStream ()) {
@@ -112,10 +114,10 @@ namespace UnitTests.Encodings {
 		[Test]
 		public void TestYDecodeMultiPart ()
 		{
-			var expected = File.ReadAllBytes ("../../TestData/yenc/joystick.jpg");
+			var expected = File.ReadAllBytes (Path.Combine (DataDir, "joystick.jpg"));
 
 			using (var decoded = new MemoryStream ()) {
-				using (var file = File.OpenRead ("../../TestData/yenc/00000020.ntx")) {
+				using (var file = File.OpenRead (Path.Combine (DataDir, "00000020.ntx"))) {
 					var ydec = new YDecoder ();
 
 					using (var filtered = new FilteredStream (decoded)) {
@@ -128,7 +130,7 @@ namespace UnitTests.Encodings {
 					Assert.AreEqual (0xbfae5c0b, ydec.Checksum ^ 0xffffffff, "The decoded checksum does not match (part 1).");
 				}
 
-				using (var file = File.OpenRead ("../../TestData/yenc/00000021.ntx")) {
+				using (var file = File.OpenRead (Path.Combine (DataDir, "00000021.ntx"))) {
 					var ydec = new YDecoder ();
 
 					using (var filtered = new FilteredStream (decoded)) {
@@ -151,7 +153,7 @@ namespace UnitTests.Encodings {
 		[Test]
 		public void TestYDecodeStateTransitions ()
 		{
-			using (var file = File.OpenRead ("../../TestData/yenc/state-changes.ntx")) {
+			using (var file = File.OpenRead (Path.Combine (DataDir, "state-changes.ntx"))) {
 				using (var decoded = new MemoryStream ()) {
 					var ydec = new YDecoder ();
 
@@ -164,6 +166,50 @@ namespace UnitTests.Encodings {
 					Assert.AreEqual (584, decoded.Length, "The decoded size does not match.");
 					Assert.AreEqual (0xded29f4f, ydec.Checksum ^ 0xffffffff, "The decoded checksum does not match.");
 				}
+			}
+		}
+
+		static readonly string[] YPartTransitionInputs = {
+			"=ybegin part=1 line=128 size=19338 name=joystick.jpg\n=xcontent",
+			"=ybegin part=1 line=128 size=19338 name=joystick.jpg\n=yxcontent",
+			"=ybegin part=1 line=128 size=19338 name=joystick.jpg\n=ypxcontent",
+			"=ybegin part=1 line=128 size=19338 name=joystick.jpg\n=ypaxcontent",
+			"=ybegin part=1 line=128 size=19338 name=joystick.jpg\n=yparxcontent",
+			"=ybegin part=1 line=128 size=19338 name=joystick.jpg\n=ypartxcontent",
+			"=ybegin part=1 line=128 size=19338 name=joystick.jpg\n=ypart begin=1 end=11250\ncontent",
+		};
+
+		static readonly string[] YPartTransitionOutputs = {
+			"xcontent",
+			string.Empty,
+			string.Empty,
+			string.Empty,
+			string.Empty,
+			string.Empty,
+			"content"
+		};
+
+		[Test]
+		public void TestYDecodeYPartStateTransitions ()
+		{
+			var ydec = new YDecoder ();
+			var decoded = new byte[1024];
+
+			for (int i = 0; i < YPartTransitionInputs.Length; i++) {
+				var input = Encoding.ASCII.GetBytes (YPartTransitionInputs[i]);
+				var chars = YPartTransitionOutputs[i].ToCharArray ();
+
+				for (int j = 0; j < chars.Length; j++)
+					chars[j] -= (char) 42;
+
+				var expected = new string (chars);
+
+				int n = ydec.Decode (input, 0, input.Length, decoded);
+				var actual = Encoding.ASCII.GetString (decoded, 0, n);
+
+				Assert.AreEqual (expected, actual, YPartTransitionInputs[i]);
+
+				ydec.Reset ();
 			}
 		}
 	}

@@ -1,9 +1,9 @@
-//
+﻿//
 // MimeParserTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,11 +26,16 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Globalization;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 using NUnit.Framework;
+
+using Newtonsoft.Json;
 
 using MimeKit;
 using MimeKit.IO;
@@ -41,8 +46,8 @@ namespace UnitTests {
 	[TestFixture]
 	public class MimeParserTests
 	{
-		static string MessagesDataDir = Path.Combine ("..", "..", "TestData", "messages");
-		static string MboxDataDir = Path.Combine ("..", "..", "TestData", "mbox");
+		static readonly string MessagesDataDir = Path.Combine (TestHelper.ProjectDir, "TestData", "messages");
+		static readonly string MboxDataDir = Path.Combine (TestHelper.ProjectDir, "TestData", "mbox");
 		static FormatOptions UnixFormatOptions;
 
 		public MimeParserTests ()
@@ -103,7 +108,7 @@ namespace UnitTests {
 		}
 
 		[Test]
-		public async void TestHeaderParserAsync ()
+		public async Task TestHeaderParserAsync ()
 		{
 			var bytes = Encoding.ASCII.GetBytes ("Header-1: value 1\r\nHeader-2: value 2\r\nHeader-3: value 3\r\n\r\n");
 
@@ -132,6 +137,22 @@ namespace UnitTests {
 		}
 
 		[Test]
+		public void TestTruncatedHeaderName ()
+		{
+			var bytes = Encoding.ASCII.GetBytes ("Header-1");
+
+			using (var memory = new MemoryStream (bytes, false)) {
+				try {
+					var headers = HeaderList.Load (memory);
+					Assert.Fail ("Parsing headers should fail.");
+				} catch (FormatException) {
+				} catch (Exception ex) {
+					Assert.Fail ("Failed to parse headers: {0}", ex);
+				}
+			}
+		}
+
+		[Test]
 		public void TestTruncatedHeader ()
 		{
 			var bytes = Encoding.ASCII.GetBytes ("Header-1: value 1");
@@ -152,7 +173,7 @@ namespace UnitTests {
 		}
 
 		[Test]
-		public async void TestTruncatedHeaderAsync ()
+		public async Task TestTruncatedHeaderAsync ()
 		{
 			var bytes = Encoding.ASCII.GetBytes ("Header-1: value 1");
 
@@ -192,7 +213,7 @@ namespace UnitTests {
 		}
 
 		[Test]
-		public async void TestSingleHeaderNoTerminatorAsync ()
+		public async Task TestSingleHeaderNoTerminatorAsync ()
 		{
 			var bytes = Encoding.ASCII.GetBytes ("Header-1: value 1\r\n");
 
@@ -228,7 +249,7 @@ namespace UnitTests {
 		}
 
 		[Test]
-		public async void TestEmptyHeadersAsync ()
+		public async Task TestEmptyHeadersAsync ()
 		{
 			var bytes = Encoding.ASCII.GetBytes ("\r\n");
 
@@ -257,7 +278,7 @@ namespace UnitTests {
 
 				parser.SetStream (stream, MimeFormat.Entity);
 
-				Assert.Throws<FormatException> (async () => await parser.ParseMessageAsync (), "ParseMessageAsync");
+				Assert.ThrowsAsync<FormatException> (async () => await parser.ParseMessageAsync (), "ParseMessageAsync");
 			}
 		}
 
@@ -282,7 +303,7 @@ namespace UnitTests {
 
 				parser.SetStream (stream, MimeFormat.Entity);
 
-				Assert.Throws<FormatException> (async () => await parser.ParseMessageAsync (), "ParseMessageAsync");
+				Assert.ThrowsAsync<FormatException> (async () => await parser.ParseMessageAsync (), "ParseMessageAsync");
 			}
 		}
 
@@ -303,7 +324,7 @@ namespace UnitTests {
 
 				stream.Position = 0;
 
-				Assert.Throws<FormatException> (async () => await parser.ParseMessageAsync (), "MboxAsync");
+				Assert.ThrowsAsync<FormatException> (async () => await parser.ParseMessageAsync (), "MboxAsync");
 
 				stream.Position = 0;
 
@@ -315,7 +336,7 @@ namespace UnitTests {
 
 				parser.SetStream (stream, MimeFormat.Entity);
 
-				Assert.Throws<FormatException> (async () => await parser.ParseMessageAsync (), "EntityAsync");
+				Assert.ThrowsAsync<FormatException> (async () => await parser.ParseMessageAsync (), "EntityAsync");
 			}
 		}
 
@@ -337,7 +358,7 @@ namespace UnitTests {
 		}
 
 		[Test]
-		public async void TestDoubleMboxMarkerAsync ()
+		public async Task TestDoubleMboxMarkerAsync ()
 		{
 			var content = Encoding.ASCII.GetBytes ("From - \r\nFrom -\r\nFrom: sender@example.com\r\nTo: recipient@example.com\r\nSubject: test message\r\n\r\nBody text\r\n");
 
@@ -370,7 +391,7 @@ namespace UnitTests {
 		}
 
 		[Test]
-		public async void TestEmptyMessageAsync ()
+		public async Task TestEmptyMessageAsync ()
 		{
 			var bytes = Encoding.ASCII.GetBytes ("\r\n");
 
@@ -463,7 +484,7 @@ namespace UnitTests {
 		}
 
 		[Test]
-		public async void TestSimpleMboxAsync ()
+		public async Task TestSimpleMboxAsync ()
 		{
 			using (var stream = File.OpenRead (Path.Combine (MboxDataDir, "simple.mbox.txt")))
 				await AssertSimpleMboxAsync (stream);
@@ -487,7 +508,7 @@ namespace UnitTests {
 		}
 
 		[Test]
-		public async void TestSimpleMboxWithByteOrderMarkAsync ()
+		public async Task TestSimpleMboxWithByteOrderMarkAsync ()
 		{
 			using (var stream = new MemoryStream ()) {
 				var bom = new byte[] { 0xEF, 0xBB, 0xBF };
@@ -552,67 +573,255 @@ namespace UnitTests {
 			}
 		}
 
-		static void AssertJwzMboxResults (string actual, Stream output)
+		static NewLineFormat DetectNewLineFormat (string fileName)
 		{
-			var summary = File.ReadAllText (Path.Combine (MboxDataDir, "jwz-summary.txt")).Replace ("\r\n", "\n");
-			var original = new MemoryBlockStream ();
-			var expected = new byte[4096];
-			var buffer = new byte[4096];
-			int nx, n;
+			using (var stream = File.OpenRead (fileName)) {
+				var buffer = new byte[1024];
 
+				var nread = stream.Read (buffer, 0, buffer.Length);
+
+				for (int i = 0; i < nread; i++) {
+					if (buffer[i] == (byte) '\n') {
+						if (i > 0 && buffer[i - 1] == (byte) '\r')
+							return NewLineFormat.Dos;
+
+						return NewLineFormat.Unix;
+					}
+				}
+			}
+
+			return NewLineFormat.Dos;
+		}
+
+		class MimeOffsets
+		{
+			[JsonProperty ("mimeType", NullValueHandling = NullValueHandling.Ignore)]
+			public string MimeType { get; set; }
+
+			[JsonProperty ("mboxMarkerOffset", NullValueHandling = NullValueHandling.Ignore)]
+			public long? MboxMarkerOffset { get; set; }
+
+			[JsonProperty ("lineNumber")]
+			public int LineNumber { get; set; }
+
+			[JsonProperty ("beginOffset")]
+			public long BeginOffset { get; set; }
+
+			[JsonProperty ("headersEndOffset")]
+			public long HeadersEndOffset { get; set; }
+
+			[JsonProperty ("endOffset")]
+			public long EndOffset { get; set; }
+
+			[JsonProperty ("message", NullValueHandling = NullValueHandling.Ignore)]
+			public MimeOffsets Message { get; set; }
+
+			[JsonProperty ("body", NullValueHandling = NullValueHandling.Ignore)]
+			public MimeOffsets Body { get; set; }
+
+			[JsonProperty ("children", NullValueHandling = NullValueHandling.Ignore)]
+			public List<MimeOffsets> Children { get; set; }
+
+			[JsonProperty ("octets")]
+			public long Octets { get; set; }
+
+			[JsonProperty ("lines", NullValueHandling = NullValueHandling.Ignore)]
+			public int? Lines { get; set; }
+		}
+
+		static void AssertMimeOffsets (MimeOffsets expected, MimeOffsets actual, int message, string partSpecifier)
+		{
+			Assert.AreEqual (expected.MimeType, actual.MimeType, $"mime-type differs for message #{message}{partSpecifier}");
+			Assert.AreEqual (expected.MboxMarkerOffset, actual.MboxMarkerOffset, $"mbox marker begin offset differs for message #{message}{partSpecifier}");
+			Assert.AreEqual (expected.BeginOffset, actual.BeginOffset, $"begin offset differs for message #{message}{partSpecifier}");
+			Assert.AreEqual (expected.LineNumber, actual.LineNumber, $"begin line differs for message #{message}{partSpecifier}");
+			Assert.AreEqual (expected.HeadersEndOffset, actual.HeadersEndOffset, $"headers end offset differs for message #{message}{partSpecifier}");
+			Assert.AreEqual (expected.EndOffset, actual.EndOffset, $"end offset differs for message #{message}{partSpecifier}");
+			Assert.AreEqual (expected.Octets, actual.Octets, $"octets differs for message #{message}{partSpecifier}");
+			Assert.AreEqual (expected.Lines, actual.Lines, $"lines differs for message #{message}{partSpecifier}");
+
+			if (expected.Message != null) {
+				Assert.NotNull (actual.Message, $"message content is null for message #{message}{partSpecifier}");
+				AssertMimeOffsets (expected.Message, actual.Message, message, partSpecifier + "/message");
+			} else if (expected.Body != null) {
+				Assert.NotNull (actual.Body, $"body content is null for message #{message}{partSpecifier}");
+				AssertMimeOffsets (expected.Body, actual.Body, message, partSpecifier + "/0");
+			} else if (expected.Children != null) {
+				Assert.AreEqual (expected.Children.Count, actual.Children.Count, $"children count differs for message #{message}{partSpecifier}");
+				for (int i = 0; i < expected.Children.Count; i++)
+					AssertMimeOffsets (expected.Children[i], actual.Children[i], message, partSpecifier + $".{i}");
+			}
+		}
+
+		class CustomMimeParser : MimeParser
+		{
+			readonly Dictionary<MimeMessage, MimeOffsets> messages = new Dictionary<MimeMessage, MimeOffsets> ();
+			readonly Dictionary<MimeEntity, MimeOffsets> entities = new Dictionary<MimeEntity, MimeOffsets> ();
+			public readonly List<MimeOffsets> Offsets = new List<MimeOffsets> ();
+			MimeOffsets body;
+
+			public CustomMimeParser (ParserOptions options, Stream stream, MimeFormat format) : base (options, stream, format)
+			{
+			}
+
+			public CustomMimeParser (Stream stream, MimeFormat format) : base (stream, format)
+			{
+			}
+
+			protected override void OnMimeMessageBegin (MimeMessageBeginEventArgs args)
+			{
+				var offsets = new MimeOffsets {
+					BeginOffset = args.BeginOffset,
+					LineNumber = args.LineNumber
+				};
+
+				if (args.Parent != null) {
+					if (entities.TryGetValue (args.Parent, out var parentOffsets))
+						parentOffsets.Message = offsets;
+					else
+						Console.WriteLine ("oops?");
+				} else {
+					offsets.MboxMarkerOffset = MboxMarkerOffset;
+					Offsets.Add (offsets);
+				}
+
+				messages.Add (args.Message, offsets);
+
+				base.OnMimeMessageBegin (args);
+			}
+
+			protected override void OnMimeMessageEnd (MimeMessageEndEventArgs args)
+			{
+				if (messages.TryGetValue (args.Message, out var offsets)) {
+					offsets.Octets = args.EndOffset - args.HeadersEndOffset;
+					offsets.HeadersEndOffset = args.HeadersEndOffset;
+					offsets.EndOffset = args.EndOffset;
+					offsets.Body = body;
+				} else {
+					Console.WriteLine ("oops?");
+				}
+
+				messages.Remove (args.Message);
+
+				base.OnMimeMessageEnd (args);
+			}
+
+			protected override void OnMimeEntityBegin (MimeEntityBeginEventArgs args)
+			{
+				var offsets = new MimeOffsets {
+					MimeType = args.Entity.ContentType.MimeType,
+					BeginOffset = args.BeginOffset,
+					LineNumber = args.LineNumber
+				};
+
+				if (args.Parent != null && entities.TryGetValue (args.Parent, out var parentOffsets)) {
+					if (parentOffsets.Children == null)
+						parentOffsets.Children = new List<MimeOffsets> ();
+
+					parentOffsets.Children.Add (offsets);
+				}
+
+				entities.Add (args.Entity, offsets);
+
+				base.OnMimeEntityBegin (args);
+			}
+
+			protected override void OnMimeEntityEnd (MimeEntityEndEventArgs args)
+			{
+				if (entities.TryGetValue (args.Entity, out var offsets)) {
+					offsets.Octets = args.EndOffset - args.HeadersEndOffset;
+					offsets.HeadersEndOffset = args.HeadersEndOffset;
+					offsets.EndOffset = args.EndOffset;
+					offsets.Lines = args.Lines;
+					body = offsets;
+				} else {
+					Console.WriteLine ("oops?");
+				}
+
+				entities.Remove (args.Entity);
+
+				base.OnMimeEntityEnd (args);
+			}
+		}
+
+		static void AssertMboxResults (string baseName, string actual, Stream output, List<MimeOffsets> offsets, NewLineFormat newLineFormat)
+		{
 			// WORKAROUND: Mono's iso-2022-jp decoder breaks on this input in versions <= 3.2.3 but is fixed in 3.2.4+
 			string iso2022jp = Encoding.GetEncoding ("iso-2022-jp").GetString (Convert.FromBase64String ("GyRAOjRGI0stGyhK"));
 			if (iso2022jp != "佐藤豊")
 				actual = actual.Replace (iso2022jp, "佐藤豊");
 
-			Assert.AreEqual (summary, actual, "Summaries do not match for jwz.mbox");
+			var path = Path.Combine (MboxDataDir, baseName + "-summary.txt");
+			if (!File.Exists (path))
+				File.WriteAllText (path, actual);
 
-			using (var stream = File.OpenRead (Path.Combine (MboxDataDir, "jwz.mbox.txt"))) {
-				using (var filtered = new FilteredStream (original)) {
-					filtered.Add (new Dos2UnixFilter ());
-					stream.CopyTo (filtered);
-					filtered.Flush ();
-				}
+			var summary = File.ReadAllText (path).Replace ("\r\n", "\n");
+			var expected = new byte[4096];
+			var buffer = new byte[4096];
+			int nx, n;
+
+			Assert.AreEqual (summary, actual, "Summaries do not match for {0}.mbox", baseName);
+
+			using (var original = File.OpenRead (Path.Combine (MboxDataDir, baseName + ".mbox.txt"))) {
+				output.Position = 0;
+
+				Assert.AreEqual (original.Length, output.Length, "The length of the mbox did not match.");
+
+				do {
+					var position = original.Position;
+
+					nx = original.Read (expected, 0, expected.Length);
+					n = output.Read (buffer, 0, nx);
+
+					if (nx == 0)
+						break;
+
+					for (int i = 0; i < nx; i++) {
+						if (buffer[i] == expected[i])
+							continue;
+
+						var strExpected = CharsetUtils.Latin1.GetString (expected, 0, nx);
+						var strActual = CharsetUtils.Latin1.GetString (buffer, 0, n);
+
+						Assert.AreEqual (strExpected, strActual, "The mbox differs at position {0}", position + i);
+					}
+				} while (true);
 			}
 
-			original.Position = 0;
-			output.Position = 0;
+			var jsonSerializer = JsonSerializer.CreateDefault ();
 
-			Assert.AreEqual (original.Length, output.Length, "The length of the mbox did not match.");
+			path = Path.Combine (MboxDataDir, baseName + "." + newLineFormat.ToString ().ToLowerInvariant () + "-offsets.json");
+			if (!File.Exists (path)) {
+				jsonSerializer.Formatting = Formatting.Indented;
 
-			do {
-				var position = original.Position;
+				using (var writer = new StreamWriter (path))
+					jsonSerializer.Serialize (writer, offsets);
+			}
 
-				nx = original.Read (expected, 0, expected.Length);
-				n = output.Read (buffer, 0, buffer.Length);
+			using (var reader = new StreamReader (path)) {
+				var expectedOffsets = (List<MimeOffsets>) jsonSerializer.Deserialize (reader, typeof (List<MimeOffsets>));
 
-				if (nx == 0)
-					break;
+				Assert.AreEqual (expectedOffsets.Count, offsets.Count, "message count");
 
-				for (int i = 0; i < nx; i++) {
-					if (buffer[i] == expected[i])
-						continue;
-
-					var strExpected = CharsetUtils.Latin1.GetString (expected, 0, nx);
-					var strActual = CharsetUtils.Latin1.GetString (buffer, 0, n);
-
-					Assert.AreEqual (strExpected, strActual, "The mbox differs at position {0}", position + i);
-				}
-			} while (true);
+				for (int i = 0; i < expectedOffsets.Count; i++)
+					AssertMimeOffsets (expectedOffsets[i], offsets[i], i, string.Empty);
+			}
 		}
 
-		[Test]
-		public void TestJwzMbox ()
+		void TestMbox (ParserOptions options, string baseName)
 		{
-			var options = FormatOptions.Default.Clone ();
+			var mbox = Path.Combine (MboxDataDir, baseName + ".mbox.txt");
 			var output = new MemoryBlockStream ();
 			var builder = new StringBuilder ();
+			NewLineFormat newLineFormat;
+			List<MimeOffsets> offsets;
 
-			options.NewLineFormat = NewLineFormat.Unix;
-
-			using (var stream = File.OpenRead (Path.Combine (MboxDataDir, "jwz.mbox.txt"))) {
-				var parser = new MimeParser (stream, MimeFormat.Mbox);
+			using (var stream = File.OpenRead (mbox)) {
+				var parser = options != null ? new CustomMimeParser (options, stream, MimeFormat.Mbox) : new CustomMimeParser (stream, MimeFormat.Mbox);
+				var format = FormatOptions.Default.Clone ();
 				int count = 0;
+
+				format.NewLineFormat = newLineFormat = DetectNewLineFormat (mbox);
 
 				while (!parser.IsEndOfStream) {
 					var message = parser.ParseMessage ();
@@ -627,28 +836,32 @@ namespace UnitTests {
 					DumpMimeTree (builder, message);
 					builder.Append ('\n');
 
-					var marker = Encoding.UTF8.GetBytes ((count > 0 ? "\n" : string.Empty) + parser.MboxMarker + "\n");
+					var marker = Encoding.UTF8.GetBytes ((count > 0 ? format.NewLine : string.Empty) + parser.MboxMarker + format.NewLine);
 					output.Write (marker, 0, marker.Length);
-					message.WriteTo (options, output);
+					message.WriteTo (format, output);
 					count++;
 				}
+
+				offsets = parser.Offsets;
 			}
 
-			AssertJwzMboxResults (builder.ToString (), output);
+			AssertMboxResults (baseName, builder.ToString (), output, offsets, newLineFormat);
 		}
 
-		[Test]
-		public async void TestJwzMboxAsync ()
+		async Task TestMboxAsync (ParserOptions options, string baseName)
 		{
-			var options = FormatOptions.Default.Clone ();
+			var mbox = Path.Combine (MboxDataDir, baseName + ".mbox.txt");
 			var output = new MemoryBlockStream ();
 			var builder = new StringBuilder ();
+			NewLineFormat newLineFormat;
+			List<MimeOffsets> offsets;
 
-			options.NewLineFormat = NewLineFormat.Unix;
-
-			using (var stream = File.OpenRead (Path.Combine (MboxDataDir, "jwz.mbox.txt"))) {
-				var parser = new MimeParser (stream, MimeFormat.Mbox);
+			using (var stream = File.OpenRead (mbox)) {
+				var parser = options != null ? new CustomMimeParser (options, stream, MimeFormat.Mbox) : new CustomMimeParser (stream, MimeFormat.Mbox);
+				var format = FormatOptions.Default.Clone ();
 				int count = 0;
+
+				format.NewLineFormat = newLineFormat = DetectNewLineFormat (mbox);
 
 				while (!parser.IsEndOfStream) {
 					var message = await parser.ParseMessageAsync ();
@@ -663,14 +876,46 @@ namespace UnitTests {
 					DumpMimeTree (builder, message);
 					builder.Append ('\n');
 
-					var marker = Encoding.UTF8.GetBytes ((count > 0 ? "\n" : string.Empty) + parser.MboxMarker + "\n");
+					var marker = Encoding.UTF8.GetBytes ((count > 0 ? format.NewLine : string.Empty) + parser.MboxMarker + format.NewLine);
 					await output.WriteAsync (marker, 0, marker.Length);
-					await message.WriteToAsync (options, output);
+					await message.WriteToAsync (format, output);
 					count++;
 				}
+
+				offsets = parser.Offsets;
 			}
 
-			AssertJwzMboxResults (builder.ToString (), output);
+			AssertMboxResults (baseName, builder.ToString (), output, offsets, newLineFormat);
+		}
+
+		[Test]
+		public void TestContentLengthMbox ()
+		{
+			var options = ParserOptions.Default.Clone ();
+			options.RespectContentLength = true;
+
+			TestMbox (options, "content-length");
+		}
+
+		[Test]
+		public async Task TestContentLengthMboxAsync ()
+		{
+			var options = ParserOptions.Default.Clone ();
+			options.RespectContentLength = true;
+
+			await TestMboxAsync (options, "content-length");
+		}
+
+		[Test]
+		public void TestJwzMbox ()
+		{
+			TestMbox (null, "jwz");
+		}
+
+		[Test]
+		public async Task TestJwzMboxAsync ()
+		{
+			await TestMboxAsync (null, "jwz");
 		}
 
 		[Test]
@@ -713,7 +958,7 @@ namespace UnitTests {
 		}
 
 		[Test]
-		public async void TestJwzPersistentMboxAsync ()
+		public async Task TestJwzPersistentMboxAsync ()
 		{
 			var summary = File.ReadAllText (Path.Combine (MboxDataDir, "jwz-summary.txt")).Replace ("\r\n", "\n");
 			var builder = new StringBuilder ();
@@ -737,7 +982,7 @@ namespace UnitTests {
 					// Force the various MimePart objects to write their content streams.
 					// The idea is that by forcing the MimeParts to seek in their content,
 					// we will test to make sure that the parser correctly deals with it.
-					message.WriteTo (Stream.Null);
+					await message.WriteToAsync (Stream.Null);
 				}
 			}
 
@@ -766,7 +1011,7 @@ namespace UnitTests {
 		}
 
 		[Test]
-		public async void TestJapaneseMessageAsync ()
+		public async Task TestJapaneseMessageAsync ()
 		{
 			const string subject = "日本語メールテスト (testing Japanese emails)";
 			const string body = "Let's see if both subject and body works fine...\n\n日本語が\n正常に\n送れているか\nテスト.\n";
@@ -806,7 +1051,7 @@ namespace UnitTests {
 		}
 
 		[Test]
-		public async void TestUnmungedFromLinesAsync ()
+		public async Task TestUnmungedFromLinesAsync ()
 		{
 			int count = 0;
 
@@ -848,7 +1093,7 @@ namespace UnitTests {
 		}
 
 		[Test]
-		public async void TestMultipartEpilogueWithTextAsync ()
+		public async Task TestMultipartEpilogueWithTextAsync ()
 		{
 			const string epilogue = "Peter Urka <pcu@umich.edu>\nDept. of Chemistry, Univ. of Michigan\nNewt-thought is right-thought.  Go Newt!\n\n";
 
@@ -893,7 +1138,7 @@ namespace UnitTests {
 		}
 
 		[Test]
-		public async void TestMissingMessageBodyAsync ()
+		public async Task TestMissingMessageBodyAsync ()
 		{
 			const string text = "Date: Sat, 19 Apr 2014 13:13:23 -0700\r\n" +
 				"From: Jeffrey Stedfast <notifications@github.com>\r\n" +
@@ -923,6 +1168,146 @@ namespace UnitTests {
 					// make sure that the top-level MIME part is a multipart/alternative
 					Assert.IsInstanceOf (typeof (MultipartAlternative), message.Body);
 				}
+			}
+		}
+
+		[Test]
+		public void TestLineCountSingleLine ()
+		{
+			const string text = @"From: mimekit@example.org
+To: mimekit@example.org
+Subject: This is a message with a single line of text
+Message-Id: <123@example.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+
+This is a single line of text";
+
+			using (var stream = new MemoryStream (Encoding.ASCII.GetBytes (text), false)) {
+				var parser = new CustomMimeParser (stream, MimeFormat.Entity);
+				var message = parser.ParseMessage ();
+
+				var lines = parser.Offsets[0].Body.Lines;
+
+				Assert.AreEqual (1, lines, "Line count");
+			}
+		}
+
+		[Test]
+		public void TestLineCountSingleLineCRLF ()
+		{
+			const string text = @"From: mimekit@example.org
+To: mimekit@example.org
+Subject: This is a message with a single line of text
+Message-Id: <123@example.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+
+This is a single line of text
+";
+
+			using (var stream = new MemoryStream (Encoding.ASCII.GetBytes (text), false)) {
+				var parser = new CustomMimeParser (stream, MimeFormat.Entity);
+				var message = parser.ParseMessage ();
+
+				var lines = parser.Offsets[0].Body.Lines;
+
+				Assert.AreEqual (1, lines, "Line count");
+			}
+		}
+
+		[Test]
+		public void TestLineCountSingleLineInMultipart ()
+		{
+			const string text = @"From: mimekit@example.org
+To: mimekit@example.org
+Subject: This is a message with a single line of text
+Message-Id: <123@example.org>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary=""boundary-marker""
+
+--boundary-marker
+Content-Type: text/plain; charset=us-ascii
+
+This is a single line of text
+--boundary-marker
+Content-Type: application/octet-stream; name=""attachment.dat""
+Content-DIsposition: attachment; filename=""attachment.dat""
+
+ABC
+--boundary-marker--
+";
+
+			using (var stream = new MemoryStream (Encoding.ASCII.GetBytes (text), false)) {
+				var parser = new CustomMimeParser (stream, MimeFormat.Entity);
+				var message = parser.ParseMessage ();
+
+				var lines = parser.Offsets[0].Body.Children[0].Lines;
+
+				Assert.AreEqual (1, lines, "Line count");
+			}
+		}
+
+		[Test]
+		public void TestLineCountOneLineOfTextFollowedByBlankLineInMultipart ()
+		{
+			const string text = @"From: mimekit@example.org
+To: mimekit@example.org
+Subject: This is a message with a single line of text
+Message-Id: <123@example.org>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary=""boundary-marker""
+
+--boundary-marker
+Content-Type: text/plain; charset=us-ascii
+
+This is a single line of text followed by a blank line
+
+--boundary-marker
+Content-Type: application/octet-stream; name=""attachment.dat""
+Content-DIsposition: attachment; filename=""attachment.dat""
+
+ABC
+--boundary-marker--
+";
+
+			using (var stream = new MemoryStream (Encoding.ASCII.GetBytes (text), false)) {
+				var parser = new CustomMimeParser (stream, MimeFormat.Entity);
+				var message = parser.ParseMessage ();
+
+				var lines = parser.Offsets[0].Body.Children[0].Lines;
+
+				Assert.AreEqual (1, lines, "Line count");
+			}
+		}
+
+		[Test]
+		public void TestLineCountNonTerminatedSingleHeader ()
+		{
+			const string text = "From: mimekit@example.org";
+
+			using (var stream = new MemoryStream (Encoding.ASCII.GetBytes (text), false)) {
+				var parser = new CustomMimeParser (stream, MimeFormat.Entity);
+				var message = parser.ParseMessage ();
+
+				var lines = parser.Offsets[0].Body.Lines;
+
+				Assert.AreEqual (0, lines, "Line count");
+			}
+		}
+
+		[Test]
+		public void TestLineCountProperlyTerminatedSingleHeader ()
+		{
+			const string text = "From: mimekit@example.org\r\n";
+
+			using (var stream = new MemoryStream (Encoding.ASCII.GetBytes (text), false)) {
+				var parser = new CustomMimeParser (stream, MimeFormat.Entity);
+				var message = parser.ParseMessage ();
+
+				var lines = parser.Offsets[0].Body.Lines;
+
+				Assert.AreEqual (0, lines, "Line count");
 			}
 		}
 	}

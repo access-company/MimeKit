@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -139,7 +139,11 @@ namespace MimeKit.Cryptography {
 		/// </remarks>
 		/// <value>The expiration date.</value>
 		public DateTime ExpirationDate {
-			get { return CreationDate.AddSeconds ((double) PublicKey.GetValidSeconds ()); }
+			get {
+				long seconds = PublicKey.GetValidSeconds ();
+
+				return seconds > 0 ? CreationDate.AddSeconds ((double) seconds) : DateTime.MaxValue;
+			}
 		}
 
 		/// <summary>

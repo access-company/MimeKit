@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -49,7 +49,7 @@ namespace MimeKit.Cryptography {
 		readonly List<X509Certificate> certs;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Cryptography.X509CertificateStore"/> class.
+		/// Initialize a new instance of the <see cref="X509CertificateStore"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="X509CertificateStore"/>.
@@ -196,7 +196,6 @@ namespace MimeKit.Cryptography {
 			}
 		}
 
-#if !PORTABLE
 		/// <summary>
 		/// Imports the certificate(s) from the specified file.
 		/// </summary>
@@ -221,7 +220,6 @@ namespace MimeKit.Cryptography {
 			using (var stream = File.OpenRead (fileName))
 				Import (stream);
 		}
-#endif
 
 		/// <summary>
 		/// Imports the certificate(s) from the specified byte array.
@@ -289,7 +287,6 @@ namespace MimeKit.Cryptography {
 			}
 		}
 
-#if !PORTABLE
 		/// <summary>
 		/// Imports certificates and private keys from the specified file.
 		/// </summary>
@@ -305,8 +302,7 @@ namespace MimeKit.Cryptography {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.IO.FileNotFoundException">
 		/// The specified file could not be found.
@@ -325,7 +321,6 @@ namespace MimeKit.Cryptography {
 			using (var stream = File.OpenRead (fileName))
 				Import (stream, password);
 		}
-#endif
 
 		/// <summary>
 		/// Imports certificates and private keys from the specified byte array.
@@ -373,7 +368,6 @@ namespace MimeKit.Cryptography {
 			}
 		}
 
-#if !PORTABLE
 		/// <summary>
 		/// Exports the certificates to an unencrypted file.
 		/// </summary>
@@ -386,8 +380,7 @@ namespace MimeKit.Cryptography {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.IO.PathTooLongException">
 		/// The specified path exceeds the maximum allowed path length of the system.
@@ -409,7 +402,6 @@ namespace MimeKit.Cryptography {
 			using (var file = File.Create (fileName))
 				Export (file);
 		}
-#endif
 
 		/// <summary>
 		/// Exports the specified stream and password to a pkcs12 encrypted file.
@@ -468,7 +460,6 @@ namespace MimeKit.Cryptography {
 			store.Save (stream, password.ToCharArray (), new SecureRandom ());
 		}
 
-#if !PORTABLE
 		/// <summary>
 		/// Exports the specified stream and password to a pkcs12 encrypted file.
 		/// </summary>
@@ -484,8 +475,7 @@ namespace MimeKit.Cryptography {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.IO.PathTooLongException">
 		/// The specified path exceeds the maximum allowed path length of the system.
@@ -510,7 +500,6 @@ namespace MimeKit.Cryptography {
 			using (var file = File.Create (fileName))
 				Export (file, password);
 		}
-#endif
 
 		/// <summary>
 		/// Gets an enumerator of matching X.509 certificates based on the specified selector.

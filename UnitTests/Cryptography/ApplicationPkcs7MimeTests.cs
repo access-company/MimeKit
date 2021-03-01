@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -42,7 +42,7 @@ namespace UnitTests.Cryptography {
 		[Test]
 		public void TestArgumentExceptions ()
 		{
-			var path = Path.Combine ("..", "..", "TestData", "smime", "smime.p12");
+			var path = Path.Combine (TestHelper.ProjectDir, "TestData", "smime", "smime.p12");
 			var entity = new TextPart ("plain") { Text = "This is some text..." };
 			var mailbox = new MailboxAddress ("MimeKit UnitTests", "mimekit@example.com");
 			var recipients = new CmsRecipientCollection ();
@@ -52,8 +52,7 @@ namespace UnitTests.Cryptography {
 			recipients.Add (new CmsRecipient (signer.Certificate));
 
 			using (var ctx = new TemporarySecureMimeContext ()) {
-				using (var file = File.OpenRead (path))
-					ctx.Import (file, "no.secret");
+				ctx.Import (path, "no.secret");
 
 				// Compress
 				Assert.Throws<ArgumentNullException> (() => ApplicationPkcs7Mime.Compress (null, entity));

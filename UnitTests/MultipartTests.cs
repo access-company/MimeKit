@@ -1,9 +1,9 @@
-//
+﻿//
 // MultipartTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -79,18 +79,18 @@ namespace UnitTests {
 			Assert.Throws<ArgumentNullException> (() => multipart.WriteTo (null, "fileName", false));
 			Assert.Throws<ArgumentNullException> (() => multipart.WriteTo (FormatOptions.Default, (string) null, false));
 
-			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync ((string) null));
-			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync ((Stream) null));
-			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync ((string) null, false));
-			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync ((Stream) null, false));
-			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync (null, Stream.Null));
-			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync (FormatOptions.Default, (Stream) null));
-			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync (null, "fileName"));
-			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync (FormatOptions.Default, (string) null));
-			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync (null, Stream.Null, false));
-			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync (FormatOptions.Default, (Stream) null, false));
-			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync (null, "fileName", false));
-			Assert.Throws<ArgumentNullException> (async () => await multipart.WriteToAsync (FormatOptions.Default, (string) null, false));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await multipart.WriteToAsync ((string) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await multipart.WriteToAsync ((Stream) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await multipart.WriteToAsync ((string) null, false));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await multipart.WriteToAsync ((Stream) null, false));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await multipart.WriteToAsync (null, Stream.Null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await multipart.WriteToAsync (FormatOptions.Default, (Stream) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await multipart.WriteToAsync (null, "fileName"));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await multipart.WriteToAsync (FormatOptions.Default, (string) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await multipart.WriteToAsync (null, Stream.Null, false));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await multipart.WriteToAsync (FormatOptions.Default, (Stream) null, false));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await multipart.WriteToAsync (null, "fileName", false));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await multipart.WriteToAsync (FormatOptions.Default, (string) null, false));
 		}
 
 		[Test]
@@ -98,7 +98,8 @@ namespace UnitTests {
 		{
 			var multipart = new Multipart ();
 
-			Assert.IsNotNullOrEmpty (multipart.Boundary, "Boundary");
+			Assert.IsNotNull (multipart.Boundary, "Boundary != null");
+			Assert.IsNotEmpty (multipart.Boundary, "Boundary");
 			Assert.IsFalse (multipart.IsReadOnly, "IsReadOnly");
 
 			multipart.Boundary = "__Next_Part_123";

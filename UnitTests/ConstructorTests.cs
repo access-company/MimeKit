@@ -1,9 +1,9 @@
-//
+﻿//
 // ConstructorTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -52,6 +52,7 @@ namespace UnitTests {
 			Assert.Throws<ArgumentNullException> (() => new MessagePart ("rfc822", (object[]) null));
 			Assert.Throws<ArgumentException> (() => new MessagePart ("rfc822", message, null, message));
 			Assert.Throws<ArgumentException> (() => new MessagePart ("rfc822", 5));
+			Assert.DoesNotThrow (() => new MessagePart ("rfc822", message));
 
 			Assert.Throws<ArgumentNullException> (() => new MimePart ("text", "plain", (object[]) null));
 			Assert.Throws<ArgumentException> (() => new MimePart ("text", "plain", body.Content, body.Content.Stream));

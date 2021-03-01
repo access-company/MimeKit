@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -46,7 +46,7 @@ namespace MimeKit.Tnef {
 	{
 #if SERIALIZABLE
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Tnef.TnefException"/> class.
+		/// Initialize a new instance of the <see cref="TnefException"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="TnefException"/>.
@@ -63,7 +63,7 @@ namespace MimeKit.Tnef {
 #endif
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Tnef.TnefException"/> class.
+		/// Initialize a new instance of the <see cref="TnefException"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="TnefException"/>.
@@ -77,7 +77,7 @@ namespace MimeKit.Tnef {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Tnef.TnefException"/> class.
+		/// Initialize a new instance of the <see cref="TnefException"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="TnefException"/>.
@@ -106,12 +106,9 @@ namespace MimeKit.Tnef {
 		[SecurityCritical]
 		public override void GetObjectData (SerializationInfo info, StreamingContext context)
 		{
-			if (info == null)
-				throw new ArgumentNullException (nameof (info));
+			base.GetObjectData (info, context);
 
 			info.AddValue ("Error", Error);
-
-			base.GetObjectData (info, context);
 		}
 #endif
 

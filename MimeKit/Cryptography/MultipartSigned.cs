@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -46,9 +46,9 @@ namespace MimeKit.Cryptography {
 	public class MultipartSigned : Multipart
 	{
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Cryptography.MultipartSigned"/> class.
+		/// Initialize a new instance of the <see cref="MultipartSigned"/> class.
 		/// </summary>
-		/// <remarks>This constructor is used by <see cref="MimeKit.MimeParser"/>.</remarks>
+		/// <remarks>This constructor is used by <see cref="MimeParser"/>.</remarks>
 		/// <param name="args">Information used by the constructor.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="args"/> is <c>null</c>.
@@ -58,7 +58,7 @@ namespace MimeKit.Cryptography {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Cryptography.MultipartSigned"/> class.
+		/// Initialize a new instance of the <see cref="MultipartSigned"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="MultipartSigned"/>.
@@ -71,12 +71,12 @@ namespace MimeKit.Cryptography {
 		/// Dispatches to the specific visit method for this MIME entity.
 		/// </summary>
 		/// <remarks>
-		/// This default implementation for <see cref="MimeKit.Cryptography.MultipartSigned"/> nodes
-		/// calls <see cref="MimeKit.MimeVisitor.VisitMultipartSigned"/>. Override this
+		/// This default implementation for <see cref="MultipartSigned"/> nodes
+		/// calls <see cref="MimeVisitor.VisitMultipartSigned"/>. Override this
 		/// method to call into a more specific method on a derived visitor class
-		/// of the <see cref="MimeKit.MimeVisitor"/> class. However, it should still
+		/// of the <see cref="MimeVisitor"/> class. However, it should still
 		/// support unknown visitors by calling
-		/// <see cref="MimeKit.MimeVisitor.VisitMultipartSigned"/>.
+		/// <see cref="MimeVisitor.VisitMultipartSigned"/>.
 		/// </remarks>
 		/// <param name="visitor">The visitor.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -409,11 +409,11 @@ namespace MimeKit.Cryptography {
 			if (ctx == null)
 				throw new ArgumentNullException (nameof (ctx));
 
-			var protocol = ContentType.Parameters["protocol"];
+			var protocol = ContentType.Parameters["protocol"]?.Trim ();
 			if (string.IsNullOrEmpty (protocol))
 				throw new FormatException ("The multipart/signed part did not specify a protocol.");
 
-			if (!ctx.Supports (protocol.Trim ()))
+			if (!ctx.Supports (protocol))
 				throw new NotSupportedException ("The specified cryptography context does not support the signature protocol.");
 
 			if (Count < 2)
@@ -436,6 +436,7 @@ namespace MimeKit.Cryptography {
 					// Note: see rfc2015 or rfc3156, section 5.1
 					var options = FormatOptions.CloneDefault ();
 					options.NewLineFormat = NewLineFormat.Dos;
+					options.VerifyingSignature = true;
 
 					this[0].WriteTo (options, cleartext);
 					cleartext.Position = 0;
@@ -474,11 +475,11 @@ namespace MimeKit.Cryptography {
 			if (ctx == null)
 				throw new ArgumentNullException (nameof (ctx));
 
-			var protocol = ContentType.Parameters["protocol"];
+			var protocol = ContentType.Parameters["protocol"]?.Trim ();
 			if (string.IsNullOrEmpty (protocol))
 				throw new FormatException ("The multipart/signed part did not specify a protocol.");
 
-			if (!ctx.Supports (protocol.Trim ()))
+			if (!ctx.Supports (protocol))
 				throw new NotSupportedException ("The specified cryptography context does not support the signature protocol.");
 
 			if (Count < 2)
@@ -501,6 +502,7 @@ namespace MimeKit.Cryptography {
 					// Note: see rfc2015 or rfc3156, section 5.1
 					var options = FormatOptions.CloneDefault ();
 					options.NewLineFormat = NewLineFormat.Dos;
+					options.VerifyingSignature = true;
 
 					await this[0].WriteToAsync (options, cleartext, cancellationToken);
 					cleartext.Position = 0;
@@ -534,11 +536,10 @@ namespace MimeKit.Cryptography {
 		/// </exception>
 		public DigitalSignatureCollection Verify (CancellationToken cancellationToken = default (CancellationToken))
 		{
-			var protocol = ContentType.Parameters["protocol"];
+			var protocol = ContentType.Parameters["protocol"]?.Trim ();
+
 			if (string.IsNullOrEmpty (protocol))
 				throw new FormatException ("The multipart/signed part did not specify a protocol.");
-
-			protocol = protocol.Trim ().ToLowerInvariant ();
 
 			using (var ctx = CryptographyContext.Create (protocol))
 				return Verify (ctx, cancellationToken);
@@ -568,11 +569,10 @@ namespace MimeKit.Cryptography {
 		/// </exception>
 		public Task<DigitalSignatureCollection> VerifyAsync (CancellationToken cancellationToken = default (CancellationToken))
 		{
-			var protocol = ContentType.Parameters["protocol"];
+			var protocol = ContentType.Parameters["protocol"]?.Trim ();
+
 			if (string.IsNullOrEmpty (protocol))
 				throw new FormatException ("The multipart/signed part did not specify a protocol.");
-
-			protocol = protocol.Trim ().ToLowerInvariant ();
 
 			using (var ctx = CryptographyContext.Create (protocol))
 				return VerifyAsync (ctx, cancellationToken);

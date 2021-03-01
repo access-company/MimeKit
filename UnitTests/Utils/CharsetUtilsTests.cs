@@ -1,9 +1,9 @@
-//
+﻿//
 // CharsetUtilsTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,7 +26,6 @@
 
 using System;
 using System.Text;
-using System.Security.Cryptography;
 
 using NUnit.Framework;
 
@@ -97,9 +96,11 @@ namespace UnitTests.Utils {
 
 			Assert.AreEqual (-1, CharsetUtils.ParseCodePage ("iso-8859"));
 			Assert.AreEqual (-1, CharsetUtils.ParseCodePage ("iso-BB59"));
+			Assert.AreEqual (-1, CharsetUtils.ParseCodePage ("iso-8859-"));
 			Assert.AreEqual (-1, CharsetUtils.ParseCodePage ("iso-8859-A"));
 			Assert.AreEqual (-1, CharsetUtils.ParseCodePage ("iso-2022-US"));
 			Assert.AreEqual (-1, CharsetUtils.ParseCodePage ("iso-4999-1"));
+			Assert.AreEqual (-1, CharsetUtils.ParseCodePage ("iso-abcd-1"));
 		}
 
 		[Test]

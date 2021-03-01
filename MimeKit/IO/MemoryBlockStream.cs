@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,8 +27,12 @@
 using System;
 using System.IO;
 using System.Threading;
+using System.Diagnostics;
+using System.Globalization;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+
+using MimeKit.Utils;
 
 namespace MimeKit.IO {
 	/// <summary>
@@ -47,12 +51,15 @@ namespace MimeKit.IO {
 		const long MaxCapacity = int.MaxValue * BlockSize;
 		const long BlockSize = 2048;
 
+		static readonly BufferPool DefaultPool = new BufferPool ((int) BlockSize, 200);
+
 		readonly List<byte[]> blocks = new List<byte[]> ();
+		readonly BufferPool pool;
 		long position, length;
 		bool disposed;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.IO.MemoryBlockStream"/> class.
+		/// Initialize a new instance of the <see cref="MemoryBlockStream"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="MemoryBlockStream"/> with an initial memory block
@@ -60,7 +67,8 @@ namespace MimeKit.IO {
 		/// </remarks>
 		public MemoryBlockStream ()
 		{
-			blocks.Add (new byte[BlockSize]);
+			pool = DefaultPool;
+			blocks.Add (pool.Rent (Debugger.IsAttached));
 		}
 
 		/// <summary>
@@ -319,7 +327,7 @@ namespace MimeKit.IO {
 			ValidateArguments (buffer, offset, count);
 
 			if (position + count >= MaxCapacity)
-				throw new IOException (string.Format ("Cannot exceed {0} bytes", MaxCapacity));
+				throw new IOException (string.Format (CultureInfo.InvariantCulture, "Cannot exceed {0} bytes", MaxCapacity));
 
 			int startIndex = (int) (position % BlockSize);
 			long capacity = blocks.Count * BlockSize;
@@ -327,7 +335,7 @@ namespace MimeKit.IO {
 			int nwritten = 0;
 
 			while (capacity < position + count) {
-				blocks.Add (new byte[BlockSize]);
+				blocks.Add (pool.Rent (Debugger.IsAttached));
 				capacity += BlockSize;
 			}
 
@@ -426,7 +434,7 @@ namespace MimeKit.IO {
 				throw new IOException ("Cannot seek to a position before the beginning of the stream");
 
 			if (real > MaxCapacity)
-				throw new IOException (string.Format ("Cannot exceed {0} bytes", MaxCapacity));
+				throw new IOException (string.Format (CultureInfo.InvariantCulture, "Cannot exceed {0} bytes", MaxCapacity));
 
 			// short-cut if we are seeking to our current position
 			if (real == position)
@@ -501,12 +509,13 @@ namespace MimeKit.IO {
 
 			if (value > capacity) {
 				do {
-					blocks.Add (new byte[BlockSize]);
+					blocks.Add (pool.Rent (Debugger.IsAttached));
 					capacity += BlockSize;
 				} while (capacity < value);
 			} else if (value < length) {
 				// shed any blocks that are no longer needed
 				while (capacity - value > BlockSize) {
+					pool.Return (blocks[blocks.Count - 1]);
 					blocks.RemoveAt (blocks.Count - 1);
 					capacity -= BlockSize;
 				}
@@ -533,8 +542,17 @@ namespace MimeKit.IO {
 		/// <c>false</c> to release only the unmanaged resources.</param>
 		protected override void Dispose (bool disposing)
 		{
+			if (disposing && !disposed) {
+				for (int i = 0; i < blocks.Count; i++) {
+					pool.Return (blocks[i]);
+					blocks[i] = null;
+				}
+
+				blocks.Clear ();
+				disposed = true;
+			}
+
 			base.Dispose (disposing);
-			disposed = true;
 		}
 	}
 }

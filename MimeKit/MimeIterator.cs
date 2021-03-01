@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,6 +36,9 @@ namespace MimeKit {
 	/// <remarks>
 	/// Walks the MIME tree structure of a <see cref="MimeMessage"/> in depth-first order.
 	/// </remarks>
+	/// <example>
+	/// <code language="c#" source="Examples\MimeIterator.cs" />
+	/// </example>
 	public class MimeIterator : IEnumerator<MimeEntity>
 	{
 		class MimeNode
@@ -57,11 +60,14 @@ namespace MimeKit {
 		int index = -1;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.MimeIterator"/> class.
+		/// Initialize a new instance of the <see cref="MimeIterator"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="MimeIterator"/> for the specified message.
 		/// </remarks>
+		/// <example>
+		/// <code language="c#" source="Examples\MimeIterator.cs" />
+		/// </example>
 		/// <param name="message">The message.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="message"/> is <c>null</c>.
@@ -76,11 +82,11 @@ namespace MimeKit {
 
 		/// <summary>
 		/// Releases unmanaged resources and performs other cleanup operations before
-		/// the <see cref="MimeKit.MimeIterator"/> is reclaimed by garbage collection.
+		/// the <see cref="MimeIterator"/> is reclaimed by garbage collection.
 		/// </summary>
 		/// <remarks>
 		/// Releases unmanaged resources and performs other cleanup operations before
-		/// the <see cref="MimeKit.MimeIterator"/> is reclaimed by garbage collection.
+		/// the <see cref="MimeIterator"/> is reclaimed by garbage collection.
 		/// </remarks>
 		~MimeIterator ()
 		{
@@ -112,6 +118,9 @@ namespace MimeKit {
 		/// will be <c>null</c>; otherwise the parent will be either be a
 		/// <see cref="MessagePart"/> or a <see cref="Multipart"/>.</para>
 		/// </remarks>
+		/// <example>
+		/// <code language="c#" source="Examples\MimeIterator.cs" />
+		/// </example>
 		/// <value>The parent entity.</value>
 		/// <exception cref="System.InvalidOperationException">
 		/// Either <see cref="MoveNext()"/> has not been called or <see cref="MoveNext()"/>
@@ -137,6 +146,9 @@ namespace MimeKit {
 		/// also throws a <see cref="System.InvalidOperationException"/> if the last call to
 		/// <see cref="MoveNext()"/> returned false, which indicates the end of the message.
 		/// </remarks>
+		/// <example>
+		/// <code language="c#" source="Examples\MimeIterator.cs" />
+		/// </example>
 		/// <value>The current entity.</value>
 		/// <exception cref="System.InvalidOperationException">
 		/// Either <see cref="MoveNext()"/> has not been called or <see cref="MoveNext()"/>
@@ -265,6 +277,9 @@ namespace MimeKit {
 		/// When the iterator is at this position, subsequent calls to MoveNext also return
 		/// false until <see cref="Reset()"/> is called.
 		/// </remarks>
+		/// <example>
+		/// <code language="c#" source="Examples\MimeIterator.cs" />
+		/// </example>
 		/// <returns><c>true</c> if the iterator was successfully advanced to the next entity; otherwise, <c>false</c>.</returns>
 		public bool MoveNext ()
 		{
@@ -374,7 +389,7 @@ namespace MimeKit {
 				}
 			}
 
-			if (i == path.Count && indexes[i] < index)
+			if (!moveFirst && indexes.Length < path.Count)
 				Reset ();
 
 			if (moveFirst && !MoveNext ())
@@ -411,11 +426,11 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Releases the unmanaged resources used by the <see cref="MimeKit.MimeIterator"/> and
+		/// Releases the unmanaged resources used by the <see cref="MimeIterator"/> and
 		/// optionally releases the managed resources.
 		/// </summary>
 		/// <remarks>
-		/// Releases the unmanaged resources used by the <see cref="MimeKit.MimeIterator"/> and
+		/// Releases the unmanaged resources used by the <see cref="MimeIterator"/> and
 		/// optionally releases the managed resources.
 		/// </remarks>
 		/// <param name="disposing"><c>true</c> to release both managed and unmanaged resources;
@@ -425,12 +440,12 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Releases all resources used by the <see cref="MimeKit.MimeIterator"/> object.
+		/// Releases all resources used by the <see cref="MimeIterator"/> object.
 		/// </summary>
-		/// <remarks>Call <see cref="Dispose()"/> when you are finished using the <see cref="MimeKit.MimeIterator"/>. The
-		/// <see cref="Dispose()"/> method leaves the <see cref="MimeKit.MimeIterator"/> in an unusable state. After
-		/// calling <see cref="Dispose()"/>, you must release all references to the <see cref="MimeKit.MimeIterator"/> so
-		/// the garbage collector can reclaim the memory that the <see cref="MimeKit.MimeIterator"/> was occupying.</remarks>
+		/// <remarks>Call <see cref="Dispose()"/> when you are finished using the <see cref="MimeIterator"/>. The
+		/// <see cref="Dispose()"/> method leaves the <see cref="MimeIterator"/> in an unusable state. After
+		/// calling <see cref="Dispose()"/>, you must release all references to the <see cref="MimeIterator"/> so
+		/// the garbage collector can reclaim the memory that the <see cref="MimeIterator"/> was occupying.</remarks>
 		public void Dispose ()
 		{
 			Dispose (true);

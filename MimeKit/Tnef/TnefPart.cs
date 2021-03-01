@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,13 +26,8 @@
 
 using System;
 using System.IO;
+using System.Text;
 using System.Collections.Generic;
-
-#if PORTABLE
-using Encoding = Portable.Text.Encoding;
-#else
-using Encoding = System.Text.Encoding;
-#endif
 
 using MimeKit.IO;
 using MimeKit.Utils;
@@ -50,10 +45,10 @@ namespace MimeKit.Tnef {
 	public class TnefPart : MimePart
 	{
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Tnef.TnefPart"/> class.
+		/// Initialize a new instance of the <see cref="TnefPart"/> class.
 		/// </summary>
 		/// <remarks>
-		/// This constructor is used by <see cref="MimeKit.MimeParser"/>.
+		/// This constructor is used by <see cref="MimeParser"/>.
 		/// </remarks>
 		/// <param name="args">Information used by the constructor.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -64,7 +59,7 @@ namespace MimeKit.Tnef {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Tnef.TnefPart"/> class.
+		/// Initialize a new instance of the <see cref="TnefPart"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="TnefPart"/> with a Content-Type of application/vnd.ms-tnef
@@ -76,14 +71,40 @@ namespace MimeKit.Tnef {
 			FileName = "winmail.dat";
 		}
 
+		/// <summary>
+		/// Dispatches to the specific visit method for this MIME entity.
+		/// </summary>
+		/// <remarks>
+		/// This default implementation for <see cref="TnefPart"/> nodes
+		/// calls <see cref="MimeVisitor.VisitTnefPart"/>. Override this
+		/// method to call into a more specific method on a derived visitor class
+		/// of the <see cref="MimeVisitor"/> class. However, it should still
+		/// support unknown visitors by calling
+		/// <see cref="MimeVisitor.VisitTnefPart"/>.
+		/// </remarks>
+		/// <param name="visitor">The visitor.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="visitor"/> is <c>null</c>.
+		/// </exception>
+		public override void Accept (MimeVisitor visitor)
+		{
+			if (visitor == null)
+				throw new ArgumentNullException (nameof (visitor));
+
+			visitor.VisitTnefPart (this);
+		}
+
 		static void ExtractRecipientTable (TnefReader reader, MimeMessage message)
 		{
 			var prop = reader.TnefPropertyReader;
 
 			// Note: The RecipientTable uses rows of properties...
 			while (prop.ReadNextRow ()) {
+				string transmitableDisplayName = null;
+				string recipientDisplayName = null;
+				string displayName = string.Empty;
 				InternetAddressList list = null;
-				string name = null, addr = null;
+				string addr = null;
 
 				while (prop.ReadNextProperty ()) {
 					switch (prop.PropertyTag.Id) {
@@ -96,11 +117,13 @@ namespace MimeKit.Tnef {
 						}
 						break;
 					case TnefPropertyId.TransmitableDisplayName:
-						if (string.IsNullOrEmpty (name))
-							name = prop.ReadValueAsString ();
+						transmitableDisplayName = prop.ReadValueAsString ();
+						break;
+					case TnefPropertyId.RecipientDisplayName:
+						recipientDisplayName = prop.ReadValueAsString ();
 						break;
 					case TnefPropertyId.DisplayName:
-						name = prop.ReadValueAsString ();
+						displayName = prop.ReadValueAsString ();
 						break;
 					case TnefPropertyId.EmailAddress:
 						if (string.IsNullOrEmpty (addr))
@@ -114,14 +137,64 @@ namespace MimeKit.Tnef {
 					}
 				}
 
-				if (list != null && !string.IsNullOrEmpty (addr))
+				if (list != null && !string.IsNullOrEmpty (addr)) {
+					var name = recipientDisplayName ?? transmitableDisplayName ?? displayName;
+
 					list.Add (new MailboxAddress (name, addr));
+				}
+			}
+		}
+
+		class EmailAddress
+		{
+			public string AddrType = "SMTP";
+			public string SearchKey;
+			public string Name;
+			public string Addr;
+
+			bool CanUseSearchKey {
+				get {
+					return SearchKey != null && SearchKey.Equals ("SMTP", StringComparison.OrdinalIgnoreCase) &&
+						SearchKey.Length > AddrType.Length && SearchKey.StartsWith (AddrType, StringComparison.Ordinal) &&
+						SearchKey[AddrType.Length] == ':';
+				}
+			}
+
+			//public bool IsComplete {
+			//	get {
+			//		return !string.IsNullOrEmpty (Addr) || CanUseSearchKey;
+			//	}
+			//}
+
+			public bool TryGetMailboxAddress (out MailboxAddress mailbox)
+			{
+				string addr;
+
+				if (string.IsNullOrEmpty (Addr) && CanUseSearchKey)
+					addr = SearchKey.Substring (AddrType.Length + 1);
+				else
+					addr = Addr;
+
+				if (string.IsNullOrEmpty (addr) || !MailboxAddress.TryParse (addr, out mailbox)) {
+					mailbox = null;
+					return false;
+				}
+
+				mailbox.Name = Name;
+
+				return true;
 			}
 		}
 
 		static void ExtractMapiProperties (TnefReader reader, MimeMessage message, BodyBuilder builder)
 		{
 			var prop = reader.TnefPropertyReader;
+			var recipient = new EmailAddress ();
+			var sender = new EmailAddress ();
+			string normalizedSubject = null;
+			string subjectPrefix = null;
+			MailboxAddress mailbox;
+			var msgid = false;
 
 			while (prop.ReadNextProperty ()) {
 				switch (prop.PropertyTag.Id) {
@@ -129,6 +202,25 @@ namespace MimeKit.Tnef {
 					if (prop.PropertyTag.ValueTnefType == TnefPropertyType.String8 ||
 						prop.PropertyTag.ValueTnefType == TnefPropertyType.Unicode) {
 						message.MessageId = prop.ReadValueAsString ();
+						msgid = true;
+					}
+					break;
+				case TnefPropertyId.TnefCorrelationKey:
+					// According to MSDN, PidTagTnefCorrelationKey is a unique key that is
+					// meant to be used to tie the TNEF attachment to the encapsulating
+					// message. It can be a string or a binary blob. It seems that most
+					// implementations use the Message-Id string, so if this property
+					// value looks like a Message-Id, then us it as one (unless we get a
+					// InternetMessageId property, in which case we use that instead.
+					if (prop.PropertyTag.ValueTnefType == TnefPropertyType.String8 ||
+						prop.PropertyTag.ValueTnefType == TnefPropertyType.Unicode ||
+						prop.PropertyTag.ValueTnefType == TnefPropertyType.Binary) {
+						if (!msgid) {
+							var value = prop.ReadValueAsString ();
+
+							if (value.Length > 5 && value[0] == '<' && value[value.Length - 1] == '>' && value.IndexOf ('@') != -1)
+								message.MessageId = value;
+						}
 					}
 					break;
 				case TnefPropertyId.Subject:
@@ -137,12 +229,73 @@ namespace MimeKit.Tnef {
 						message.Subject = prop.ReadValueAsString ();
 					}
 					break;
+				case TnefPropertyId.SubjectPrefix:
+					if (prop.PropertyTag.ValueTnefType == TnefPropertyType.String8 ||
+						prop.PropertyTag.ValueTnefType == TnefPropertyType.Unicode) {
+						subjectPrefix = prop.ReadValueAsString ();
+					}
+					break;
+				case TnefPropertyId.NormalizedSubject:
+					if (prop.PropertyTag.ValueTnefType == TnefPropertyType.String8 ||
+						prop.PropertyTag.ValueTnefType == TnefPropertyType.Unicode) {
+						normalizedSubject = prop.ReadValueAsString ();
+					}
+					break;
+				case TnefPropertyId.SenderName:
+					if (prop.PropertyTag.ValueTnefType == TnefPropertyType.String8 ||
+						prop.PropertyTag.ValueTnefType == TnefPropertyType.Unicode) {
+						sender.Name = prop.ReadValueAsString ();
+					}
+					break;
+				case TnefPropertyId.SenderEmailAddress:
+					if (prop.PropertyTag.ValueTnefType == TnefPropertyType.String8 ||
+						prop.PropertyTag.ValueTnefType == TnefPropertyType.Unicode) {
+						sender.Addr = prop.ReadValueAsString ();
+					}
+					break;
+				case TnefPropertyId.SenderSearchKey:
+					if (prop.PropertyTag.ValueTnefType == TnefPropertyType.String8 ||
+						prop.PropertyTag.ValueTnefType == TnefPropertyType.Unicode ||
+						prop.PropertyTag.ValueTnefType == TnefPropertyType.Binary) {
+						sender.SearchKey = prop.ReadValueAsString ();
+					}
+					break;
+				case TnefPropertyId.SenderAddrtype:
+					if (prop.PropertyTag.ValueTnefType == TnefPropertyType.String8 ||
+						prop.PropertyTag.ValueTnefType == TnefPropertyType.Unicode) {
+						sender.AddrType = prop.ReadValueAsString ();
+					}
+					break;
+				case TnefPropertyId.ReceivedByName:
+					if (prop.PropertyTag.ValueTnefType == TnefPropertyType.String8 ||
+						prop.PropertyTag.ValueTnefType == TnefPropertyType.Unicode) {
+						recipient.Name = prop.ReadValueAsString ();
+					}
+					break;
+				case TnefPropertyId.ReceivedByEmailAddress:
+					if (prop.PropertyTag.ValueTnefType == TnefPropertyType.String8 ||
+						prop.PropertyTag.ValueTnefType == TnefPropertyType.Unicode) {
+						recipient.Addr = prop.ReadValueAsString ();
+					}
+					break;
+				case TnefPropertyId.ReceivedBySearchKey:
+					if (prop.PropertyTag.ValueTnefType == TnefPropertyType.String8 ||
+						prop.PropertyTag.ValueTnefType == TnefPropertyType.Unicode ||
+						prop.PropertyTag.ValueTnefType == TnefPropertyType.Binary) {
+						recipient.SearchKey = prop.ReadValueAsString ();
+					}
+					break;
+				case TnefPropertyId.ReceivedByAddrtype:
+					if (prop.PropertyTag.ValueTnefType == TnefPropertyType.String8 ||
+						prop.PropertyTag.ValueTnefType == TnefPropertyType.Unicode) {
+						recipient.AddrType = prop.ReadValueAsString ();
+					}
+					break;
 				case TnefPropertyId.RtfCompressed:
 					if (prop.PropertyTag.ValueTnefType == TnefPropertyType.String8 ||
 						prop.PropertyTag.ValueTnefType == TnefPropertyType.Unicode ||
 						prop.PropertyTag.ValueTnefType == TnefPropertyType.Binary) {
 						var rtf = new TextPart ("rtf");
-						rtf.ContentType.Name = "body.rtf";
 
 						var converter = new RtfCompressedToRtf ();
 						var content = new MemoryBlockStream ();
@@ -167,7 +320,6 @@ namespace MimeKit.Tnef {
 						prop.PropertyTag.ValueTnefType == TnefPropertyType.Unicode ||
 						prop.PropertyTag.ValueTnefType == TnefPropertyType.Binary) {
 						var html = new TextPart ("html");
-						html.ContentType.Name = "body.html";
 						Encoding encoding;
 
 						if (prop.PropertyTag.ValueTnefType != TnefPropertyType.Unicode)
@@ -185,7 +337,6 @@ namespace MimeKit.Tnef {
 						prop.PropertyTag.ValueTnefType == TnefPropertyType.Unicode ||
 						prop.PropertyTag.ValueTnefType == TnefPropertyType.Binary) {
 						var plain = new TextPart ("plain");
-						plain.ContentType.Name = "body.txt";
 						Encoding encoding;
 
 						if (prop.PropertyTag.ValueTnefType != TnefPropertyType.Unicode)
@@ -199,19 +350,61 @@ namespace MimeKit.Tnef {
 					}
 					break;
 				case TnefPropertyId.Importance:
+					// https://msdn.microsoft.com/en-us/library/ee237166(v=exchg.80).aspx
 					switch (prop.ReadValueAsInt32 ()) {
 					case 2: message.Importance = MessageImportance.High; break;
+					case 1: message.Importance = MessageImportance.Normal; break;
 					case 0: message.Importance = MessageImportance.Low; break;
 					}
 					break;
 				case TnefPropertyId.Priority:
+					// https://msdn.microsoft.com/en-us/library/ee159473(v=exchg.80).aspx
 					switch (prop.ReadValueAsInt32 ()) {
-					case 2: message.Priority = MessagePriority.Urgent; break;
-					case 0: message.Priority = MessagePriority.NonUrgent; break;
+					case  1: message.Priority = MessagePriority.Urgent; break;
+					case  0: message.Priority = MessagePriority.Normal; break;
+					case -1: message.Priority = MessagePriority.NonUrgent; break;
+					}
+					break;
+				case TnefPropertyId.Sensitivity:
+					// https://msdn.microsoft.com/en-us/library/ee217353(v=exchg.80).aspx
+					// https://tools.ietf.org/html/rfc2156#section-5.3.4
+					switch (prop.ReadValueAsInt32 ()) {
+					case 1: message.Headers[HeaderId.Sensitivity] = "Personal"; break;
+					case 2: message.Headers[HeaderId.Sensitivity] = "Private"; break;
+					case 3: message.Headers[HeaderId.Sensitivity] = "Company-Confidential"; break;
+					case 0: message.Headers.Remove (HeaderId.Sensitivity); break;
 					}
 					break;
 				}
 			}
+
+			if (string.IsNullOrEmpty (message.Subject) && !string.IsNullOrEmpty (normalizedSubject)) {
+				if (!string.IsNullOrEmpty (subjectPrefix))
+					message.Subject = subjectPrefix + normalizedSubject;
+				else
+					message.Subject = normalizedSubject;
+			}
+
+			if (sender.TryGetMailboxAddress (out mailbox))
+				message.From.Add (mailbox);
+
+			if (recipient.TryGetMailboxAddress (out mailbox))
+				message.To.Add (mailbox);
+		}
+
+		static TnefPart PromoteToTnefPart (MimePart part)
+		{
+			var tnef = new TnefPart ();
+
+			foreach (var param in part.ContentType.Parameters)
+				tnef.ContentType.Parameters[param.Name] = param.Value;
+
+			if (part.ContentDisposition != null)
+				tnef.ContentDisposition = part.ContentDisposition;
+
+			tnef.ContentTransferEncoding = part.ContentTransferEncoding;
+
+			return tnef;
 		}
 
 		static void ExtractAttachments (TnefReader reader, BodyBuilder builder)
@@ -239,6 +432,8 @@ namespace MimeKit.Tnef {
 					if (attachment == null)
 						break;
 
+					attachData = null;
+
 					while (prop.ReadNextProperty ()) {
 						switch (prop.PropertyTag.Id) {
 						case TnefPropertyId.AttachLongFilename:
@@ -249,60 +444,27 @@ namespace MimeKit.Tnef {
 								attachment.FileName = prop.ReadValueAsString ();
 							break;
 						case TnefPropertyId.AttachContentLocation:
-							text = prop.ReadValueAsString ();
-							if (Uri.IsWellFormedUriString (text, UriKind.Absolute))
-								attachment.ContentLocation = new Uri (text, UriKind.Absolute);
-							else if (Uri.IsWellFormedUriString (text, UriKind.Relative))
-								attachment.ContentLocation = new Uri (text, UriKind.Relative);
+							attachment.ContentLocation = prop.ReadValueAsUri ();
 							break;
 						case TnefPropertyId.AttachContentBase:
-							text = prop.ReadValueAsString ();
-							attachment.ContentBase = new Uri (text, UriKind.Absolute);
+							attachment.ContentBase = prop.ReadValueAsUri ();
 							break;
 						case TnefPropertyId.AttachContentId:
-							attachment.ContentId = prop.ReadValueAsString ();
+							text = prop.ReadValueAsString ();
+
+							var buffer = CharsetUtils.UTF8.GetBytes (text);
+							int index = 0;
+
+							if (ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, false, out string msgid))
+								attachment.ContentId = msgid;
 							break;
 						case TnefPropertyId.AttachDisposition:
 							text = prop.ReadValueAsString ();
-							if (attachment.ContentDisposition == null)
-								attachment.ContentDisposition = new ContentDisposition (text);
-							else
-								attachment.ContentDisposition.Disposition = text;
+							if (ContentDisposition.TryParse (text, out ContentDisposition disposition))
+								attachment.ContentDisposition = disposition;
 							break;
 						case TnefPropertyId.AttachData:
-							var stream = prop.GetRawValueReadStream ();
-							var content = new MemoryStream ();
-							var guid = new byte[16];
-
-							if (attachMethod == TnefAttachMethod.EmbeddedMessage) {
-								var tnef = new TnefPart ();
-
-								foreach (var param in attachment.ContentType.Parameters)
-									tnef.ContentType.Parameters[param.Name] = param.Value;
-
-								if (attachment.ContentDisposition != null)
-									tnef.ContentDisposition = attachment.ContentDisposition;
-
-								attachment = tnef;
-							}
-
-							// read the GUID
-							stream.Read (guid, 0, 16);
-
-							// the rest is content
-							using (var filtered = new FilteredStream (content)) {
-								filtered.Add (filter);
-								stream.CopyTo (filtered, 4096);
-								filtered.Flush ();
-							}
-
-							content.Position = 0;
-
-							attachment.ContentTransferEncoding = filter.GetBestEncoding (EncodingConstraint.SevenBit);
-							attachment.Content = new MimeContent (content);
-							filter.Reset ();
-
-							builder.Attachments.Add (attachment);
+							attachData = prop.ReadValueAsBytes ();
 							break;
 						case TnefPropertyId.AttachMethod:
 							attachMethod = (TnefAttachMethod) prop.ReadValueAsInt32 ();
@@ -333,6 +495,27 @@ namespace MimeKit.Tnef {
 							attachment.ContentType.Name = prop.ReadValueAsString ();
 							break;
 						}
+					}
+
+					if (attachData != null) {
+						int count = attachData.Length;
+						int index = 0;
+
+						if (attachMethod == TnefAttachMethod.EmbeddedMessage) {
+							attachment.ContentTransferEncoding = ContentEncoding.Base64;
+							attachment = PromoteToTnefPart (attachment);
+							count -= 16;
+							index = 16;
+						} else if (attachment.ContentType.IsMimeType ("text", "*")) {
+							filter.Flush (attachData, index, count, out outIndex, out outLength);
+							attachment.ContentTransferEncoding = filter.GetBestEncoding (EncodingConstraint.SevenBit);
+							filter.Reset ();
+						} else {
+							attachment.ContentTransferEncoding = ContentEncoding.Base64;
+						}
+
+						attachment.Content = new MimeContent (new MemoryStream (attachData, index, count, false));
+						builder.Attachments.Add (attachment);
 					}
 					break;
 				case TnefAttributeTag.AttachCreateDate:
@@ -366,11 +549,16 @@ namespace MimeKit.Tnef {
 						break;
 
 					attachData = prop.ReadValueAsBytes ();
-					filter.Flush (attachData, 0, attachData.Length, out outIndex, out outLength);
-					attachment.ContentTransferEncoding = filter.GetBestEncoding (EncodingConstraint.EightBit);
-					attachment.Content = new MimeContent (new MemoryStream (attachData, false));
-					filter.Reset ();
 
+					if (attachment.ContentType.IsMimeType ("text", "*")) {
+						filter.Flush (attachData, 0, attachData.Length, out outIndex, out outLength);
+						attachment.ContentTransferEncoding = filter.GetBestEncoding (EncodingConstraint.SevenBit);
+						filter.Reset ();
+					} else {
+						attachment.ContentTransferEncoding = ContentEncoding.Base64;
+					}
+
+					attachment.Content = new MimeContent (new MemoryStream (attachData, false));
 					builder.Attachments.Add (attachment);
 					break;
 				}
@@ -381,6 +569,8 @@ namespace MimeKit.Tnef {
 		{
 			var builder = new BodyBuilder ();
 			var message = new MimeMessage ();
+
+			message.Headers.Remove (HeaderId.Date);
 
 			while (reader.ReadNextAttribute ()) {
 				if (reader.AttributeLevel == TnefAttributeLevel.Attachment)
@@ -413,16 +603,16 @@ namespace MimeKit.Tnef {
 		}
 
 		/// <summary>
-		/// Converts the TNEF content into a <see cref="MimeKit.MimeMessage"/>.
+		/// Converts the TNEF content into a <see cref="MimeMessage"/>.
 		/// </summary>
 		/// <remarks>
-		/// TNEF data often contains properties that map to <see cref="MimeKit.MimeMessage"/>
+		/// TNEF data often contains properties that map to <see cref="MimeMessage"/>
 		/// headers. TNEF data also often contains file attachments which will be
 		/// mapped to MIME parts.
 		/// </remarks>
 		/// <returns>A message representing the TNEF data in MIME format.</returns>
 		/// <exception cref="System.InvalidOperationException">
-		/// The <see cref="MimeKit.MimePart.Content"/> property is <c>null</c>.
+		/// The <see cref="MimePart.Content"/> property is <c>null</c>.
 		/// </exception>
 		public MimeMessage ConvertToMessage ()
 		{
@@ -449,7 +639,7 @@ namespace MimeKit.Tnef {
 		/// </remarks>
 		/// <returns>The attachments.</returns>
 		/// <exception cref="System.InvalidOperationException">
-		/// The <see cref="MimeKit.MimePart.Content"/> property is <c>null</c>.
+		/// The <see cref="MimePart.Content"/> property is <c>null</c>.
 		/// </exception>
 		public IEnumerable<MimeEntity> ExtractAttachments ()
 		{

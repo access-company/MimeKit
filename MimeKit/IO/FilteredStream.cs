@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -58,7 +58,7 @@ namespace MimeKit.IO {
 		bool flushed;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.IO.FilteredStream"/> class.
+		/// Initialize a new instance of the <see cref="FilteredStream"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a filtered stream using the specified source stream.
@@ -522,6 +522,9 @@ namespace MimeKit.IO {
 			foreach (var filter in filters)
 				filtered = filter.Filter (filtered, filteredIndex, filteredLength, out filteredIndex, out filteredLength);
 
+			if (filteredLength == 0)
+				return;
+
 			var cancellable = Source as ICancellableStream;
 
 			if (cancellable != null) {
@@ -690,12 +693,6 @@ namespace MimeKit.IO {
 				filteredIndex = 0;
 				filteredLength = 0;
 			}
-
-			if (cancellable != null) {
-				cancellable.Flush (cancellationToken);
-			} else {
-				Source.Flush ();
-			}
 		}
 
 		/// <summary>
@@ -767,8 +764,6 @@ namespace MimeKit.IO {
 				filteredIndex = 0;
 				filteredLength = 0;
 			}
-
-			await Source.FlushAsync (cancellationToken).ConfigureAwait (false);
 		}
 
 		/// <summary>

@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -42,10 +42,10 @@ namespace MimeKit.Cryptography {
 	public class ApplicationPkcs7Mime : MimePart
 	{
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Cryptography.ApplicationPkcs7Mime"/> class.
+		/// Initialize a new instance of the <see cref="ApplicationPkcs7Mime"/> class.
 		/// </summary>
 		/// <remarks>
-		/// This constructor is used by <see cref="MimeKit.MimeParser"/>.
+		/// This constructor is used by <see cref="MimeParser"/>.
 		/// </remarks>
 		/// <param name="args">Information used by the constructor.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -56,7 +56,7 @@ namespace MimeKit.Cryptography {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Cryptography.ApplicationPkcs7Mime"/> class.
+		/// Initialize a new instance of the <see cref="ApplicationPkcs7Mime"/> class.
 		/// </summary>
 		/// <remarks>
 		/// <para>Creates a new MIME part with a Content-Type of application/pkcs7-mime
@@ -127,6 +127,7 @@ namespace MimeKit.Cryptography {
 					return SecureMimeType.Unknown;
 
 				switch (type.ToLowerInvariant ()) {
+				case "authenveloped-data": return SecureMimeType.AuthEnvelopedData;
 				case "compressed-data": return SecureMimeType.CompressedData;
 				case "enveloped-data": return SecureMimeType.EnvelopedData;
 				case "signed-data": return SecureMimeType.SignedData;
@@ -140,12 +141,12 @@ namespace MimeKit.Cryptography {
 		/// Dispatches to the specific visit method for this MIME entity.
 		/// </summary>
 		/// <remarks>
-		/// This default implementation for <see cref="MimeKit.Cryptography.ApplicationPkcs7Mime"/> nodes
-		/// calls <see cref="MimeKit.MimeVisitor.VisitApplicationPkcs7Mime"/>. Override this
+		/// This default implementation for <see cref="ApplicationPkcs7Mime"/> nodes
+		/// calls <see cref="MimeVisitor.VisitApplicationPkcs7Mime"/>. Override this
 		/// method to call into a more specific method on a derived visitor class
-		/// of the <see cref="MimeKit.MimeVisitor"/> class. However, it should still
+		/// of the <see cref="MimeVisitor"/> class. However, it should still
 		/// support unknown visitors by calling
-		/// <see cref="MimeKit.MimeVisitor.VisitApplicationPkcs7Mime"/>.
+		/// <see cref="MimeVisitor.VisitApplicationPkcs7Mime"/>.
 		/// </remarks>
 		/// <param name="visitor">The visitor.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -165,7 +166,7 @@ namespace MimeKit.Cryptography {
 		/// <remarks>
 		/// Decompresses the compressed-data using the specified <see cref="SecureMimeContext"/>.
 		/// </remarks>
-		/// <returns>The decompressed <see cref="MimeKit.MimeEntity"/>.</returns>
+		/// <returns>The decompressed <see cref="MimeEntity"/>.</returns>
 		/// <param name="ctx">The S/MIME context to use for decompressing.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="ctx"/> is <c>null</c>.
@@ -181,7 +182,7 @@ namespace MimeKit.Cryptography {
 			if (ctx == null)
 				throw new ArgumentNullException (nameof (ctx));
 
-			if (SecureMimeType != SecureMimeType.CompressedData)
+			if (SecureMimeType != SecureMimeType.CompressedData && SecureMimeType != SecureMimeType.Unknown)
 				throw new InvalidOperationException ();
 
 			using (var memory = new MemoryBlockStream ()) {
@@ -198,7 +199,7 @@ namespace MimeKit.Cryptography {
 		/// <remarks>
 		/// Decompresses the compressed-data using the default <see cref="SecureMimeContext"/>.
 		/// </remarks>
-		/// <returns>The decompressed <see cref="MimeKit.MimeEntity"/>.</returns>
+		/// <returns>The decompressed <see cref="MimeEntity"/>.</returns>
 		/// <exception cref="System.InvalidOperationException">
 		/// The "smime-type" parameter on the Content-Type header is not "compressed-data".
 		/// </exception>
@@ -207,7 +208,7 @@ namespace MimeKit.Cryptography {
 		/// </exception>
 		public MimeEntity Decompress ()
 		{
-			if (SecureMimeType != SecureMimeType.CompressedData)
+			if (SecureMimeType != SecureMimeType.CompressedData && SecureMimeType != SecureMimeType.Unknown)
 				throw new InvalidOperationException ();
 
 			using (var ctx = (SecureMimeContext) CryptographyContext.Create ("application/pkcs7-mime"))
@@ -220,7 +221,7 @@ namespace MimeKit.Cryptography {
 		/// <remarks>
 		/// Decrypts the enveloped-data using the specified <see cref="SecureMimeContext"/>.
 		/// </remarks>
-		/// <returns>The decrypted <see cref="MimeKit.MimeEntity"/>.</returns>
+		/// <returns>The decrypted <see cref="MimeEntity"/>.</returns>
 		/// <param name="ctx">The S/MIME context to use for decrypting.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -240,7 +241,7 @@ namespace MimeKit.Cryptography {
 			if (ctx == null)
 				throw new ArgumentNullException (nameof (ctx));
 
-			if (SecureMimeType != SecureMimeType.EnvelopedData)
+			if (SecureMimeType != SecureMimeType.EnvelopedData && SecureMimeType != SecureMimeType.Unknown)
 				throw new InvalidOperationException ();
 
 			using (var memory = new MemoryBlockStream ()) {
@@ -257,7 +258,7 @@ namespace MimeKit.Cryptography {
 		/// <remarks>
 		/// Decrypts the enveloped-data using the default <see cref="SecureMimeContext"/>.
 		/// </remarks>
-		/// <returns>The decrypted <see cref="MimeKit.MimeEntity"/>.</returns>
+		/// <returns>The decrypted <see cref="MimeEntity"/>.</returns>
 		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.InvalidOperationException">
 		/// The "smime-type" parameter on the Content-Type header is not "certs-only".
@@ -295,7 +296,7 @@ namespace MimeKit.Cryptography {
 			if (ctx == null)
 				throw new ArgumentNullException (nameof (ctx));
 
-			if (SecureMimeType != SecureMimeType.CertsOnly)
+			if (SecureMimeType != SecureMimeType.CertsOnly && SecureMimeType != SecureMimeType.Unknown)
 				throw new InvalidOperationException ();
 
 			using (var memory = new MemoryBlockStream ()) {
@@ -307,10 +308,10 @@ namespace MimeKit.Cryptography {
 		}
 
 		/// <summary>
-		/// Verify the signed-data and return the unencapsulated <see cref="MimeKit.MimeEntity"/>.
+		/// Verify the signed-data and return the unencapsulated <see cref="MimeEntity"/>.
 		/// </summary>
 		/// <remarks>
-		/// Verifies the signed-data and returns the unencapsulated <see cref="MimeKit.MimeEntity"/>.
+		/// Verifies the signed-data and returns the unencapsulated <see cref="MimeEntity"/>.
 		/// </remarks>
 		/// <returns>The list of digital signatures.</returns>
 		/// <param name="ctx">The S/MIME context to use for verifying the signature.</param>
@@ -336,7 +337,7 @@ namespace MimeKit.Cryptography {
 			if (ctx == null)
 				throw new ArgumentNullException (nameof (ctx));
 
-			if (SecureMimeType != SecureMimeType.SignedData)
+			if (SecureMimeType != SecureMimeType.SignedData && SecureMimeType != SecureMimeType.Unknown)
 				throw new InvalidOperationException ();
 
 			using (var memory = new MemoryBlockStream ()) {
@@ -348,11 +349,11 @@ namespace MimeKit.Cryptography {
 		}
 
 		/// <summary>
-		/// Verifies the signed-data and returns the unencapsulated <see cref="MimeKit.MimeEntity"/>.
+		/// Verifies the signed-data and returns the unencapsulated <see cref="MimeEntity"/>.
 		/// </summary>
 		/// <remarks>
 		/// Verifies the signed-data using the default <see cref="SecureMimeContext"/> and returns the
-		/// unencapsulated <see cref="MimeKit.MimeEntity"/>.
+		/// unencapsulated <see cref="MimeEntity"/>.
 		/// </remarks>
 		/// <returns>The list of digital signatures.</returns>
 		/// <param name="entity">The unencapsulated entity.</param>
@@ -377,8 +378,7 @@ namespace MimeKit.Cryptography {
 		/// </summary>
 		/// <remarks>
 		/// <para>Compresses the specified entity using the specified <see cref="SecureMimeContext"/>.</para>
-		/// <para><alert class="warning">Most mail clients, even among those that support S/MIME,
-		/// do not support compression.</alert></para>
+		/// <note type="warning">Most mail clients, even among those that support S/MIME, do not support compression.</note>
 		/// </remarks>
 		/// <returns>The compressed entity.</returns>
 		/// <param name="ctx">The S/MIME context to use for compressing.</param>
@@ -415,8 +415,7 @@ namespace MimeKit.Cryptography {
 		/// </summary>
 		/// <remarks>
 		/// <para>Compresses the specified entity using the default <see cref="SecureMimeContext"/>.</para>
-		/// <para><alert class="warning">Most mail clients, even among those that support S/MIME,
-		/// do not support compression.</alert></para>
+		/// <note type="warning">Most mail clients, even among those that support S/MIME, do not support compression.</note>
 		/// </remarks>
 		/// <returns>The compressed entity.</returns>
 		/// <param name="entity">The entity.</param>

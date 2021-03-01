@@ -1,9 +1,9 @@
-//
+﻿//
 // HeaderTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -105,6 +105,11 @@ namespace UnitTests {
 			Assert.Throws<ArgumentNullException> (() => header.SetValue (Encoding.UTF8, null));
 			Assert.Throws<ArgumentNullException> (() => header.SetValue ((string) null, "value"));
 			Assert.Throws<ArgumentNullException> (() => header.SetValue ("utf-8", null));
+
+			// SetRawValue
+			Assert.Throws<ArgumentNullException> (() => header.SetRawValue (null));
+			Assert.Throws<ArgumentException> (() => header.SetRawValue (new byte[0]));
+			Assert.Throws<ArgumentException> (() => header.SetRawValue (Encoding.ASCII.GetBytes ("abc")));
 		}
 
 		[Test]
@@ -135,6 +140,28 @@ namespace UnitTests {
 			Assert.AreEqual (expected, raw, "The folded address header does not match the expected value.");
 		}
 
+		static readonly string[] ArcAuthenticationResultsHeaderValues = {
+			" i=1; lists.example.org;" + FormatOptions.Default.NewLine + "\tspf=pass smtp.mfrom=jqd@d1.example;" + FormatOptions.Default.NewLine + "\tdkim=pass (1024 - bit key) header.i=@d1.example; dmarc=pass",
+			" i=2; gmail.example;" + FormatOptions.Default.NewLine + "\tspf=fail smtp.from=jqd@d1.example;" + FormatOptions.Default.NewLine + "\tdkim=fail (512-bit key) header.i=@example.org; dmarc=fail;" + FormatOptions.Default.NewLine + "\tarc=pass (as.1.lists.example.org=pass, ams.1.lists.example.org=pass)",
+			" i=3; gmail.example;" + FormatOptions.Default.NewLine + "\tspf=fail smtp.from=jqd@d1.example;" + FormatOptions.Default.NewLine + "\tdkim=fail (512-bit key) header.i=@example.org; dmarc=fail"+ FormatOptions.Default.NewLine + "\t(this-is-a-really-really-really-long-unbroken-comment-that-will-be-on-a-line-by-itself);" + FormatOptions.Default.NewLine + "\tarc=pass (as.1.lists.example.org=pass, ams.1.lists.example.org=pass)"
+		};
+
+		[Test]
+		public void TestArcAuthenticationResultsHeaderFolding ()
+		{
+			var header = new Header ("ARC-Authentication-Results", "");
+
+			foreach (var authResults in ArcAuthenticationResultsHeaderValues) {
+				header.SetValue (Encoding.ASCII, authResults.Replace (FormatOptions.Default.NewLine + "\t", " ").Trim ());
+
+				var raw = ByteArrayToString (header.RawValue);
+
+				Assert.IsTrue (raw[raw.Length - 1] == '\n', "The RawValue does not end with a new line.");
+
+				Assert.AreEqual (authResults + FormatOptions.Default.NewLine, raw, "The folded ARC-Authentication-Results header does not match the expected value.");
+			}
+		}
+
 		[Test]
 		public void TestMessageIdHeaderFolding ()
 		{
@@ -145,6 +172,16 @@ namespace UnitTests {
 			Assert.IsTrue (raw[raw.Length - 1] == '\n', "The RawValue does not end with a new line.");
 
 			Assert.AreEqual (expected, raw, "The folded Message-Id header does not match the expected value.");
+		}
+
+		[Test]
+		public void TestSubjectHeaderFolding ()
+		{
+			const string expected = " =?utf-8?b?0KLQtdGB0YLQvtCy0YvQuSDQt9Cw0LPQvtC70L7QstC+0Log0L/QuNGB0YzQvNCw?=\n";
+			var header = new Header ("Subject", "Тестовый заголовок письма");
+			var actual = ByteArrayToString (header.RawValue).Replace ("\r", "");
+
+			Assert.AreEqual (expected, actual);
 		}
 
 		static readonly string[] ReceivedHeaderValues = {
@@ -342,6 +379,22 @@ namespace UnitTests {
 			parsed = "X-MadeUp-Header".ToHeaderId ();
 
 			Assert.AreEqual (HeaderId.Unknown, parsed, "Failed to parse the made-up header value");
+		}
+
+		[Test]
+		public void TestSetRawValue ()
+		{
+			var header = new Header (HeaderId.Subject, "This is the subject");
+			var rawValue = Encoding.ASCII.GetBytes ("This is the\n raw subject\n");
+			var format = FormatOptions.Default.Clone ();
+			format.International = true;
+
+			header.SetRawValue (rawValue);
+
+			var value = header.GetRawValue (format);
+			Assert.AreEqual (rawValue.Length, value.Length, "Length");
+			for (int i = 0; i < rawValue.Length; i++)
+				Assert.AreEqual (rawValue[i], value[i], "rawValue[{0}]", i);
 		}
 	}
 }

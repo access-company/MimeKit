@@ -1,9 +1,9 @@
-//
+﻿//
 // ChainedStreamTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -160,7 +160,7 @@ namespace UnitTests.IO {
 		}
 
 		[Test]
-		public async void TestReadAsync ()
+		public async Task TestReadAsync ()
 		{
 			Assert.IsTrue (chained.CanRead, "Expected to be able to read from the chained stream.");
 
@@ -269,7 +269,7 @@ namespace UnitTests.IO {
 		}
 
 		[Test]
-		public async void TestRandomSeekingAsync ()
+		public async Task TestRandomSeekingAsync ()
 		{
 			Assert.IsTrue (chained.CanSeek, "Expected to be able to seek in the chained stream.");
 
@@ -304,7 +304,7 @@ namespace UnitTests.IO {
 		}
 
 		[Test]
-		public async void TestSeekingToStreamBoundariesAsync ()
+		public async Task TestSeekingToStreamBoundariesAsync ()
 		{
 			long expected, actual;
 
@@ -351,7 +351,7 @@ namespace UnitTests.IO {
 		}
 
 		[Test]
-		public async void TestWriteAsync ()
+		public async Task TestWriteAsync ()
 		{
 			var buffer = new byte[(int) chained.Length];
 
@@ -388,7 +388,7 @@ namespace UnitTests.IO {
 
 				var entity = MimeEntity.Load (chained, true) as TextPart;
 
-				Assert.AreEqual ("Hello, world!\r\n", entity.Text);
+				Assert.AreEqual ("Hello, world!" + Environment.NewLine, entity.Text);
 			}
 		}
 

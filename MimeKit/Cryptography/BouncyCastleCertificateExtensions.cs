@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -34,10 +34,9 @@ using Org.BouncyCastle.X509;
 using Org.BouncyCastle.Asn1.X509;
 using Org.BouncyCastle.Asn1.Smime;
 using Org.BouncyCastle.Crypto.Digests;
+using Org.BouncyCastle.Crypto.Parameters;
 
-#if !PORTABLE
 using X509Certificate2 = System.Security.Cryptography.X509Certificates.X509Certificate2;
-#endif
 
 namespace MimeKit.Cryptography {
 	/// <summary>
@@ -48,7 +47,6 @@ namespace MimeKit.Cryptography {
 	/// </remarks>
 	public static class BouncyCastleCertificateExtensions
 	{
-#if !PORTABLE
 		/// <summary>
 		/// Convert a BouncyCastle certificate into an X509Certificate2.
 		/// </summary>
@@ -67,7 +65,11 @@ namespace MimeKit.Cryptography {
 
 			return new X509Certificate2 (certificate.GetEncoded ());
 		}
-#endif
+
+		internal static bool IsSelfSigned (this X509Certificate certificate)
+		{
+			return certificate.SubjectDN.Equivalent (certificate.IssuerDN);
+		}
 
 		/// <summary>
 		/// Gets the issuer name info.
@@ -89,7 +91,7 @@ namespace MimeKit.Cryptography {
 			// FIXME: GetValueList() should be fixed to return IList<string>
 			var list = certificate.IssuerDN.GetValueList (identifier);
 			if (list.Count == 0)
-				return null;
+				return string.Empty;
 
 			return (string) list[0];
 		}
@@ -114,7 +116,7 @@ namespace MimeKit.Cryptography {
 			// FIXME: GetValueList() should be fixed to return IList<string>
 			var list = certificate.SubjectDN.GetValueList (identifier);
 			if (list.Count == 0)
-				return null;
+				return string.Empty;
 
 			return (string) list[0];
 		}
@@ -168,13 +170,13 @@ namespace MimeKit.Cryptography {
 		{
 			var address = certificate.GetSubjectNameInfo (X509Name.EmailAddress);
 
-			if (address != null)
+			if (!string.IsNullOrEmpty (address))
 				return address;
 
 			var alt = certificate.GetExtensionValue (X509Extensions.SubjectAlternativeName);
 
 			if (alt == null)
-				return null;
+				return string.Empty;
 
 			var seq = Asn1Sequence.GetInstance (Asn1Object.FromByteArray (alt.GetOctets ()));
 
@@ -186,6 +188,16 @@ namespace MimeKit.Cryptography {
 			}
 
 			return null;
+		}
+
+		internal static string AsHex (this byte[] blob)
+		{
+			var hex = new StringBuilder (blob.Length * 2);
+
+			for (int i = 0; i < blob.Length; i++)
+				hex.Append (blob[i].ToString ("x2"));
+
+			return hex.ToString ();
 		}
 
 		/// <summary>
@@ -206,17 +218,46 @@ namespace MimeKit.Cryptography {
 				throw new ArgumentNullException (nameof (certificate));
 
 			var encoded = certificate.GetEncoded ();
-			var fingerprint = new StringBuilder ();
 			var sha1 = new Sha1Digest ();
-			var data = new byte[20];
 
 			sha1.BlockUpdate (encoded, 0, encoded.Length);
-			sha1.DoFinal (data, 0);
 
-			for (int i = 0; i < data.Length; i++)
-				fingerprint.Append (data[i].ToString ("x2"));
+			var fingerprint = new byte[20];
+			sha1.DoFinal (fingerprint, 0);
 
-			return fingerprint.ToString ();
+			return fingerprint.AsHex ();
+		}
+
+		/// <summary>
+		/// Gets the public key algorithm for the certificate.
+		/// </summary>
+		/// <remarks>
+		/// Gets the public key algorithm for the ceretificate.
+		/// </remarks>
+		/// <returns>The public key algorithm.</returns>
+		/// <param name="certificate">The certificate.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="certificate"/> is <c>null</c>.
+		/// </exception>
+		public static PublicKeyAlgorithm GetPublicKeyAlgorithm (this X509Certificate certificate)
+		{
+			if (certificate == null)
+				throw new ArgumentNullException (nameof (certificate));
+
+			var pubkey = certificate.GetPublicKey ();
+
+			if (pubkey is DsaKeyParameters)
+				return PublicKeyAlgorithm.Dsa;
+			if (pubkey is RsaKeyParameters)
+				return PublicKeyAlgorithm.RsaGeneral;
+			if (pubkey is ElGamalKeyParameters)
+				return PublicKeyAlgorithm.ElGamalGeneral;
+			if (pubkey is ECKeyParameters)
+				return PublicKeyAlgorithm.EllipticCurve;
+			if (pubkey is DHKeyParameters)
+				return PublicKeyAlgorithm.DiffieHellman;
+
+			return PublicKeyAlgorithm.None;
 		}
 
 		internal static X509KeyUsageFlags GetKeyUsageFlags (bool[] usage)
@@ -319,7 +360,7 @@ namespace MimeKit.Cryptography {
 		{
 			var critical = crl.GetCriticalExtensionOids ();
 
-			return critical.Contains (X509Extensions.DeltaCrlIndicator.Id);
+			return critical != null ? critical.Contains (X509Extensions.DeltaCrlIndicator.Id) : false;
 		}
 	}
 }
