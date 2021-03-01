@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -31,10 +31,11 @@ using System.Threading;
 using Org.BouncyCastle.Cms;
 using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.X509;
-using Org.BouncyCastle.Asn1.Pkcs;
-using Org.BouncyCastle.Asn1.Smime;
 using Org.BouncyCastle.Asn1.Ntt;
 using Org.BouncyCastle.Asn1.Kisa;
+using Org.BouncyCastle.Asn1.X509;
+using Org.BouncyCastle.Asn1.Pkcs;
+using Org.BouncyCastle.Asn1.Smime;
 
 namespace MimeKit.Cryptography {
 	/// <summary>
@@ -47,13 +48,14 @@ namespace MimeKit.Cryptography {
 	/// </remarks>
 	public abstract class SecureMimeContext : CryptographyContext
 	{
+		static readonly string[] ProtocolSubtypes = { "pkcs7-signature", "pkcs7-mime", "pkcs7-keys", "x-pkcs7-signature", "x-pkcs7-mime", "x-pkcs7-keys" };
 		internal const X509KeyUsageFlags DigitalSignatureKeyUsageFlags = X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.NonRepudiation;
 		internal static readonly int EncryptionAlgorithmCount = Enum.GetValues (typeof (EncryptionAlgorithm)).Length;
 		internal static readonly DerObjectIdentifier Blowfish = new DerObjectIdentifier ("1.3.6.1.4.1.3029.1.2");
 		internal static readonly DerObjectIdentifier Twofish = new DerObjectIdentifier ("1.3.6.1.4.1.25258.3.3");
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Cryptography.SecureMimeContext"/> class.
+		/// Initialize a new instance of the <see cref="SecureMimeContext"/> class.
 		/// </summary>
 		/// <remarks>
 		/// <para>Enables the following encryption algorithms by default:</para>
@@ -159,14 +161,21 @@ namespace MimeKit.Cryptography {
 			if (protocol == null)
 				throw new ArgumentNullException (nameof (protocol));
 
-			var type = protocol.ToLowerInvariant ().Split (new [] { '/' });
-			if (type.Length != 2 || type[0] != "application")
+			if (!protocol.StartsWith ("application/", StringComparison.OrdinalIgnoreCase))
 				return false;
 
-			if (type[1].StartsWith ("x-", StringComparison.Ordinal))
-				type[1] = type[1].Substring (2);
+			int startIndex = "application/".Length;
+			int subtypeLength = protocol.Length - startIndex;
 
-			return type[1] == "pkcs7-signature" || type[1] == "pkcs7-mime" || type[1] == "pkcs7-keys";
+			for (int i = 0; i < ProtocolSubtypes.Length; i++) {
+				if (subtypeLength != ProtocolSubtypes[i].Length)
+					continue;
+
+				if (string.Compare (protocol, startIndex, ProtocolSubtypes[i], 0, subtypeLength, StringComparison.OrdinalIgnoreCase) == 0)
+					return true;
+			}
+
+			return false;
 		}
 
 		/// <summary>
@@ -423,7 +432,7 @@ namespace MimeKit.Cryptography {
 		/// <remarks>
 		/// Compresses the specified stream.
 		/// </remarks>
-		/// <returns>A new <see cref="MimeKit.Cryptography.ApplicationPkcs7Mime"/> instance
+		/// <returns>A new <see cref="ApplicationPkcs7Mime"/> instance
 		/// containing the compressed content.</returns>
 		/// <param name="stream">The stream to compress.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -500,7 +509,7 @@ namespace MimeKit.Cryptography {
 			content.ContentStream.CopyTo (output, 4096);
 		}
 
-		internal SmimeCapabilitiesAttribute GetSecureMimeCapabilitiesAttribute ()
+		internal SmimeCapabilitiesAttribute GetSecureMimeCapabilitiesAttribute (bool includeRsaesOaep)
 		{
 			var capabilities = new SmimeCapabilityVector ();
 
@@ -560,6 +569,13 @@ namespace MimeKit.Cryptography {
 				}
 			}
 
+			if (includeRsaesOaep) {
+				capabilities.AddCapability (PkcsObjectIdentifiers.IdRsaesOaep, RsaEncryptionPadding.OaepSha1.GetRsaesOaepParameters ());
+				capabilities.AddCapability (PkcsObjectIdentifiers.IdRsaesOaep, RsaEncryptionPadding.OaepSha256.GetRsaesOaepParameters ());
+				capabilities.AddCapability (PkcsObjectIdentifiers.IdRsaesOaep, RsaEncryptionPadding.OaepSha384.GetRsaesOaepParameters ());
+				capabilities.AddCapability (PkcsObjectIdentifiers.IdRsaesOaep, RsaEncryptionPadding.OaepSha512.GetRsaesOaepParameters ());
+			}
+
 			return new SmimeCapabilitiesAttribute (capabilities);
 		}
 
@@ -569,7 +585,7 @@ namespace MimeKit.Cryptography {
 		/// <remarks>
 		/// Cryptographically signs and encapsulates the content using the specified signer.
 		/// </remarks>
-		/// <returns>A new <see cref="MimeKit.Cryptography.ApplicationPkcs7Mime"/> instance
+		/// <returns>A new <see cref="ApplicationPkcs7Mime"/> instance
 		/// containing the detached signature data.</returns>
 		/// <param name="signer">The signer.</param>
 		/// <param name="content">The content.</param>
@@ -586,7 +602,7 @@ namespace MimeKit.Cryptography {
 		/// <remarks>
 		/// Cryptographically signs and encapsulates the content using the specified signer and digest algorithm.
 		/// </remarks>
-		/// <returns>A new <see cref="MimeKit.Cryptography.ApplicationPkcs7Mime"/> instance
+		/// <returns>A new <see cref="ApplicationPkcs7Mime"/> instance
 		/// containing the detached signature data.</returns>
 		/// <param name="signer">The signer.</param>
 		/// <param name="digestAlgo">The digest algorithm to use for signing.</param>
@@ -616,7 +632,7 @@ namespace MimeKit.Cryptography {
 		/// <remarks>
 		/// Cryptographically signs the content using the specified signer.
 		/// </remarks>
-		/// <returns>A new <see cref="MimeKit.Cryptography.ApplicationPkcs7Signature"/> instance
+		/// <returns>A new <see cref="ApplicationPkcs7Signature"/> instance
 		/// containing the detached signature data.</returns>
 		/// <param name="signer">The signer.</param>
 		/// <param name="content">The content.</param>
@@ -675,7 +691,7 @@ namespace MimeKit.Cryptography {
 		/// <remarks>
 		/// Encrypts the specified content for the specified recipients.
 		/// </remarks>
-		/// <returns>A new <see cref="MimeKit.Cryptography.ApplicationPkcs7Mime"/> instance
+		/// <returns>A new <see cref="ApplicationPkcs7Mime"/> instance
 		/// containing the encrypted content.</returns>
 		/// <param name="recipients">The recipients.</param>
 		/// <param name="content">The content.</param>
@@ -718,6 +734,54 @@ namespace MimeKit.Cryptography {
 		/// Importing keys is not supported by this cryptography context.
 		/// </exception>
 		public abstract void Import (Stream stream, string password);
+
+		/// <summary>
+		/// Imports certificates and keys from a pkcs12 file.
+		/// </summary>
+		/// <remarks>
+		/// Imports certificates and keys from a pkcs12 file.
+		/// </remarks>
+		/// <param name="fileName">The raw certificate and key data in pkcs12 format.</param>
+		/// <param name="password">The password to unlock the stream.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="fileName"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="password"/> is <c>null</c>.</para>
+		/// </exception>
+		/// <exception cref="System.ArgumentException">
+		/// <para><paramref name="fileName"/> is a zero-length string, contains only white space, or
+		/// contains one or more invalid characters.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="fileName"/> does not contain a private key.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="fileName"/> does not contain a certificate that could be used for signing.</para>
+		/// </exception>
+		/// <exception cref="System.IO.DirectoryNotFoundException">
+		/// <paramref name="fileName"/> is an invalid file path.
+		/// </exception>
+		/// <exception cref="System.IO.FileNotFoundException">
+		/// The specified file path could not be found.
+		/// </exception>
+		/// <exception cref="System.UnauthorizedAccessException">
+		/// The user does not have access to read the specified file.
+		/// </exception>
+		/// <exception cref="System.IO.IOException">
+		/// An I/O error occurred.
+		/// </exception>
+		/// <exception cref="System.NotSupportedException">
+		/// Importing keys is not supported by this cryptography context.
+		/// </exception>
+		public virtual void Import (string fileName, string password)
+		{
+			if (fileName == null)
+				throw new ArgumentNullException (nameof (fileName));
+
+			if (password == null)
+				throw new ArgumentNullException (nameof (password));
+
+			using (var stream = File.OpenRead (fileName))
+				Import (stream, password);
+		}
 
 		/// <summary>
 		/// Imports the specified certificate.

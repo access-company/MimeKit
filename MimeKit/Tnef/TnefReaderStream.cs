@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,21 +36,23 @@ namespace MimeKit.Tnef {
 	/// </remarks>
 	class TnefReaderStream : Stream
 	{
-		readonly int valueEndOffset;
+		readonly int valueEndOffset, dataEndOffset;
 		readonly TnefReader reader;
 		bool disposed;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Tnef.TnefReaderStream"/> class.
+		/// Initialize a new instance of the <see cref="TnefReaderStream"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a stream for reading a raw value from the <see cref="TnefReader"/>.
 		/// </remarks>
 		/// <param name="tnefReader">The <see cref="TnefReader"/>.</param>
-		/// <param name="endOffset">The end offset.</param>
-		public TnefReaderStream (TnefReader tnefReader, int endOffset)
+		/// <param name="dataEndOffset">The end offset of the data.</param>
+		/// <param name="valueEndOffset">The end offset of the container value.</param>
+		public TnefReaderStream (TnefReader tnefReader, int dataEndOffset, int valueEndOffset)
 		{
-			valueEndOffset = endOffset;
+			this.valueEndOffset = valueEndOffset;
+			this.dataEndOffset = dataEndOffset;
 			reader = tnefReader;
 		}
 
@@ -168,10 +170,21 @@ namespace MimeKit.Tnef {
 
 			CheckDisposed ();
 
-			int valueLeft = valueEndOffset - reader.StreamOffset;
-			int n = Math.Min (valueLeft, count);
+			int dataLeft = dataEndOffset - reader.StreamOffset;
+			int n = Math.Min (dataLeft, count);
 
-			return n > 0 ? reader.ReadAttributeRawValue (buffer, offset, n) : 0;
+			int nread = n > 0 ? reader.ReadAttributeRawValue (buffer, offset, n) : 0;
+
+			dataLeft -= nread;
+
+			if (dataLeft == 0 && valueEndOffset > reader.StreamOffset) {
+				int valueLeft = valueEndOffset - reader.StreamOffset;
+				var buf = new byte[valueLeft];
+
+				reader.ReadAttributeRawValue (buf, 0, valueLeft);
+			}
+
+			return nread;
 		}
 
 		/// <summary>

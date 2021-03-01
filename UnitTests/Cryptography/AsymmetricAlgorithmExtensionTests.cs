@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -31,6 +31,7 @@ using NUnit.Framework;
 
 using Org.BouncyCastle.Math;
 using Org.BouncyCastle.Crypto;
+using Org.BouncyCastle.Crypto.Parameters;
 
 using MimeKit.Cryptography;
 
@@ -65,107 +66,146 @@ namespace UnitTests.Cryptography
 			Assert.AreEqual (expectedBigInteger, actualBigInteger, "{0} are not equal", paramName);
 		}
 
-		[Test]
-		public void TestDsa ()
+		static void AssertDSA (DSA dsa)
 		{
-			using (var dsa = new DSACryptoServiceProvider (1024)) {
-				// first, check private key conversion
-				var expected = dsa.ExportParameters (true);
-				var keyParameter = dsa.AsAsymmetricKeyParameter ();
-				var windows = keyParameter.AsAsymmetricAlgorithm () as DSACryptoServiceProvider;
-				var actual = windows.ExportParameters (true);
+			// first, check private key conversion
+			var expected = dsa.ExportParameters (true);
+			var keyParameter = dsa.AsAsymmetricKeyParameter ();
+			DSA asymmetricAlgorithm;
 
-				Assert.AreEqual (expected.Counter, actual.Counter, "Counter");
-				AssertAreEqual (expected.Seed, actual.Seed, "Seed");
-				AssertAreEqual (expected.G, actual.G, "G");
-				AssertAreEqual (expected.P, actual.P, "P");
-				AssertAreEqual (expected.Q, actual.Q, "Q");
-				AssertAreEqual (expected.X, actual.X, "X");
-				AssertAreEqual (expected.Y, actual.Y, "Y");
-
-				// test AsymmetricCipherKeyPair conversion
-				var keyPair = dsa.AsAsymmetricCipherKeyPair ();
-				windows = keyPair.AsAsymmetricAlgorithm () as DSACryptoServiceProvider;
-				actual = windows.ExportParameters (true);
-
-				Assert.AreEqual (expected.Counter, actual.Counter, "Counter");
-				AssertAreEqual (expected.Seed, actual.Seed, "Seed");
-				AssertAreEqual (expected.G, actual.G, "G");
-				AssertAreEqual (expected.P, actual.P, "P");
-				AssertAreEqual (expected.Q, actual.Q, "Q");
-				AssertAreEqual (expected.X, actual.X, "X");
-				AssertAreEqual (expected.Y, actual.Y, "Y");
-
-				// test public key conversion
-				expected = dsa.ExportParameters (false);
-				var pubdsa = new DSACryptoServiceProvider ();
-				pubdsa.ImportParameters (expected);
-
-				keyParameter = pubdsa.AsAsymmetricKeyParameter ();
-				windows = keyParameter.AsAsymmetricAlgorithm () as DSACryptoServiceProvider;
-				actual = windows.ExportParameters (false);
-
-				Assert.AreEqual (expected.Counter, actual.Counter, "Counter");
-				AssertAreEqual (expected.Seed, actual.Seed, "Seed");
-				AssertAreEqual (expected.G, actual.G, "G");
-				AssertAreEqual (expected.P, actual.P, "P");
-				AssertAreEqual (expected.Q, actual.Q, "Q");
-				AssertAreEqual (expected.X, actual.X, "X");
-				AssertAreEqual (expected.Y, actual.Y, "Y");
+			try {
+				asymmetricAlgorithm = keyParameter.AsAsymmetricAlgorithm () as DSA;
+			} catch {
+				Console.WriteLine ("System.Security DSA X parameter = {0}", expected.X.AsHex ());
+				Console.WriteLine ("Bouncy Castle DSA X parameter   = {0}", ((DsaPrivateKeyParameters) keyParameter).X.ToByteArrayUnsigned ().AsHex ());
+				throw;
 			}
+
+			var actual = asymmetricAlgorithm.ExportParameters (true);
+
+			Assert.AreEqual (expected.Counter, actual.Counter, "Counter");
+			AssertAreEqual (expected.Seed, actual.Seed, "Seed");
+			AssertAreEqual (expected.G, actual.G, "G");
+			AssertAreEqual (expected.P, actual.P, "P");
+			AssertAreEqual (expected.Q, actual.Q, "Q");
+			AssertAreEqual (expected.X, actual.X, "X");
+			AssertAreEqual (expected.Y, actual.Y, "Y");
+
+			// test AsymmetricCipherKeyPair conversion
+			var keyPair = dsa.AsAsymmetricCipherKeyPair ();
+			asymmetricAlgorithm = keyPair.AsAsymmetricAlgorithm () as DSA;
+			actual = asymmetricAlgorithm.ExportParameters (true);
+
+			Assert.AreEqual (expected.Counter, actual.Counter, "Counter");
+			AssertAreEqual (expected.Seed, actual.Seed, "Seed");
+			AssertAreEqual (expected.G, actual.G, "G");
+			AssertAreEqual (expected.P, actual.P, "P");
+			AssertAreEqual (expected.Q, actual.Q, "Q");
+			AssertAreEqual (expected.X, actual.X, "X");
+			AssertAreEqual (expected.Y, actual.Y, "Y");
+
+			// test public key conversion
+			expected = dsa.ExportParameters (false);
+			var pubdsa = new DSACryptoServiceProvider ();
+			pubdsa.ImportParameters (expected);
+
+			keyParameter = pubdsa.AsAsymmetricKeyParameter ();
+			asymmetricAlgorithm = keyParameter.AsAsymmetricAlgorithm () as DSA;
+			actual = asymmetricAlgorithm.ExportParameters (false);
+
+			Assert.AreEqual (expected.Counter, actual.Counter, "Counter");
+			AssertAreEqual (expected.Seed, actual.Seed, "Seed");
+			AssertAreEqual (expected.G, actual.G, "G");
+			AssertAreEqual (expected.P, actual.P, "P");
+			AssertAreEqual (expected.Q, actual.Q, "Q");
+			AssertAreEqual (expected.X, actual.X, "X");
+			AssertAreEqual (expected.Y, actual.Y, "Y");
 		}
 
 		[Test]
-		public void TestRsa ()
+		public void TestDSACryptoServiceProvider ()
 		{
-			using (var rsa = new RSACryptoServiceProvider (1024)) {
-				// first, check private key conversion
-				var expected = rsa.ExportParameters (true);
-				var keyParameter = rsa.AsAsymmetricKeyParameter ();
-				var windows = keyParameter.AsAsymmetricAlgorithm () as RSACryptoServiceProvider;
-				var actual = windows.ExportParameters (true);
+			using (var dsa = new DSACryptoServiceProvider (1024))
+				AssertDSA (dsa);
+		}
 
-				AssertAreEqual (expected.D, actual.D, "D");
-				AssertAreEqual (expected.DP, actual.DP, "DP");
-				AssertAreEqual (expected.DQ, actual.DQ, "DQ");
-				AssertAreEqual (expected.P, actual.P, "P");
-				AssertAreEqual (expected.Q, actual.Q, "Q");
-				AssertAreEqual (expected.Exponent, actual.Exponent, "Exponent");
-				AssertAreEqual (expected.InverseQ, actual.InverseQ, "InverseQ");
-				AssertAreEqual (expected.Modulus, actual.Modulus, "Modulus");
+		[Test]
+		public void TestDSACng ()
+		{
+#if !MONO
+			using (var dsa = new DSACng (1024))
+				AssertDSA (dsa);
+#else
+			Assert.Ignore ("Mono does not implement DSACng");
+#endif
+		}
 
-				// test AsymmetricCipherKeyPair conversion
-				var keyPair = rsa.AsAsymmetricCipherKeyPair ();
-				windows = keyPair.AsAsymmetricAlgorithm () as RSACryptoServiceProvider;
-				actual = windows.ExportParameters (true);
+		static void AssertRSA (RSA rsa)
+		{
+			// first, check private key conversion
+			var expected = rsa.ExportParameters (true);
+			var keyParameter = rsa.AsAsymmetricKeyParameter ();
+			var asymmetricAlgorithm = keyParameter.AsAsymmetricAlgorithm () as RSA;
+			var actual = asymmetricAlgorithm.ExportParameters (true);
 
-				AssertAreEqual (expected.D, actual.D, "D");
-				AssertAreEqual (expected.DP, actual.DP, "DP");
-				AssertAreEqual (expected.DQ, actual.DQ, "DQ");
-				AssertAreEqual (expected.P, actual.P, "P");
-				AssertAreEqual (expected.Q, actual.Q, "Q");
-				AssertAreEqual (expected.Exponent, actual.Exponent, "Exponent");
-				AssertAreEqual (expected.InverseQ, actual.InverseQ, "InverseQ");
-				AssertAreEqual (expected.Modulus, actual.Modulus, "Modulus");
+			AssertAreEqual (expected.D, actual.D, "D");
+			AssertAreEqual (expected.DP, actual.DP, "DP");
+			AssertAreEqual (expected.DQ, actual.DQ, "DQ");
+			AssertAreEqual (expected.P, actual.P, "P");
+			AssertAreEqual (expected.Q, actual.Q, "Q");
+			AssertAreEqual (expected.Exponent, actual.Exponent, "Exponent");
+			AssertAreEqual (expected.InverseQ, actual.InverseQ, "InverseQ");
+			AssertAreEqual (expected.Modulus, actual.Modulus, "Modulus");
 
-				// test public key conversion
-				expected = rsa.ExportParameters (false);
-				var pubrsa = new RSACryptoServiceProvider ();
-				pubrsa.ImportParameters (expected);
+			// test AsymmetricCipherKeyPair conversion
+			var keyPair = rsa.AsAsymmetricCipherKeyPair ();
+			asymmetricAlgorithm = keyPair.AsAsymmetricAlgorithm () as RSA;
+			actual = asymmetricAlgorithm.ExportParameters (true);
 
-				keyParameter = pubrsa.AsAsymmetricKeyParameter ();
-				windows = keyParameter.AsAsymmetricAlgorithm () as RSACryptoServiceProvider;
-				actual = windows.ExportParameters (false);
+			AssertAreEqual (expected.D, actual.D, "D");
+			AssertAreEqual (expected.DP, actual.DP, "DP");
+			AssertAreEqual (expected.DQ, actual.DQ, "DQ");
+			AssertAreEqual (expected.P, actual.P, "P");
+			AssertAreEqual (expected.Q, actual.Q, "Q");
+			AssertAreEqual (expected.Exponent, actual.Exponent, "Exponent");
+			AssertAreEqual (expected.InverseQ, actual.InverseQ, "InverseQ");
+			AssertAreEqual (expected.Modulus, actual.Modulus, "Modulus");
 
-				AssertAreEqual (expected.D, actual.D, "D");
-				AssertAreEqual (expected.DP, actual.DP, "DP");
-				AssertAreEqual (expected.DQ, actual.DQ, "DQ");
-				AssertAreEqual (expected.P, actual.P, "P");
-				AssertAreEqual (expected.Q, actual.Q, "Q");
-				AssertAreEqual (expected.Exponent, actual.Exponent, "Exponent");
-				AssertAreEqual (expected.InverseQ, actual.InverseQ, "InverseQ");
-				AssertAreEqual (expected.Modulus, actual.Modulus, "Modulus");
-			}
+			// test public key conversion
+			expected = rsa.ExportParameters (false);
+			var pubrsa = new RSACryptoServiceProvider ();
+			pubrsa.ImportParameters (expected);
+
+			keyParameter = pubrsa.AsAsymmetricKeyParameter ();
+			asymmetricAlgorithm = keyParameter.AsAsymmetricAlgorithm () as RSA;
+			actual = asymmetricAlgorithm.ExportParameters (false);
+
+			AssertAreEqual (expected.D, actual.D, "D");
+			AssertAreEqual (expected.DP, actual.DP, "DP");
+			AssertAreEqual (expected.DQ, actual.DQ, "DQ");
+			AssertAreEqual (expected.P, actual.P, "P");
+			AssertAreEqual (expected.Q, actual.Q, "Q");
+			AssertAreEqual (expected.Exponent, actual.Exponent, "Exponent");
+			AssertAreEqual (expected.InverseQ, actual.InverseQ, "InverseQ");
+			AssertAreEqual (expected.Modulus, actual.Modulus, "Modulus");
+		}
+
+		[Test]
+		public void TestRSACryptoServiceProvider ()
+		{
+			using (var rsa = new RSACryptoServiceProvider (1024))
+				AssertRSA (rsa);
+		}
+
+		[Test]
+		public void TestRSACng ()
+		{
+#if !MONO
+			using (var rsa = new RSACng (1024))
+				AssertRSA (rsa);
+#else
+			Assert.Ignore ("Mono does not implement RSACng");
+#endif
 		}
 	}
 }

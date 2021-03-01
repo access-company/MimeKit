@@ -1,9 +1,9 @@
-//
+﻿//
 // ContentTypeTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -252,6 +252,17 @@ namespace UnitTests {
 			AssertParse (text, expected);
 		}
 
+		// Tests the work-around for issue #595
+		[Test]
+		public void TestContentTypeWithoutSemicolonBetweenParameters ()
+		{
+			const string text = "application/x-pkcs7-mime;\n name=\"smime.p7m\"\n smime-type=enveloped-data";
+			var expected = new ContentType ("application", "x-pkcs7-mime") { Name = "smime.p7m" };
+			expected.Parameters.Add ("smime-type", "enveloped-data");
+
+			AssertParse (text, expected, true);
+		}
+
 		[Test]
 		public void TestContentTypeAndContentTrafserEncodingOnOneLine ()
 		{
@@ -260,7 +271,7 @@ namespace UnitTests {
 
 			// TryParse should "fail", but still produce a usable ContentType.
 			// Parse will throw ParseException.
-			AssertParse (text, expected, false, 35, 35);
+			AssertParse (text, expected, false, 35, 60);
 		}
 
 		[Test]
@@ -509,6 +520,69 @@ namespace UnitTests {
 		}
 
 		[Test]
+		public void TestEmptyParameterName ()
+		{
+			var expected = new ContentType ("text", "plain");
+			const string text = "text/plain; =";
+
+			AssertParse (text, expected, false, 12, 12);
+		}
+
+		[Test]
+		public void TestIncompleteParameterName ()
+		{
+			var expected = new ContentType ("text", "plain");
+			const string text = "text/plain; name";
+
+			AssertParse (text, expected, false, 12, 16);
+		}
+
+		[Test]
+		public void TestIncompleteParameterNameWithStar ()
+		{
+			var expected = new ContentType ("text", "plain");
+			const string text = "text/plain; name*";
+
+			AssertParse (text, expected, false, 12, 17);
+		}
+
+		[Test]
+		public void TestIncompleteParameterNameWithPartId ()
+		{
+			var expected = new ContentType ("text", "plain");
+			const string text = "text/plain; name*0";
+
+			AssertParse (text, expected, false, 12, 18);
+		}
+
+		[Test]
+		public void TestIncompleteParameterNameWithPartIdStar ()
+		{
+			var expected = new ContentType ("text", "plain");
+			const string text = "text/plain; name*0*";
+
+			AssertParse (text, expected, false, 12, 19);
+		}
+
+		[Test]
+		public void TestInvalidParameterNameWithPartId ()
+		{
+			var expected = new ContentType ("text", "plain");
+			const string text = "text/plain; name*0*x";
+
+			AssertParse (text, expected, false, 12, 19);
+		}
+
+		[Test]
+		public void TestInncompleteParameterNameWithPartIdStarEqual ()
+		{
+			var expected = new ContentType ("text", "plain");
+			const string text = "text/plain; name*0*=";
+
+			AssertParse (text, expected, false, 12, 20);
+		}
+
+		[Test]
 		public void TestProperties ()
 		{
 			var type = new ContentType ("application", "octet-stream");
@@ -538,6 +612,40 @@ namespace UnitTests {
 			Assert.AreEqual ("filename.txt", type.Name);
 			type.Name = null;
 			Assert.IsNull (type.Name);
+		}
+
+		[Test]
+		public void TestToString ()
+		{
+			const string expected = "Content-Type: text/plain; format=\"flowed\"; charset=\"iso-8859-1\"; name=\"filename.txt\"";
+			var type = new ContentType ("text", "plain") { Format = "flowed", Charset = "iso-8859-1", Name = "filename.txt" };
+			var value = type.ToString ().Replace ("\r\n", "\n");
+
+			Assert.AreEqual (expected, value);
+		}
+
+		[Test]
+		public void TestToStringEncode ()
+		{
+			const string rfc2231 = "Content-Type: text/plain; format=flowed; charset=utf-8;\n\tname*0*=utf-8''%D0%AD%D1%82%D0%BE%20%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%BE;\n\tname*1*=%D0%B5%20%D0%B8%D0%BC%D1%8F%20%D1%84%D0%B0%D0%B9%D0%BB%D0%B0.txt";
+			const string rfc2047 = "Content-Type: text/plain; format=flowed; charset=utf-8;\n\tname=\"=?utf-8?b?0K3RgtC+INGA0YPRgdGB0LrQvtC1INC40LzRjyDRhNCw0LnQu9CwLnR4?=\n\t=?utf-8?q?t?=\"";
+			var type = new ContentType ("text", "plain") { Format = "flowed", Charset = "utf-8", Name = "Это русское имя файла.txt" };
+			string value;
+
+			value = type.ToString (Encoding.UTF8, true).Replace ("\r\n", "\n");
+			Assert.AreEqual (rfc2231, value, "Default");
+
+			foreach (var parameter in type.Parameters)
+				parameter.EncodingMethod = ParameterEncodingMethod.Rfc2231;
+
+			value = type.ToString (Encoding.UTF8, true).Replace ("\r\n", "\n");
+			Assert.AreEqual (rfc2231, value, "Rfc2231");
+
+			foreach (var parameter in type.Parameters)
+				parameter.EncodingMethod = ParameterEncodingMethod.Rfc2047;
+
+			value = type.ToString (Encoding.UTF8, true).Replace ("\r\n", "\n");
+			Assert.AreEqual (rfc2047, value, "Rfc2047");
 		}
 	}
 }

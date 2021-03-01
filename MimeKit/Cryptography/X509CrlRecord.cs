@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -78,15 +78,6 @@ namespace MimeKit.Cryptography {
 	/// </remarks>
 	public class X509CrlRecord
 	{
-		internal static readonly string[] ColumnNames = {
-			"ID",
-			"DELTA",
-			"ISSUERNAME",
-			"THISUPDATE",
-			"NEXTUPDATE",
-			"CRL"
-		};
-
 		/// <summary>
 		/// Gets the identifier.
 		/// </summary>
@@ -144,7 +135,7 @@ namespace MimeKit.Cryptography {
 		public X509Crl Crl { get; set; }
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Cryptography.X509CrlRecord"/> class.
+		/// Initialize a new instance of the <see cref="X509CrlRecord"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new CRL record for storing in a <see cref="IX509CertificateDatabase"/>.
@@ -168,7 +159,7 @@ namespace MimeKit.Cryptography {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Cryptography.X509CrlRecord"/> class.
+		/// Initialize a new instance of the <see cref="X509CrlRecord"/> class.
 		/// </summary>
 		/// <remarks>
 		/// This constructor is only meant to be used by implementors of <see cref="IX509CertificateDatabase"/>

@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -39,11 +39,10 @@ namespace MimeKit.Text {
 	/// </remarks>
 	public class TextToFlowed : TextConverter
 	{
-		const int OptimalLineLength = 66;
 		const int MaxLineLength = 78;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Text.TextToFlowed"/> class.
+		/// Initialize a new instance of the <see cref="TextToFlowed"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new text to flowed text converter.
@@ -72,30 +71,6 @@ namespace MimeKit.Text {
 		/// <value>The output format.</value>
 		public override TextFormat OutputFormat {
 			get { return TextFormat.Flowed; }
-		}
-
-		/// <summary>
-		/// Get or set the text that will be appended to the end of the output.
-		/// </summary>
-		/// <remarks>
-		/// <para>Gets or sets the text that will be appended to the end of the output.</para>
-		/// <para>The footer must be set before conversion begins.</para>
-		/// </remarks>
-		/// <value>The footer.</value>
-		public string Footer {
-			get; set;
-		}
-
-		/// <summary>
-		/// Get or set text that will be prepended to the beginning of the output.
-		/// </summary>
-		/// <remarks>
-		/// <para>Gets or sets the text that will be prepended to the beginning of the output.</para>
-		/// <para>The header must be set before conversion begins.</para>
-		/// </remarks>
-		/// <value>The header.</value>
-		public string Header {
-			get; set;
 		}
 
 		static string Unquote (string line, out int quoteDepth)
@@ -139,7 +114,7 @@ namespace MimeKit.Text {
 				flowed.Append ('>', quoteDepth);
 
 			// Space-stuffed lines which start with a space, "From ", or ">".
-			if (quoteDepth > 0 || StartsWith (line, index, "From "))
+			if (quoteDepth > 0 || (line.Length > index && line[index] == ' ') || StartsWith (line, index, "From "))
 				flowed.Append (' ');
 
 			if (flowed.Length + (line.Length - index) <= MaxLineLength) {
@@ -150,18 +125,34 @@ namespace MimeKit.Text {
 			}
 
 			do {
-				do {
-					flowed.Append (line[index++]);
-				} while (flowed.Length + 1 < MaxLineLength && index < line.Length && line[index] != ' ');
+				int nextSpace = line.IndexOf (' ', index);
+				int wordEnd = nextSpace == -1 ? line.Length : nextSpace;
+				int softBreak = nextSpace == -1 ? 0 : 2; // 2 = space + soft-break space
+				int wordLength = wordEnd - index;
 
-				if (flowed.Length >= OptimalLineLength) {
-					flowed.Append (' ');
+				if (flowed.Length + wordLength + softBreak <= MaxLineLength) {
+					// The entire word will fit on the remainder of the line.
+					flowed.Append (line, index, wordLength);
+					index = wordEnd;
+				} else if (wordLength > MaxLineLength - (quoteDepth + 1)) {
+					// Even if we insert a soft-break here, the word is longer than what will fit on its own line.
+					// No matter what we do, we will need to break the word apart.
+					wordLength = MaxLineLength - (flowed.Length + 1);
+					flowed.Append (line, index, wordLength);
+					index += wordLength;
+					break;
+				} else {
+					// Only part of the word will fit on the remainder of this line, but it will easily fit
+					// on its own line. Insert a soft-break so that we don't break apart this word.
 					break;
 				}
 
 				while (flowed.Length + 1 < MaxLineLength && index < line.Length && line[index] == ' ')
 					flowed.Append (line[index++]);
-			} while (index < line.Length && flowed.Length < OptimalLineLength);
+			} while (index < line.Length && flowed.Length + 1 < MaxLineLength);
+
+			if (index < line.Length)
+				flowed.Append (' ');
 
 			return flowed.ToString ();
 		}
@@ -198,18 +189,17 @@ namespace MimeKit.Text {
 			flowed = new StringBuilder (MaxLineLength);
 
 			while ((line = reader.ReadLine ()) != null) {
-				int quoteDepth;
-				int index = 0;
-
 				// Trim spaces before user-inserted hard line breaks.
 				line = line.TrimEnd (' ');
 
-				line = Unquote (line, out quoteDepth);
+				line = Unquote (line, out var quoteDepth);
 
 				// Ensure all lines (fixed and flowed) are 78 characters or fewer in
 				// length, counting any trailing space as well as a space added as
 				// stuffing, but not counting the CRLF, unless a word by itself
 				// exceeds 78 characters.
+				int index = 0;
+
 				do {
 					var flowedLine = GetFlowedLine (flowed, line, ref index, quoteDepth);
 					writer.WriteLine (flowedLine);

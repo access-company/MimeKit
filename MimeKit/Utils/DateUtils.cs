@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,11 +26,8 @@
 
 using System;
 using System.Text;
+using System.Globalization;
 using System.Collections.Generic;
-
-#if PORTABLE
-using Encoding = Portable.Text.Encoding;
-#endif
 
 namespace MimeKit.Utils {
 	[Flags]
@@ -119,7 +116,7 @@ namespace MimeKit.Utils {
 
 		static DateUtils ()
 		{
-			timezones = new Dictionary<string, int> {
+			timezones = new Dictionary<string, int> (StringComparer.Ordinal) {
 				{ "UT",       0 }, { "UTC",      0 }, { "GMT",      0 },
 				{ "EDT",   -400 }, { "EST",   -500 },
 				{ "CDT",   -500 }, { "CST",   -600 },
@@ -177,10 +174,7 @@ namespace MimeKit.Utils {
 			if (!token.IsWeekday || token.Length < 3)
 				return false;
 
-			var name = Encoding.ASCII.GetString (text, token.StartIndex, token.Length);
-
-			if (name.Length > 3)
-				name = name.Substring (0, 3);
+			var name = Encoding.ASCII.GetString (text, token.StartIndex, 3);
 
 			for (int day = 0; day < WeekDays.Length; day++) {
 				if (WeekDays[day].Equals (name, StringComparison.OrdinalIgnoreCase)) {
@@ -218,10 +212,7 @@ namespace MimeKit.Utils {
 			if (!token.IsMonth || token.Length < 3)
 				return false;
 
-			var name = Encoding.ASCII.GetString (text, token.StartIndex, token.Length);
-
-			if (name.Length > 3)
-				name = name.Substring (0, 3);
+			var name = Encoding.ASCII.GetString (text, token.StartIndex, 3);
 
 			for (int i = 0; i < Months.Length; i++) {
 				if (Months[i].Equals (name, StringComparison.OrdinalIgnoreCase)) {
@@ -530,7 +521,7 @@ namespace MimeKit.Utils {
 		}
 
 		/// <summary>
-		/// Tries to parse the given input buffer into a new <see cref="System.DateTimeOffset"/> instance.
+		/// Try to parse the given input buffer into a new <see cref="System.DateTimeOffset"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses an rfc822 date and time from the supplied buffer starting at the given index
@@ -573,7 +564,7 @@ namespace MimeKit.Utils {
 		}
 
 		/// <summary>
-		/// Tries to parse the given input buffer into a new <see cref="System.DateTimeOffset"/> instance.
+		/// Try to parse the given input buffer into a new <see cref="System.DateTimeOffset"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses an rfc822 date and time from the supplied buffer starting at the specified index.
@@ -611,7 +602,7 @@ namespace MimeKit.Utils {
 		}
 
 		/// <summary>
-		/// Tries to parse the given input buffer into a new <see cref="System.DateTimeOffset"/> instance.
+		/// Try to parse the given input buffer into a new <see cref="System.DateTimeOffset"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses an rfc822 date and time from the specified buffer.
@@ -641,7 +632,7 @@ namespace MimeKit.Utils {
 		}
 
 		/// <summary>
-		/// Tries to parse the given input buffer into a new <see cref="System.DateTimeOffset"/> instance.
+		/// Try to parse the given input buffer into a new <see cref="System.DateTimeOffset"/> instance.
 		/// </summary>
 		/// <remarks>
 		/// Parses an rfc822 date and time from the specified text.
@@ -725,7 +716,7 @@ namespace MimeKit.Utils {
 		/// <param name="date">The date.</param>
 		public static string FormatDate (DateTimeOffset date)
 		{
-			return string.Format ("{0}, {1:00} {2} {3:0000} {4:00}:{5:00}:{6:00} {7:+00;-00}{8:00}",
+			return string.Format (CultureInfo.InvariantCulture, "{0}, {1:00} {2} {3:0000} {4:00}:{5:00}:{6:00} {7:+00;-00}{8:00}",
 				WeekDays[(int) date.DayOfWeek], date.Day, Months[date.Month - 1], date.Year,
 				date.Hour, date.Minute, date.Second, date.Offset.Hours, date.Offset.Minutes);
 		}

@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,28 +26,12 @@
 
 using System;
 using System.Text;
-#if !PORTABLE
 using System.Globalization;
-#else
-using EncoderReplacementFallback = Portable.Text.EncoderReplacementFallback;
-using DecoderReplacementFallback = Portable.Text.DecoderReplacementFallback;
-using EncoderExceptionFallback = Portable.Text.EncoderExceptionFallback;
-using DecoderExceptionFallback = Portable.Text.DecoderExceptionFallback;
-using EncoderFallbackException = Portable.Text.EncoderFallbackException;
-using DecoderFallbackException = Portable.Text.DecoderFallbackException;
-using DecoderFallbackBuffer = Portable.Text.DecoderFallbackBuffer;
-using DecoderFallback = Portable.Text.DecoderFallback;
-using Encoding = Portable.Text.Encoding;
-using Encoder = Portable.Text.Encoder;
-using Decoder = Portable.Text.Decoder;
-#endif
 
 namespace MimeKit.Utils {
 	static class ParseUtils
 	{
-#if !PORTABLE
 		static readonly IdnMapping idn = new IdnMapping ();
-#endif
 
 		public static void ValidateArguments (ParserOptions options, byte[] buffer, int startIndex, int length)
 		{
@@ -177,7 +161,7 @@ namespace MimeKit.Utils {
 
 				if (!SkipComment (text, ref index, endIndex)) {
 					if (throwOnError)
-						throw new ParseException (string.Format ("Incomplete comment token at offset {0}", startIndex), startIndex, index);
+						throw new ParseException (string.Format (CultureInfo.InvariantCulture, "Incomplete comment token at offset {0}", startIndex), startIndex, index);
 
 					return false;
 				}
@@ -211,7 +195,7 @@ namespace MimeKit.Utils {
 
 			if (index >= endIndex) {
 				if (throwOnError)
-					throw new ParseException (string.Format ("Incomplete quoted-string token at offset {0}", startIndex), startIndex, index);
+					throw new ParseException (string.Format (CultureInfo.InvariantCulture, "Incomplete quoted-string token at offset {0}", startIndex), startIndex, index);
 
 				return false;
 			}
@@ -239,6 +223,17 @@ namespace MimeKit.Utils {
 			int start = index;
 
 			while (index < endIndex && text[index].IsAtom ())
+				index++;
+
+			return index > start;
+		}
+
+		// Note: a "phrase atom" is a more lenient atom (e.g. mailbox display-name phrase atom)
+		public static bool SkipPhraseAtom (byte[] text, ref int index, int endIndex)
+		{
+			int start = index;
+
+			while (index < endIndex && text[index].IsPhraseAtom ())
 				index++;
 
 			return index > start;
@@ -300,7 +295,7 @@ namespace MimeKit.Utils {
 			do {
 				if (!text[index].IsAtom ()) {
 					if (throwOnError)
-						throw new ParseException (string.Format ("Invalid {0} token at offset {1}", tokenType, startIndex), startIndex, index);
+						throw new ParseException (string.Format (CultureInfo.InvariantCulture, "Invalid {0} token at offset {1}", tokenType, startIndex), startIndex, index);
 
 					return false;
 				}
@@ -364,7 +359,7 @@ namespace MimeKit.Utils {
 
 				if (index >= endIndex) {
 					if (throwOnError)
-						throw new ParseException (string.Format ("Incomplete domain literal token at offset {0}", startIndex), startIndex, index);
+						throw new ParseException (string.Format (CultureInfo.InvariantCulture, "Incomplete domain literal token at offset {0}", startIndex), startIndex, index);
 
 					return false;
 				}
@@ -374,7 +369,7 @@ namespace MimeKit.Utils {
 
 				if (!text[index].IsDomain ()) {
 					if (throwOnError)
-						throw new ParseException (string.Format ("Invalid domain literal token at offset {0}", startIndex), startIndex, index);
+						throw new ParseException (string.Format (CultureInfo.InvariantCulture, "Invalid domain literal token at offset {0}", startIndex), startIndex, index);
 
 					return false;
 				}
@@ -396,6 +391,160 @@ namespace MimeKit.Utils {
 			return TryParseDotAtom (text, ref index, endIndex, sentinels, throwOnError, "domain", out domain);
 		}
 
+		static readonly byte[] GreaterThanOrAt = { (byte) '>', (byte) '@' };
+
+		public static bool TryParseMsgId (byte[] text, ref int index, int endIndex, bool requireAngleAddr, bool throwOnError, out string msgid)
+		{
+			//const CharType SpaceOrControl = CharType.IsWhitespace | CharType.IsControl;
+			var angleAddr = false;
+
+			msgid = null;
+
+			if (!SkipCommentsAndWhiteSpace (text, ref index, endIndex, throwOnError))
+				return false;
+
+			if (index >= endIndex || (requireAngleAddr && text[index] != '<')) {
+				if (throwOnError)
+					throw new ParseException ("No msg-id token found.", index, index);
+
+				return false;
+			}
+
+			int tokenIndex = index;
+
+			if (text[index] == '<') {
+				angleAddr = true;
+				index++;
+			}
+
+			SkipWhiteSpace (text, ref index, endIndex);
+
+			if (index >= endIndex) {
+				if (throwOnError)
+					throw new ParseException (string.Format (CultureInfo.InvariantCulture, "Incomplete msg-id token at offset {0}", tokenIndex), tokenIndex, index);
+
+				return false;
+			}
+
+			var token = new StringBuilder ();
+
+			// consume the local-part of the msg-id using a very loose definition of 'local-part'
+			//
+			// See https://github.com/jstedfast/MimeKit/issues/472 for the reasons why.
+			do {
+				int start = index;
+
+				if (text[index] == '"') {
+					if (!SkipQuoted (text, ref index, endIndex, throwOnError))
+						return false;
+				} else {
+					while (index < endIndex && text[index] != (byte) '.' && text[index] != (byte) '@' && text[index] != '>' && !text[index].IsWhitespace ())
+						index++;
+				}
+
+				try {
+					token.Append (CharsetUtils.UTF8.GetString (text, start, index - start));
+				} catch (DecoderFallbackException ex) {
+					if (throwOnError)
+						throw new ParseException ("Internationalized local-part tokens may only contain UTF-8 characters.", start, start, ex);
+
+					return false;
+				}
+
+				if (!SkipCommentsAndWhiteSpace (text, ref index, endIndex, throwOnError))
+					return false;
+
+				if (index >= endIndex) {
+					if (angleAddr) {
+						if (throwOnError)
+							throw new ParseException (string.Format (CultureInfo.InvariantCulture, "Incomplete msg-id token at offset {0}", tokenIndex), tokenIndex, index);
+
+						return false;
+					}
+
+					// since the msg-id token did not start with a '<', we do not need a '>'
+					break;
+				}
+
+				if (text[index] == (byte) '@' || text[index] == (byte) '>')
+					break;
+
+				if (text[index] != (byte) '.') {
+					if (throwOnError)
+						throw new ParseException (string.Format (CultureInfo.InvariantCulture, "Invalid msg-id token at offset {0}", tokenIndex), tokenIndex, index);
+
+					return false;
+				}
+
+				token.Append ('.');
+				index++;
+
+				if (!SkipCommentsAndWhiteSpace (text, ref index, endIndex, throwOnError))
+					return false;
+
+				if (index >= endIndex) {
+					if (throwOnError)
+						throw new ParseException (string.Format (CultureInfo.InvariantCulture, "Incomplete msg-id at offset {0}", tokenIndex), tokenIndex, index);
+
+					return false;
+				}
+			} while (true);
+
+			if (index < endIndex && text[index] == (byte) '@') {
+				token.Append ('@');
+				index++;
+
+				if (!SkipCommentsAndWhiteSpace (text, ref index, endIndex, throwOnError))
+					return false;
+
+				if (index < endIndex && text[index] != (byte) '>') {
+					// Note: some Message-Id's are broken and in the form "<local-part@domain1@domain2>"
+					// https://github.com/jstedfast/MailKit/issues/138
+					do {
+						if (!TryParseDomain (text, ref index, endIndex, GreaterThanOrAt, throwOnError, out string domain))
+							return false;
+
+						if (IsIdnEncoded (domain))
+							domain = IdnDecode (domain);
+
+						token.Append (domain);
+
+						if (index >= endIndex || text[index] != (byte) '@')
+							break;
+
+						token.Append ('@');
+						index++;
+					} while (true);
+
+					if (!SkipCommentsAndWhiteSpace (text, ref index, endIndex, throwOnError))
+						return false;
+				} else {
+					// The msgid token was in the form "<local-part@>". Technically this is illegal, but for
+					// the sake of maximum compatibility, I guess we have no choice but to accept it...
+					// https://github.com/jstedfast/MimeKit/issues/102
+
+					//if (throwOnError)
+					//	throw new ParseException (string.Format (CultureInfo.InvariantCulture, "Incomplete msg-id token at offset {0}", tokenIndex), tokenIndex, index);
+
+					//return false;
+				}
+			}
+
+			if (angleAddr && (index >= endIndex || text[index] != '>')) {
+				if (throwOnError)
+					throw new ParseException (string.Format (CultureInfo.InvariantCulture, "Incomplete msg-id token at offset {0}", tokenIndex), tokenIndex, index);
+
+				return false;
+			}
+
+			if (index < endIndex && text[index] == (byte) '>')
+				index++;
+
+			msgid = token.ToString ();
+
+			return true;
+		}
+
 		public static bool IsInternational (string value)
 		{
 			for (int i = 0; i < value.Length; i++) {
@@ -414,7 +563,6 @@ namespace MimeKit.Utils {
 			return value.IndexOf (".xn--", StringComparison.Ordinal) != -1;
 		}
 
-#if !PORTABLE
 		public static string IdnEncode (string unicode)
 		{
 			try {
@@ -432,16 +580,5 @@ namespace MimeKit.Utils {
 				return ascii;
 			}
 		}
-#else
-		public static string IdnEncode (string unicode)
-		{
-			return unicode;
-		}
-
-		public static string IdnDecode (string ascii)
-		{
-			return ascii;
-		}
-#endif
     }
 }

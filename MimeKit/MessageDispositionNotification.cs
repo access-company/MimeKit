@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,16 +36,17 @@ namespace MimeKit {
 	/// A message disposition notification MIME part is a machine readable notification
 	/// denoting the disposition of a message once it has been successfully delivered 
 	/// and has a MIME-type of message/disposition-notification.
+	/// <seealso cref="MimeKit.MultipartReport"/>
 	/// </remarks>
 	public class MessageDispositionNotification : MimePart
 	{
 		HeaderList fields;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.MessageDispositionNotification"/> class.
+		/// Initialize a new instance of the <see cref="MessageDispositionNotification"/> class.
 		/// </summary>
 		/// <remarks>
-		/// This constructor is used by <see cref="MimeKit.MimeParser"/>.
+		/// This constructor is used by <see cref="MimeParser"/>.
 		/// </remarks>
 		/// <param name="args">Information used by the constructor.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -56,7 +57,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.MessageDispositionNotification"/> class.
+		/// Initialize a new instance of the <see cref="MessageDispositionNotification"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="MessageDispositionNotification"/>.
@@ -106,12 +107,12 @@ namespace MimeKit {
 		/// Dispatches to the specific visit method for this MIME entity.
 		/// </summary>
 		/// <remarks>
-		/// This default implementation for <see cref="MimeKit.MessageDispositionNotification"/> nodes
-		/// calls <see cref="MimeKit.MimeVisitor.VisitMessageDispositionNotification"/>. Override this
+		/// This default implementation for <see cref="MessageDispositionNotification"/> nodes
+		/// calls <see cref="MimeVisitor.VisitMessageDispositionNotification"/>. Override this
 		/// method to call into a more specific method on a derived visitor class
-		/// of the <see cref="MimeKit.MimeVisitor"/> class. However, it should still
+		/// of the <see cref="MimeVisitor"/> class. However, it should still
 		/// support unknown visitors by calling
-		/// <see cref="MimeKit.MimeVisitor.VisitMessageDispositionNotification"/>.
+		/// <see cref="MimeVisitor.VisitMessageDispositionNotification"/>.
 		/// </remarks>
 		/// <param name="visitor">The visitor.</param>
 		/// <exception cref="System.ArgumentNullException">

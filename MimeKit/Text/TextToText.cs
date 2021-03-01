@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -37,7 +37,7 @@ namespace MimeKit.Text {
 	public class TextToText : TextConverter
 	{
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Text.TextToText"/> class.
+		/// Initialize a new instance of the <see cref="TextToText"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new text to text converter.
@@ -66,41 +66,6 @@ namespace MimeKit.Text {
 		/// <value>The output format.</value>
 		public override TextFormat OutputFormat {
 			get { return TextFormat.Plain; }
-		}
-
-		/// <summary>
-		/// Get or set the text that will be appended to the end of the output.
-		/// </summary>
-		/// <remarks>
-		/// <para>Gets or sets the text that will be appended to the end of the output.</para>
-		/// <para>The footer must be set before conversion begins.</para>
-		/// </remarks>
-		/// <value>The footer.</value>
-		public string Footer {
-			get; set;
-		}
-
-		/// <summary>
-		/// Get or set the footer format.
-		/// </summary>
-		/// <remarks>
-		/// Gets or sets the footer format.
-		/// </remarks>
-		/// <value>The footer format.</value>
-		public HeaderFooterFormat FooterFormat {
-			get; set;
-		}
-
-		/// <summary>
-		/// Get or set text that will be prepended to the beginning of the output.
-		/// </summary>
-		/// <remarks>
-		/// <para>Gets or sets the text that will be prepended to the beginning of the output.</para>
-		/// <para>The header must be set before conversion begins.</para>
-		/// </remarks>
-		/// <value>The header.</value>
-		public string Header {
-			get; set;
 		}
 
 		/// <summary>

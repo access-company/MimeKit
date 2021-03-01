@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -42,7 +42,7 @@ namespace MimeKit {
 		readonly List<HeaderList> groups;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.HeaderListCollection"/> class.
+		/// Initialize a new instance of the <see cref="HeaderListCollection"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="HeaderListCollection"/>.
@@ -75,10 +75,10 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets or sets the <see cref="MimeKit.HeaderList"/> at the specified index.
+		/// Gets or sets the <see cref="HeaderList"/> at the specified index.
 		/// </summary>
 		/// <remarks>
-		/// Gets or sets the <see cref="MimeKit.HeaderList"/> at the specified index.
+		/// Gets or sets the <see cref="HeaderList"/> at the specified index.
 		/// </remarks>
 		/// <value>The group of headers at the specified index.</value>
 		/// <param name="index">The index.</param>
@@ -90,13 +90,13 @@ namespace MimeKit {
 		/// </exception>
 		public HeaderList this [int index] {
 			get {
-				if (index < 0 || index > Count)
+				if (index < 0 || index >= Count)
 					throw new ArgumentOutOfRangeException (nameof (index));
 
 				return groups[index];
 			}
 			set {
-				if (index < 0 || index > Count)
+				if (index < 0 || index >= Count)
 					throw new ArgumentOutOfRangeException (nameof (index));
 
 				if (value == null)
@@ -167,7 +167,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Copies all of the header groups in the <see cref="MimeKit.HeaderListCollection"/> to the specified array.
+		/// Copies all of the header groups in the <see cref="HeaderListCollection"/> to the specified array.
 		/// </summary>
 		/// <remarks>
 		/// Copies all of the header groups within the <see cref="HeaderListCollection"/> into the array,

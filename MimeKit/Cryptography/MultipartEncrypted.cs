@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -44,10 +44,10 @@ namespace MimeKit.Cryptography {
 	public class MultipartEncrypted : Multipart
 	{
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Cryptography.MultipartEncrypted"/> class.
+		/// Initialize a new instance of the <see cref="MultipartEncrypted"/> class.
 		/// </summary>
 		/// <remarks>
-		/// This constructor is used by <see cref="MimeKit.MimeParser"/>.
+		/// This constructor is used by <see cref="MimeParser"/>.
 		/// </remarks>
 		/// <param name="args">Information used by the constructor.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -58,7 +58,7 @@ namespace MimeKit.Cryptography {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Cryptography.MultipartEncrypted"/> class.
+		/// Initialize a new instance of the <see cref="MultipartEncrypted"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="MultipartEncrypted"/>.
@@ -71,12 +71,12 @@ namespace MimeKit.Cryptography {
 		/// Dispatches to the specific visit method for this MIME entity.
 		/// </summary>
 		/// <remarks>
-		/// This default implementation for <see cref="MimeKit.Cryptography.MultipartEncrypted"/> nodes
-		/// calls <see cref="MimeKit.MimeVisitor.VisitMultipartEncrypted"/>. Override this
+		/// This default implementation for <see cref="MultipartEncrypted"/> nodes
+		/// calls <see cref="MimeVisitor.VisitMultipartEncrypted"/>. Override this
 		/// method to call into a more specific method on a derived visitor class
-		/// of the <see cref="MimeKit.MimeVisitor"/> class. However, it should still
+		/// of the <see cref="MimeVisitor"/> class. However, it should still
 		/// support unknown visitors by calling
-		/// <see cref="MimeKit.MimeVisitor.VisitMultipartEncrypted"/>.
+		/// <see cref="MimeVisitor.VisitMultipartEncrypted"/>.
 		/// </remarks>
 		/// <param name="visitor">The visitor.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -1029,11 +1029,10 @@ namespace MimeKit.Cryptography {
 			if (ctx == null)
 				throw new ArgumentNullException (nameof (ctx));
 
-			var protocol = ContentType.Parameters["protocol"];
+			var protocol = ContentType.Parameters["protocol"]?.Trim ();
 			if (string.IsNullOrEmpty (protocol))
 				throw new FormatException ();
 
-			protocol = protocol.Trim ().ToLowerInvariant ();
 			if (!ctx.Supports (protocol))
 				throw new NotSupportedException ();
 
@@ -1046,7 +1045,7 @@ namespace MimeKit.Cryptography {
 
 			var ctype = version.ContentType;
 			var value = string.Format ("{0}/{1}", ctype.MediaType, ctype.MediaSubtype);
-			if (value.ToLowerInvariant () != protocol)
+			if (!value.Equals (protocol, StringComparison.OrdinalIgnoreCase))
 				throw new FormatException ();
 
 			var encrypted = this[1] as MimePart;
@@ -1097,9 +1096,7 @@ namespace MimeKit.Cryptography {
 		/// </exception>
 		public MimeEntity Decrypt (OpenPgpContext ctx, CancellationToken cancellationToken = default (CancellationToken))
 		{
-			DigitalSignatureCollection signatures;
-
-			return Decrypt (ctx, out signatures, cancellationToken);
+			return Decrypt (ctx, out _, cancellationToken);
 		}
 
 		/// <summary>
@@ -1118,7 +1115,7 @@ namespace MimeKit.Cryptography {
 		/// <para>The multipart is malformed in some way.</para>
 		/// </exception>
 		/// <exception cref="System.NotSupportedException">
-		/// A suitable <see cref="MimeKit.Cryptography.CryptographyContext"/> for
+		/// A suitable <see cref="CryptographyContext"/> for
 		/// decrypting could not be found.
 		/// </exception>
 		/// <exception cref="PrivateKeyNotFoundException">
@@ -1134,11 +1131,9 @@ namespace MimeKit.Cryptography {
 		/// </exception>
 		public MimeEntity Decrypt (out DigitalSignatureCollection signatures, CancellationToken cancellationToken = default (CancellationToken))
 		{
-			var protocol = ContentType.Parameters["protocol"];
+			var protocol = ContentType.Parameters["protocol"]?.Trim ();
 			if (string.IsNullOrEmpty (protocol))
 				throw new FormatException ();
-
-			protocol = protocol.Trim ().ToLowerInvariant ();
 
 			if (Count < 2)
 				throw new FormatException ();
@@ -1149,7 +1144,7 @@ namespace MimeKit.Cryptography {
 
 			var ctype = version.ContentType;
 			var value = string.Format ("{0}/{1}", ctype.MediaType, ctype.MediaSubtype);
-			if (value.ToLowerInvariant () != protocol)
+			if (!value.Equals (protocol, StringComparison.OrdinalIgnoreCase))
 				throw new FormatException ();
 
 			var encrypted = this[1] as MimePart;
@@ -1190,7 +1185,7 @@ namespace MimeKit.Cryptography {
 		/// <para>The multipart is malformed in some way.</para>
 		/// </exception>
 		/// <exception cref="System.NotSupportedException">
-		/// A suitable <see cref="MimeKit.Cryptography.CryptographyContext"/> for
+		/// A suitable <see cref="CryptographyContext"/> for
 		/// decrypting could not be found.
 		/// </exception>
 		/// <exception cref="PrivateKeyNotFoundException">
@@ -1206,9 +1201,7 @@ namespace MimeKit.Cryptography {
 		/// </exception>
 		public MimeEntity Decrypt (CancellationToken cancellationToken = default (CancellationToken))
 		{
-			DigitalSignatureCollection signatures;
-
-			return Decrypt (out signatures, cancellationToken);
+			return Decrypt (out _, cancellationToken);
 		}
 	}
 }

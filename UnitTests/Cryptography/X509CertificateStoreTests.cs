@@ -1,9 +1,9 @@
-//
+﻿//
 // X509CertificateStoreTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,9 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Collections.Generic;
+
+using Org.BouncyCastle.X509;
 
 using NUnit.Framework;
 
@@ -37,12 +40,12 @@ namespace UnitTests.Cryptography {
 	public class X509CertificateStoreTests
 	{
 		static readonly string[] CertificateAuthorities = new string[] {
-			"certificate-authority.crt", "StartComCertificationAuthority.crt", "StartComClass1PrimaryIntermediateClientCA.crt"
+			"StartComCertificationAuthority.crt", "StartComClass1PrimaryIntermediateClientCA.crt"
 		};
 
 		static string GetTestDataPath (string relative)
 		{
-			return Path.Combine ("..", "..", "TestData", "smime", relative);
+			return Path.Combine (TestHelper.ProjectDir, "TestData", "smime", relative);
 		}
 
 		[Test]
@@ -73,6 +76,87 @@ namespace UnitTests.Cryptography {
 		}
 
 		[Test]
+		public void TestAddRemove ()
+		{
+			var certificates = new List<X509Certificate> ();
+			var parser = new X509CertificateParser ();
+			var store = new X509CertificateStore ();
+
+			foreach (var authority in CertificateAuthorities) {
+				var path = GetTestDataPath (authority);
+
+				using (var stream = File.OpenRead (path)) {
+					foreach (X509Certificate certificate in parser.ReadCertificates (stream))
+						certificates.Add (certificate);
+				}
+			}
+
+			foreach (var certificate in certificates)
+				store.Add (certificate);
+
+			var count = store.Certificates.Count ();
+
+			Assert.AreEqual (CertificateAuthorities.Length, count, "Unexpected number of certificates after Add.");
+
+			foreach (var certificate in certificates) {
+				var key = store.GetPrivateKey (certificate);
+				Assert.IsNull (key, "GetPrivateKey");
+				store.Remove (certificate);
+			}
+
+			count = store.Certificates.Count ();
+
+			Assert.AreEqual (0, count, "Unexpected number of certificates after Remove.");
+		}
+
+		[Test]
+		public void TestAddRemoveRange ()
+		{
+			var certificates = new List<X509Certificate> ();
+			var parser = new X509CertificateParser ();
+			var store = new X509CertificateStore ();
+
+			foreach (var authority in CertificateAuthorities) {
+				var path = GetTestDataPath (authority);
+
+				using (var stream = File.OpenRead (path)) {
+					foreach (X509Certificate certificate in parser.ReadCertificates (stream))
+						certificates.Add (certificate);
+				}
+			}
+
+			store.AddRange (certificates);
+
+			var count = store.Certificates.Count ();
+
+			Assert.AreEqual (CertificateAuthorities.Length, count, "Unexpected number of certificates after AddRange.");
+
+			foreach (var certificate in certificates) {
+				var key = store.GetPrivateKey (certificate);
+				Assert.IsNull (key, "GetPrivateKey");
+			}
+
+			store.RemoveRange (certificates);
+
+			count = store.Certificates.Count ();
+
+			Assert.AreEqual (0, count, "Unexpected number of certificates after RemoveRange.");
+		}
+
+		[Test]
+		public void TestImportData ()
+		{
+			var store = new X509CertificateStore ();
+
+			store.Import (File.ReadAllBytes (GetTestDataPath (CertificateAuthorities[0])));
+			var certificate = store.Certificates.FirstOrDefault ();
+			var count = store.Certificates.Count ();
+
+			Assert.AreEqual (1, count, "Unexpected number of certificates imported.");
+			Assert.AreEqual ("StartCom Certification Authority", certificate.GetCommonName (), "Unexpected CN for certificate.");
+		}
+
+		[Test]
 		public void TestImportSingleCertificate ()
 		{
 			var store = new X509CertificateStore ();
@@ -82,7 +166,7 @@ namespace UnitTests.Cryptography {
 			var count = store.Certificates.Count ();
 
 			Assert.AreEqual (1, count, "Unexpected number of certificates imported.");
-			Assert.AreEqual ("root@example.com", certificate.GetSubjectEmailAddress (), "Unexpected email address for certificate.");
+			Assert.AreEqual ("StartCom Certification Authority", certificate.GetCommonName (), "Unexpected CN for certificate.");
 		}
 
 		[Test]

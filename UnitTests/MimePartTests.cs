@@ -1,9 +1,9 @@
-//
+﻿//
 // MimePartTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Jeffrey Stedfast
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 
 using NUnit.Framework;
 
@@ -68,22 +69,22 @@ namespace UnitTests
 			Assert.Throws<ArgumentNullException> (() => MimeEntity.Load (null, "fileName"));
 			Assert.Throws<ArgumentNullException> (() => MimeEntity.Load (ParserOptions.Default, (string) null));
 
-			Assert.Throws<ArgumentNullException> (async () => await MimeEntity.LoadAsync ((Stream) null));
-			Assert.Throws<ArgumentNullException> (async () => await MimeEntity.LoadAsync ((Stream) null, true));
-			Assert.Throws<ArgumentNullException> (async () => await MimeEntity.LoadAsync ((ParserOptions) null, Stream.Null));
-			Assert.Throws<ArgumentNullException> (async () => await MimeEntity.LoadAsync (ParserOptions.Default, (Stream) null));
-			Assert.Throws<ArgumentNullException> (async () => await MimeEntity.LoadAsync (null, Stream.Null, true));
-			Assert.Throws<ArgumentNullException> (async () => await MimeEntity.LoadAsync (ParserOptions.Default, (Stream) null, true));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeEntity.LoadAsync ((Stream) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeEntity.LoadAsync ((Stream) null, true));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeEntity.LoadAsync ((ParserOptions) null, Stream.Null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeEntity.LoadAsync (ParserOptions.Default, (Stream) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeEntity.LoadAsync (null, Stream.Null, true));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeEntity.LoadAsync (ParserOptions.Default, (Stream) null, true));
 
-			Assert.Throws<ArgumentNullException> (async () => await MimeEntity.LoadAsync ((ContentType) null, Stream.Null));
-			Assert.Throws<ArgumentNullException> (async () => await MimeEntity.LoadAsync (new ContentType ("application", "octet-stream"), null));
-			Assert.Throws<ArgumentNullException> (async () => await MimeEntity.LoadAsync (null, new ContentType ("application", "octet-stream"), Stream.Null));
-			Assert.Throws<ArgumentNullException> (async () => await MimeEntity.LoadAsync (ParserOptions.Default, null, Stream.Null));
-			Assert.Throws<ArgumentNullException> (async () => await MimeEntity.LoadAsync (ParserOptions.Default, new ContentType ("application", "octet-stream"), null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeEntity.LoadAsync ((ContentType) null, Stream.Null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeEntity.LoadAsync (new ContentType ("application", "octet-stream"), null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeEntity.LoadAsync (null, new ContentType ("application", "octet-stream"), Stream.Null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeEntity.LoadAsync (ParserOptions.Default, null, Stream.Null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeEntity.LoadAsync (ParserOptions.Default, new ContentType ("application", "octet-stream"), null));
 
-			Assert.Throws<ArgumentNullException> (async () => await MimeEntity.LoadAsync ((string) null));
-			Assert.Throws<ArgumentNullException> (async () => await MimeEntity.LoadAsync (null, "fileName"));
-			Assert.Throws<ArgumentNullException> (async () => await MimeEntity.LoadAsync (ParserOptions.Default, (string) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeEntity.LoadAsync ((string) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeEntity.LoadAsync (null, "fileName"));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeEntity.LoadAsync (ParserOptions.Default, (string) null));
 
 			Assert.Throws<ArgumentNullException> (() => part.Accept (null));
 			Assert.Throws<ArgumentNullException> (() => part.WriteTo ((string) null));
@@ -98,19 +99,43 @@ namespace UnitTests
 			Assert.Throws<ArgumentNullException> (() => part.WriteTo (FormatOptions.Default, (Stream) null, false));
 			Assert.Throws<ArgumentNullException> (() => part.WriteTo (null, "fileName", false));
 			Assert.Throws<ArgumentNullException> (() => part.WriteTo (FormatOptions.Default, (string) null, false));
+			Assert.Throws<ArgumentException> (() => part.ContentId = "this is some text and stuff");
 
-			Assert.Throws<ArgumentNullException> (async () => await part.WriteToAsync ((string) null));
-			Assert.Throws<ArgumentNullException> (async () => await part.WriteToAsync ((Stream) null));
-			Assert.Throws<ArgumentNullException> (async () => await part.WriteToAsync ((string) null, false));
-			Assert.Throws<ArgumentNullException> (async () => await part.WriteToAsync ((Stream) null, false));
-			Assert.Throws<ArgumentNullException> (async () => await part.WriteToAsync (null, Stream.Null));
-			Assert.Throws<ArgumentNullException> (async () => await part.WriteToAsync (FormatOptions.Default, (Stream) null));
-			Assert.Throws<ArgumentNullException> (async () => await part.WriteToAsync (null, "fileName"));
-			Assert.Throws<ArgumentNullException> (async () => await part.WriteToAsync (FormatOptions.Default, (string) null));
-			Assert.Throws<ArgumentNullException> (async () => await part.WriteToAsync (null, Stream.Null, false));
-			Assert.Throws<ArgumentNullException> (async () => await part.WriteToAsync (FormatOptions.Default, (Stream) null, false));
-			Assert.Throws<ArgumentNullException> (async () => await part.WriteToAsync (null, "fileName", false));
-			Assert.Throws<ArgumentNullException> (async () => await part.WriteToAsync (FormatOptions.Default, (string) null, false));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await part.WriteToAsync ((string) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await part.WriteToAsync ((Stream) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await part.WriteToAsync ((string) null, false));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await part.WriteToAsync ((Stream) null, false));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await part.WriteToAsync (null, Stream.Null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await part.WriteToAsync (FormatOptions.Default, (Stream) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await part.WriteToAsync (null, "fileName"));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await part.WriteToAsync (FormatOptions.Default, (string) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await part.WriteToAsync (null, Stream.Null, false));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await part.WriteToAsync (FormatOptions.Default, (Stream) null, false));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await part.WriteToAsync (null, "fileName", false));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await part.WriteToAsync (FormatOptions.Default, (string) null, false));
+		}
+
+		[Test]
+		public void TestParameterizedCtor ()
+		{
+			const string expected = "Content-Type: text/plain\nContent-Transfer-Encoding: base64\nContent-Id: <id@localhost.com>\n\n\n";
+			var headers = new [] { new Header ("Content-Id", "<id@localhost.com>") };
+			var part = new MimePart ("text", "plain", new Header ("Content-Transfer-Encoding", "base64"), headers) {
+				Content = new MimeContent (new MemoryStream ())
+			};
+
+			Assert.AreEqual ("id@localhost.com", part.ContentId, "Content-Id");
+			Assert.AreEqual (ContentEncoding.Base64, part.ContentTransferEncoding, "Content-Transfer-Encoding");
+
+			using (var stream = new MemoryStream ()) {
+				var options = FormatOptions.Default.Clone ();
+				options.NewLineFormat = NewLineFormat.Unix;
+
+				part.WriteTo (options, stream);
+
+				var serialized = Encoding.ASCII.GetString (stream.GetBuffer (), 0, (int) stream.Length);
+				Assert.AreEqual (expected, serialized, "Serialized");
+			}
 		}
 
 		[Test]
@@ -277,6 +302,25 @@ namespace UnitTests
 
 			Assert.Throws<InvalidOperationException> (() => part.ComputeContentMd5 ());
 			Assert.IsFalse (part.VerifyContentMd5 ());
+
+			part = new TextPart ("plain") { Text = "Hello, World.\n\nLet's check the MD5 sum of this text!\n" };
+
+			var md5sum = part.ComputeContentMd5 ();
+
+			Assert.AreEqual ("8criUiOQmpfifOuOmYFtEQ==", md5sum, "ComputeContentMd5 text/*");
+
+			// re-encode the base64'd md5sum using a hex encoding so we can easily compare to the output of `md5sum` command-line tools
+			var decoded = Convert.FromBase64String (md5sum);
+			var encoded = new StringBuilder ();
+
+			for (int i = 0; i < decoded.Length; i++)
+				encoded.Append (decoded[i].ToString ("x2"));
+
+			Assert.AreEqual ("f1cae25223909a97e27ceb8e99816d11", encoded.ToString (), "md5sum text/*");
+
+			part.ContentMd5 = md5sum;
+
+			Assert.IsTrue (part.VerifyContentMd5 (), "VerifyContentMd5");
 		}
 
 		[Test]
@@ -308,9 +352,42 @@ namespace UnitTests
 		}
 
 		[Test]
+		public void TestPrepare ()
+		{
+			using (var content = new MemoryStream (new byte[64], false)) {
+				var part = new MimePart ("application/octet-stream") {
+					Content = new MimeContent (content)
+				};
+
+				var encoding = part.GetBestEncoding (EncodingConstraint.SevenBit);
+
+				Assert.AreEqual (ContentEncoding.Base64, encoding, "GetBestEncoding");
+
+				part.Prepare (EncodingConstraint.SevenBit);
+
+				Assert.AreEqual (ContentEncoding.Base64, part.ContentTransferEncoding, "Prepare #1");
+
+				// now make sure that calling Prepare() again doesn't change anything
+
+				part.Prepare (EncodingConstraint.SevenBit);
+
+				Assert.AreEqual (ContentEncoding.Base64, part.ContentTransferEncoding, "Prepare #2");
+
+				part.ContentTransferEncoding = ContentEncoding.Binary;
+				part.Prepare (EncodingConstraint.None);
+
+				Assert.AreEqual (ContentEncoding.Binary, part.ContentTransferEncoding, "Prepare #3");
+
+				part.Prepare (EncodingConstraint.SevenBit);
+
+				Assert.AreEqual (ContentEncoding.Base64, part.ContentTransferEncoding, "Prepare #4");
+			}
+		}
+
+		[Test]
 		public void TestTranscoding ()
 		{
-			var path = Path.Combine ("..", "..", "TestData", "images", "girl.jpg");
+			var path = Path.Combine (TestHelper.ProjectDir, "TestData", "images", "girl.jpg");
 			var expected = File.ReadAllBytes (path);
 
 			var part = new MimePart ("image", "jpeg") {
@@ -350,9 +427,9 @@ namespace UnitTests
 		}
 
 		[Test]
-		public async void TestTranscodingAsync ()
+		public async Task TestTranscodingAsync ()
 		{
-			var path = Path.Combine ("..", "..", "TestData", "images", "girl.jpg");
+			var path = Path.Combine (TestHelper.ProjectDir, "TestData", "images", "girl.jpg");
 			var expected = File.ReadAllBytes (path);
 
 			var part = new MimePart ("image", "jpeg") {
@@ -398,6 +475,7 @@ namespace UnitTests
 			var builder = new BodyBuilder ();
 
 			builder.Attachments.Add ("filename", new MemoryStream (Encoding.UTF8.GetBytes (text)));
+			builder.TextBody = "This is the text body.";
 
 			var body = builder.ToMessageBody ();
 
@@ -409,7 +487,7 @@ namespace UnitTests
 				stream.Position = 0;
 
 				var multipart = (Multipart) MimeEntity.Load (stream);
-				using (var input = ((MimePart) multipart[0]).Content.Open ()) {
+				using (var input = ((MimePart) multipart[1]).Content.Open ()) {
 					var buffer = new byte[1024];
 					int n;
 
@@ -424,11 +502,12 @@ namespace UnitTests
 
 		[TestCase ("content", TestName = "TestWriteToNoNewLine")]
 		[TestCase ("content\r\n", TestName = "TestWriteToNewLine")]
-		public async void TestWriteToAsync (string text)
+		public async Task TestWriteToAsync (string text)
 		{
 			var builder = new BodyBuilder ();
 
 			builder.Attachments.Add ("filename", new MemoryStream (Encoding.UTF8.GetBytes (text)));
+			builder.TextBody = "This is the text body.";
 
 			var body = builder.ToMessageBody ();
 
@@ -440,7 +519,7 @@ namespace UnitTests
 				stream.Position = 0;
 
 				var multipart = (Multipart) await MimeEntity.LoadAsync (stream);
-				using (var input = ((MimePart) multipart[0]).Content.Open ()) {
+				using (var input = ((MimePart) multipart[1]).Content.Open ()) {
 					var buffer = new byte[1024];
 					int n;
 
@@ -450,6 +529,40 @@ namespace UnitTests
 
 					Assert.AreEqual (text, content);
 				}
+			}
+		}
+
+		[Test]
+		public void TestLoadHttpWebResponse ()
+		{
+			var text = "This is some text and stuff." + Environment.NewLine;
+			var contentType = new ContentType ("text", "plain");
+
+			using (var content = new MemoryStream (Encoding.ASCII.GetBytes (text), false)) {
+				var entity = MimeEntity.Load (contentType, content);
+
+				Assert.IsInstanceOf<TextPart> (entity);
+
+				var part = (TextPart) entity;
+
+				Assert.AreEqual (text, part.Text);
+			}
+		}
+
+		[Test]
+		public async Task TestLoadHttpWebResponseAsync ()
+		{
+			var text = "This is some text and stuff." + Environment.NewLine;
+			var contentType = new ContentType ("text", "plain");
+
+			using (var content = new MemoryStream (Encoding.ASCII.GetBytes (text), false)) {
+				var entity = await MimeEntity.LoadAsync (contentType, content);
+
+				Assert.IsInstanceOf<TextPart> (entity);
+
+				var part = (TextPart) entity;
+
+				Assert.AreEqual (text, part.Text);
 			}
 		}
 	}

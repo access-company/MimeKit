@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -32,12 +32,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
-#if PORTABLE
-using Encoding = Portable.Text.Encoding;
-#endif
-
-using MimeKit.Utils;
 using MimeKit.IO;
+using MimeKit.Utils;
 
 namespace MimeKit {
 	/// <summary>
@@ -59,7 +55,7 @@ namespace MimeKit {
 		Uri baseUri;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.MimeEntity"/> class
+		/// Initialize a new instance of the <see cref="MimeEntity"/> class
 		/// based on the <see cref="MimeEntityConstructorArgs"/>.
 		/// </summary>
 		/// <remarks>
@@ -90,7 +86,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.MimeEntity"/> class.
+		/// Initialize a new instance of the <see cref="MimeEntity"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Initializes the <see cref="ContentType"/> based on the provided media type and subtype.
@@ -107,7 +103,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.MimeEntity"/> class.
+		/// Initialize a new instance of the <see cref="MimeEntity"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Initializes the <see cref="ContentType"/> to the one provided.
@@ -141,14 +137,12 @@ namespace MimeKit {
 		protected bool TryInit (object obj)
 		{
 			// The base MimeEntity class only knows about Headers.
-			var header = obj as Header;
-			if (header != null) {
+			if (obj is Header header) {
 				Headers.Add (header);
 				return true;
 			}
 
-			var headers = obj as IEnumerable<Header>;
-			if (headers != null) {
+			if (obj is IEnumerable<Header> headers) {
 				foreach (Header h in headers)
 					Headers.Add (h);
 				return true;
@@ -294,13 +288,12 @@ namespace MimeKit {
 				}
 
 				var buffer = Encoding.UTF8.GetBytes (value);
-				MailboxAddress mailbox;
 				int index = 0;
 
-				if (!MailboxAddress.TryParse (Headers.Options, buffer, ref index, buffer.Length, false, out mailbox))
-					throw new ArgumentException ("Invalid Content-Id format.");
+				if (!ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, false, out string id))
+					throw new ArgumentException ("Invalid Content-Id format.", nameof (value));
 
-				contentId = mailbox.Address;
+				contentId = id;
 
 				SetHeader ("Content-Id", "<" + contentId + ">");
 			}
@@ -329,19 +322,28 @@ namespace MimeKit {
 			}
 		}
 
+		static readonly byte[] ToStringWarning = Encoding.UTF8.GetBytes ("X-MimeKit-Warning: Do NOT use ToString() to serialize entities! Use one of the WriteTo() methods instead!");
+
 		/// <summary>
-		/// Returns a <see cref="System.String"/> that represents the current <see cref="MimeKit.MimeEntity"/>.
+		/// Returns a <see cref="String"/> that represents the <see cref="MimeEntity"/> for debugging purposes.
 		/// </summary>
 		/// <remarks>
-		/// Returns a <see cref="System.String"/> that represents the current <see cref="MimeKit.MimeEntity"/>.
+		/// <para>Returns a <see cref="String"/> that represents the <see cref="MimeEntity"/> for debugging purposes.</para>
+		/// <note type="warning"><para>In general, the string returned from this method SHOULD NOT be used for serializing
+		/// the entity to disk. It is recommended that you use <see cref="WriteTo(Stream,CancellationToken)"/> instead.</para>
+		/// <para>If this method is used for serializing the entity to disk, the iso-8859-1 text encoding should be used for
+		/// conversion.</para></note>
 		/// </remarks>
-		/// <returns>A <see cref="System.String"/> that represents the current <see cref="MimeKit.MimeEntity"/>.</returns>
+		/// <returns>A <see cref="String"/> that represents the <see cref="MimeEntity"/> for debugging purposes.</returns>
 		public override string ToString ()
 		{
 			using (var memory = new MemoryStream ()) {
+				memory.Write (ToStringWarning, 0, ToStringWarning.Length);
+				memory.Write (FormatOptions.Default.NewLineBytes, 0, FormatOptions.Default.NewLineBytes.Length);
+
 				WriteTo (memory);
 
-#if !PORTABLE && !NETSTANDARD
+#if !NETSTANDARD1_3 && !NETSTANDARD1_6
 				var buffer = memory.GetBuffer ();
 #else
 				var buffer = memory.ToArray ();
@@ -356,12 +358,12 @@ namespace MimeKit {
 		/// Dispatches to the specific visit method for this MIME entity.
 		/// </summary>
 		/// <remarks>
-		/// This default implementation for <see cref="MimeKit.MimeEntity"/> nodes
-		/// calls <see cref="MimeKit.MimeVisitor.VisitMimeEntity"/>. Override this
+		/// This default implementation for <see cref="MimeEntity"/> nodes
+		/// calls <see cref="MimeVisitor.VisitMimeEntity"/>. Override this
 		/// method to call into a more specific method on a derived visitor class
-		/// of the <see cref="MimeKit.MimeVisitor"/> class. However, it should still
+		/// of the <see cref="MimeVisitor"/> class. However, it should still
 		/// support unknown visitors by calling
-		/// <see cref="MimeKit.MimeVisitor.VisitMimeEntity"/>.
+		/// <see cref="MimeVisitor.VisitMimeEntity"/>.
 		/// </remarks>
 		/// <param name="visitor">The visitor.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -391,7 +393,7 @@ namespace MimeKit {
 		public abstract void Prepare (EncodingConstraint constraint, int maxLineLength = 78);
 
 		/// <summary>
-		/// Write the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
+		/// Write the <see cref="MimeEntity"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// <para>Writes the headers to the output stream, followed by a blank line.</para>
@@ -425,12 +427,13 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Asynchronously write the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
+		/// Asynchronously write the <see cref="MimeEntity"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
-		/// <para>Writes the headers to the output stream, followed by a blank line.</para>
+		/// <para>Asynchronously writes the headers to the output stream, followed by a blank line.</para>
 		/// <para>Subclasses should override this method to write the content of the entity.</para>
 		/// </remarks>
+		/// <returns>An awaitable task.</returns>
 		/// <param name="options">The formatting options.</param>
 		/// <param name="stream">The output stream.</param>
 		/// <param name="contentOnly"><c>true</c> if only the content should be written; otherwise, <c>false</c>.</param>
@@ -461,7 +464,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Write the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
+		/// Write the <see cref="MimeEntity"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// <para>Writes the headers to the output stream, followed by a blank line.</para>
@@ -487,12 +490,13 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Asynchronously write the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
+		/// Asynchronously write the <see cref="MimeEntity"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
-		/// <para>Writes the headers to the output stream, followed by a blank line.</para>
+		/// <para>Asynchronously writes the headers to the output stream, followed by a blank line.</para>
 		/// <para>Subclasses should override this method to write the content of the entity.</para>
 		/// </remarks>
+		/// <returns>An awaitable task.</returns>
 		/// <param name="options">The formatting options.</param>
 		/// <param name="stream">The output stream.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
@@ -513,7 +517,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Write the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
+		/// Write the <see cref="MimeEntity"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// Writes the entity to the output stream.
@@ -536,11 +540,12 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Adsynchronously write the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
+		/// Asynchronously write the <see cref="MimeEntity"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
-		/// Writes the entity to the output stream.
+		/// Asynchronously writes the entity to the output stream.
 		/// </remarks>
+		/// <returns>An awaitable task.</returns>
 		/// <param name="stream">The output stream.</param>
 		/// <param name="contentOnly"><c>true</c> if only the content should be written; otherwise, <c>false</c>.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
@@ -559,7 +564,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Write the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
+		/// Write the <see cref="MimeEntity"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// Writes the entity to the output stream.
@@ -581,11 +586,12 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Asynchronously write the <see cref="MimeKit.MimeEntity"/> to the specified output stream.
+		/// Asynchronously write the <see cref="MimeEntity"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
-		/// Writes the entity to the output stream.
+		/// Asynchronously writes the entity to the output stream.
 		/// </remarks>
+		/// <returns>An awaitable task.</returns>
 		/// <param name="stream">The output stream.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -602,12 +608,11 @@ namespace MimeKit {
 			return WriteToAsync (FormatOptions.Default, stream, false, cancellationToken);
 		}
 
-#if !PORTABLE
 		/// <summary>
-		/// Write the <see cref="MimeKit.MimeEntity"/> to the specified file.
+		/// Write the <see cref="MimeEntity"/> to the specified file.
 		/// </summary>
 		/// <remarks>
-		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file using the provided formatting options.
+		/// Writes the entity to the specified file using the provided formatting options.
 		/// </remarks>
 		/// <param name="options">The formatting options.</param>
 		/// <param name="fileName">The file.</param>
@@ -620,8 +625,7 @@ namespace MimeKit {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.OperationCanceledException">
 		/// The operation was canceled via the cancellation token.
@@ -651,11 +655,12 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Asynchronously write the <see cref="MimeKit.MimeEntity"/> to the specified file.
+		/// Asynchronously write the <see cref="MimeEntity"/> to the specified file.
 		/// </summary>
 		/// <remarks>
-		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file using the provided formatting options.
+		/// Asynchronously writes the entity to the specified file using the provided formatting options.
 		/// </remarks>
+		/// <returns>An awaitable task.</returns>
 		/// <param name="options">The formatting options.</param>
 		/// <param name="fileName">The file.</param>
 		/// <param name="contentOnly"><c>true</c> if only the content should be written; otherwise, <c>false</c>.</param>
@@ -667,8 +672,7 @@ namespace MimeKit {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.OperationCanceledException">
 		/// The operation was canceled via the cancellation token.
@@ -698,10 +702,10 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Write the <see cref="MimeKit.MimeEntity"/> to the specified file.
+		/// Write the <see cref="MimeEntity"/> to the specified file.
 		/// </summary>
 		/// <remarks>
-		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file using the provided formatting options.
+		/// Writes the entity to the specified file using the provided formatting options.
 		/// </remarks>
 		/// <param name="options">The formatting options.</param>
 		/// <param name="fileName">The file.</param>
@@ -713,8 +717,7 @@ namespace MimeKit {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.OperationCanceledException">
 		/// The operation was canceled via the cancellation token.
@@ -739,16 +742,19 @@ namespace MimeKit {
 			if (fileName == null)
 				throw new ArgumentNullException (nameof (fileName));
 
-			using (var stream = File.Open (fileName, FileMode.Create, FileAccess.Write))
+			using (var stream = File.Open (fileName, FileMode.Create, FileAccess.Write)) {
 				WriteTo (options, stream, false, cancellationToken);
+				stream.Flush ();
+			}
 		}
 
 		/// <summary>
-		/// Asynchronously write the <see cref="MimeKit.MimeEntity"/> to the specified file.
+		/// Asynchronously write the <see cref="MimeEntity"/> to the specified file.
 		/// </summary>
 		/// <remarks>
-		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file using the provided formatting options.
+		/// Asynchronously writes the entity to the specified file using the provided formatting options.
 		/// </remarks>
+		/// <returns>An awaitable task.</returns>
 		/// <param name="options">The formatting options.</param>
 		/// <param name="fileName">The file.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
@@ -759,8 +765,7 @@ namespace MimeKit {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.OperationCanceledException">
 		/// The operation was canceled via the cancellation token.
@@ -785,15 +790,17 @@ namespace MimeKit {
 			if (fileName == null)
 				throw new ArgumentNullException (nameof (fileName));
 
-			using (var stream = File.Open (fileName, FileMode.Create, FileAccess.Write))
+			using (var stream = File.Open (fileName, FileMode.Create, FileAccess.Write)) {
 				await WriteToAsync (options, stream, false, cancellationToken).ConfigureAwait (false);
+				await stream.FlushAsync (cancellationToken).ConfigureAwait (false);
+			}
 		}
 
 		/// <summary>
-		/// Write the <see cref="MimeKit.MimeEntity"/> to the specified file.
+		/// Write the <see cref="MimeEntity"/> to the specified file.
 		/// </summary>
 		/// <remarks>
-		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file using the default formatting options.
+		/// Writes the entity to the specified file using the default formatting options.
 		/// </remarks>
 		/// <param name="fileName">The file.</param>
 		/// <param name="contentOnly"><c>true</c> if only the content should be written; otherwise, <c>false</c>.</param>
@@ -803,8 +810,7 @@ namespace MimeKit {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.OperationCanceledException">
 		/// The operation was canceled via the cancellation token.
@@ -827,11 +833,12 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Asynchronously write the <see cref="MimeKit.MimeEntity"/> to the specified file.
+		/// Asynchronously write the <see cref="MimeEntity"/> to the specified file.
 		/// </summary>
 		/// <remarks>
-		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file using the default formatting options.
+		/// Asynchronously writes the entity to the specified file using the default formatting options.
 		/// </remarks>
+		/// <returns>An awaitable task.</returns>
 		/// <param name="fileName">The file.</param>
 		/// <param name="contentOnly"><c>true</c> if only the content should be written; otherwise, <c>false</c>.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
@@ -840,8 +847,7 @@ namespace MimeKit {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.OperationCanceledException">
 		/// The operation was canceled via the cancellation token.
@@ -864,10 +870,10 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file.
+		/// Write the <see cref="MimeEntity"/> to the specified file.
 		/// </summary>
 		/// <remarks>
-		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file using the default formatting options.
+		/// Writes the entity to the specified file using the default formatting options.
 		/// </remarks>
 		/// <param name="fileName">The file.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
@@ -876,8 +882,7 @@ namespace MimeKit {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.OperationCanceledException">
 		/// The operation was canceled via the cancellation token.
@@ -896,19 +901,16 @@ namespace MimeKit {
 		/// </exception>
 		public void WriteTo (string fileName, CancellationToken cancellationToken = default (CancellationToken))
 		{
-			if (fileName == null)
-				throw new ArgumentNullException (nameof (fileName));
-
-			using (var stream = File.Open (fileName, FileMode.Create, FileAccess.Write))
-				WriteTo (FormatOptions.Default, stream, false, cancellationToken);
+			WriteTo (FormatOptions.Default, fileName, cancellationToken);
 		}
 
 		/// <summary>
-		/// Asynchronously writes the <see cref="MimeKit.MimeEntity"/> to the specified file.
+		/// Asynchronously write the <see cref="MimeEntity"/> to the specified file.
 		/// </summary>
 		/// <remarks>
-		/// Writes the <see cref="MimeKit.MimeEntity"/> to the specified file using the default formatting options.
+		/// Asynchronously writes the entity to the specified file using the default formatting options.
 		/// </remarks>
+		/// <returns>An awaitable task.</returns>
 		/// <param name="fileName">The file.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -916,8 +918,7 @@ namespace MimeKit {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.OperationCanceledException">
 		/// The operation was canceled via the cancellation token.
@@ -934,18 +935,13 @@ namespace MimeKit {
 		/// <exception cref="System.IO.IOException">
 		/// An I/O error occurred.
 		/// </exception>
-		public async Task WriteToAsync (string fileName, CancellationToken cancellationToken = default (CancellationToken))
+		public Task WriteToAsync (string fileName, CancellationToken cancellationToken = default (CancellationToken))
 		{
-			if (fileName == null)
-				throw new ArgumentNullException (nameof (fileName));
-
-			using (var stream = File.Open (fileName, FileMode.Create, FileAccess.Write))
-				await WriteToAsync (FormatOptions.Default, stream, false, cancellationToken).ConfigureAwait (false);
+			return WriteToAsync (FormatOptions.Default, fileName, cancellationToken);
 		}
-#endif // !PORTABLE
 
 		/// <summary>
-		/// Removes the header.
+		/// Remove a header by name.
 		/// </summary>
 		/// <remarks>
 		/// Removes all headers matching the specified name without
@@ -964,7 +960,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Sets the header.
+		/// Set the value of a header.
 		/// </summary>
 		/// <remarks>
 		/// Sets the header to the specified value without
@@ -984,7 +980,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Sets the header using the raw value.
+		/// Set the value of a header using the raw value.
 		/// </summary>
 		/// <remarks>
 		/// Sets the header to the specified value without
@@ -1045,7 +1041,6 @@ namespace MimeKit {
 		/// <param name="header">The header being added, changed or removed.</param>
 		protected virtual void OnHeadersChanged (HeaderListChangedAction action, Header header)
 		{
-			MailboxAddress mailbox;
 			int index = 0;
 			string text;
 
@@ -1079,8 +1074,8 @@ namespace MimeKit {
 						baseUri = null;
 					break;
 				case HeaderId.ContentId:
-					if (MailboxAddress.TryParse (Headers.Options, header.RawValue, ref index, header.RawValue.Length, false, out mailbox))
-						contentId = mailbox.Address;
+					if (ParseUtils.TryParseMsgId (header.RawValue, ref index, header.RawValue.Length, false, false, out string msgid))
+						contentId = msgid;
 					else
 						contentId = null;
 					break;
@@ -1132,7 +1127,7 @@ namespace MimeKit {
 		/// specified <see cref="ParserOptions"/>.</para>
 		/// <para>If <paramref name="persistent"/> is <c>true</c> and <paramref name="stream"/> is seekable, then
 		/// the <see cref="MimeParser"/> will not copy the content of <see cref="MimePart"/>s into memory. Instead,
-		/// it will use a <see cref="MimeKit.IO.BoundStream"/> to reference a substream of <paramref name="stream"/>.
+		/// it will use a <see cref="BoundStream"/> to reference a substream of <paramref name="stream"/>.
 		/// This has the potential to not only save mmeory usage, but also improve <see cref="MimeParser"/>
 		/// performance.</para>
 		/// </remarks>
@@ -1176,7 +1171,7 @@ namespace MimeKit {
 		/// specified <see cref="ParserOptions"/>.</para>
 		/// <para>If <paramref name="persistent"/> is <c>true</c> and <paramref name="stream"/> is seekable, then
 		/// the <see cref="MimeParser"/> will not copy the content of <see cref="MimePart"/>s into memory. Instead,
-		/// it will use a <see cref="MimeKit.IO.BoundStream"/> to reference a substream of <paramref name="stream"/>.
+		/// it will use a <see cref="BoundStream"/> to reference a substream of <paramref name="stream"/>.
 		/// This has the potential to not only save mmeory usage, but also improve <see cref="MimeParser"/>
 		/// performance.</para>
 		/// </remarks>
@@ -1280,7 +1275,7 @@ namespace MimeKit {
 		/// default <see cref="ParserOptions"/>.</para>
 		/// <para>If <paramref name="persistent"/> is <c>true</c> and <paramref name="stream"/> is seekable, then
 		/// the <see cref="MimeParser"/> will not copy the content of <see cref="MimePart"/>s into memory. Instead,
-		/// it will use a <see cref="MimeKit.IO.BoundStream"/> to reference a substream of <paramref name="stream"/>.
+		/// it will use a <see cref="BoundStream"/> to reference a substream of <paramref name="stream"/>.
 		/// This has the potential to not only save mmeory usage, but also improve <see cref="MimeParser"/>
 		/// performance.</para>
 		/// </remarks>
@@ -1313,7 +1308,7 @@ namespace MimeKit {
 		/// default <see cref="ParserOptions"/>.</para>
 		/// <para>If <paramref name="persistent"/> is <c>true</c> and <paramref name="stream"/> is seekable, then
 		/// the <see cref="MimeParser"/> will not copy the content of <see cref="MimePart"/>s into memory. Instead,
-		/// it will use a <see cref="MimeKit.IO.BoundStream"/> to reference a substream of <paramref name="stream"/>.
+		/// it will use a <see cref="BoundStream"/> to reference a substream of <paramref name="stream"/>.
 		/// This has the potential to not only save mmeory usage, but also improve <see cref="MimeParser"/>
 		/// performance.</para>
 		/// </remarks>
@@ -1392,7 +1387,6 @@ namespace MimeKit {
 			return LoadAsync (ParserOptions.Default, stream, false, cancellationToken);
 		}
 
-#if !PORTABLE
 		/// <summary>
 		/// Load a <see cref="MimeEntity"/> from the specified file.
 		/// </summary>
@@ -1411,8 +1405,7 @@ namespace MimeKit {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.IO.DirectoryNotFoundException">
 		/// <paramref name="fileName"/> is an invalid file path.
@@ -1440,7 +1433,7 @@ namespace MimeKit {
 			if (fileName == null)
 				throw new ArgumentNullException (nameof (fileName));
 
-			using (var stream = File.Open (fileName, FileMode.Open, FileAccess.Read))
+			using (var stream = File.OpenRead (fileName))
 				return Load (options, stream, cancellationToken);
 		}
 
@@ -1462,8 +1455,7 @@ namespace MimeKit {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.IO.DirectoryNotFoundException">
 		/// <paramref name="fileName"/> is an invalid file path.
@@ -1491,7 +1483,7 @@ namespace MimeKit {
 			if (fileName == null)
 				throw new ArgumentNullException (nameof (fileName));
 
-			using (var stream = File.Open (fileName, FileMode.Open, FileAccess.Read))
+			using (var stream = File.OpenRead (fileName))
 				return await LoadAsync (options, stream, cancellationToken).ConfigureAwait (false);
 		}
 
@@ -1510,8 +1502,7 @@ namespace MimeKit {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.IO.DirectoryNotFoundException">
 		/// <paramref name="fileName"/> is an invalid file path.
@@ -1551,8 +1542,7 @@ namespace MimeKit {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.IO.DirectoryNotFoundException">
 		/// <paramref name="fileName"/> is an invalid file path.
@@ -1576,7 +1566,6 @@ namespace MimeKit {
 		{
 			return LoadAsync (ParserOptions.Default, fileName, cancellationToken);
 		}
-#endif // !PORTABLE
 
 		/// <summary>
 		/// Load a <see cref="MimeEntity"/> from the specified content stream.
@@ -1689,6 +1678,9 @@ namespace MimeKit {
 		/// This method is mostly meant for use with APIs such as <see cref="System.Net.HttpWebResponse"/>
 		/// where the headers are parsed separately from the content.
 		/// </remarks>
+		/// <example>
+		/// <code language="c#" source="Examples\MultipartFormDataExample.cs" region="ParseMultipartFormDataSimple" />
+		/// </example>
 		/// <returns>The parsed MIME entity.</returns>
 		/// <param name="contentType">The Content-Type of the stream.</param>
 		/// <param name="content">The content stream.</param>

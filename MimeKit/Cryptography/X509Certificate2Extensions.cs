@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 Xamarin Inc. (www.xamarin.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,7 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 
 using Org.BouncyCastle.X509;
 using Org.BouncyCastle.Asn1;
@@ -61,8 +62,38 @@ namespace MimeKit.Cryptography
 				throw new ArgumentNullException (nameof (certificate));
 
 			var rawData = certificate.GetRawCertData ();
+			var parser = new X509CertificateParser ();
+			var cert = parser.ReadCertificate (rawData);
 
-			return new X509CertificateParser ().ReadCertificate (rawData);
+			return cert;
+		}
+
+		/// <summary>
+		/// Gets the public key algorithm for the certificate.
+		/// </summary>
+		/// <remarks>
+		/// Gets the public key algorithm for the ceretificate.
+		/// </remarks>
+		/// <returns>The public key algorithm.</returns>
+		/// <param name="certificate">The certificate.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="certificate"/> is <c>null</c>.
+		/// </exception>
+		public static PublicKeyAlgorithm GetPublicKeyAlgorithm (this X509Certificate2 certificate)
+		{
+			if (certificate == null)
+				throw new ArgumentNullException (nameof (certificate));
+
+			var identifier = certificate.GetKeyAlgorithm ();
+			var oid = new Oid (identifier);
+
+			switch (oid.FriendlyName) {
+			case "DSA": return PublicKeyAlgorithm.Dsa;
+			case "RSA": return PublicKeyAlgorithm.RsaGeneral;
+			case "ECC": return PublicKeyAlgorithm.EllipticCurve;
+			case "DH": return PublicKeyAlgorithm.DiffieHellman;
+			default: return PublicKeyAlgorithm.None;
+			}
 		}
 
 		static EncryptionAlgorithm[] DecodeEncryptionAlgorithms (byte[] rawData)

@@ -1,9 +1,9 @@
-//
+﻿//
 // MemoryBlockStreamTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,7 @@
 
 using System;
 using System.IO;
+using System.Threading.Tasks;
 
 using NUnit.Framework;
 
@@ -33,7 +34,7 @@ using MimeKit.IO;
 
 namespace UnitTests.IO {
 	[TestFixture]
-	public class MemoryBlockStreamTests
+	public class MemoryBlockStreamTests : IDisposable
 	{
 		MemoryBlockStream blocks;
 		MemoryStream master;
@@ -66,8 +67,7 @@ namespace UnitTests.IO {
 			blocks.Seek (0, SeekOrigin.Begin);
 		}
 
-		[TestFixtureTearDown]
-		public void TearDown ()
+		public void Dispose ()
 		{
 			blocks.Dispose ();
 			master.Dispose ();
@@ -117,7 +117,7 @@ namespace UnitTests.IO {
 		}
 
 		[Test]
-		public async void TestReadAsync ()
+		public async Task TestReadAsync ()
 		{
 			blocks.Position = 0;
 			master.Position = 0;
@@ -157,7 +157,7 @@ namespace UnitTests.IO {
 		}
 
 		[Test]
-		public async void TestWriteAsync ()
+		public async Task TestWriteAsync ()
 		{
 			var bytes = new byte[9 * 1024];
 			int position = 0;
@@ -195,7 +195,7 @@ namespace UnitTests.IO {
 		public void TestSeek ()
 		{
 			for (int attempt = 0; attempt < 10; attempt++) {
-				long offset = random.Next () % master.Length;
+				long offset = random.Next (1, (int) master.Length);
 
 				long expected = master.Seek (offset, SeekOrigin.Begin);
 				long actual = blocks.Seek (offset, SeekOrigin.Begin);

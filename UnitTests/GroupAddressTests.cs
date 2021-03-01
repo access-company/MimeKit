@@ -1,9 +1,9 @@
-//
+﻿//
 // GroupAddressTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -138,6 +138,33 @@ namespace UnitTests {
 			} catch (Exception ex) {
 				Assert.Fail ("GroupAddress.Parse(string) should not throw an exception: {0}", ex);
 			}
+		}
+
+		[Test]
+		public void TestClone ()
+		{
+			const string encoded = "Group Name: First Name <first@address.com>, Second Name <second@address.com>,\n Inner Group Name: First Inner Name <first-inner@address.com>,\n Second Inner Name <second-inner@address.com>;, Third Name <third@address.com>;";
+			var options = FormatOptions.Default.Clone ();
+			options.NewLineFormat = NewLineFormat.Unix;
+			options.International = true;
+
+			var inner = new GroupAddress ("Inner Group Name");
+			inner.Members.Add (new MailboxAddress ("First Inner Name", "first-inner@address.com"));
+			inner.Members.Add (new MailboxAddress ("Second Inner Name", "second-inner@address.com"));
+
+			var group = new GroupAddress ("Group Name");
+			group.Members.Add (new MailboxAddress ("First Name", "first@address.com"));
+			group.Members.Add (new MailboxAddress ("Second Name", "second@address.com"));
+			group.Members.Add (inner);
+			group.Members.Add (new MailboxAddress ("Third Name", "third@address.com"));
+
+			var clone = group.Clone ();
+
+			Assert.AreEqual (0, group.CompareTo (clone), "CompareTo");
+
+			var actual = clone.ToString (options, true);
+
+			Assert.AreEqual (encoded, actual, "Encode");
 		}
 
 		[Test]

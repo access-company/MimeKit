@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,11 +27,8 @@
 using System;
 using System.Text;
 using System.Collections.Generic;
-
-#if !PORTABLE
 using System.Net.NetworkInformation;
 using System.Security.Cryptography;
-#endif
 
 namespace MimeKit.Utils {
 	/// <summary>
@@ -42,10 +39,10 @@ namespace MimeKit.Utils {
 	/// </remarks>
 	public static class MimeUtils
 	{
-#if PORTABLE
-		static readonly Random random = new Random ((int) DateTime.Now.Ticks);
-#endif
 		const string base36 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+#if !NETSTANDARD1_3 && !NETSTANDARD1_6
+		static string DefaultHostName = null;
+#endif
 
 		/// <summary>
 		/// A string comparer that performs a case-insensitive ordinal string comparison.
@@ -57,14 +54,8 @@ namespace MimeKit.Utils {
 
 		internal static void GetRandomBytes (byte[] buffer)
 		{
-#if !PORTABLE
 			using (var random = RandomNumberGenerator.Create ())
 				random.GetBytes (buffer);
-#else
-			lock (random) {
-				random.NextBytes (buffer);
-			}
-#endif
 		}
 
 		/// <summary>
@@ -111,7 +102,7 @@ namespace MimeKit.Utils {
 				value /= 36;
 			} while (value != 0);
 
-			id.Append ('@').Append (domain);
+			id.Append ('@').Append (ParseUtils.IdnEncode (domain));
 
 			return id.ToString ();
 		}
@@ -125,12 +116,16 @@ namespace MimeKit.Utils {
 		/// <returns>The message identifier.</returns>
 		public static string GenerateMessageId ()
 		{
-#if PORTABLE || NETSTANDARD
+#if NETSTANDARD1_3 || NETSTANDARD1_6
 			return GenerateMessageId ("localhost.localdomain");
 #else
-			var properties = IPGlobalProperties.GetIPGlobalProperties ();
+			if (DefaultHostName == null) {
+				var properties = IPGlobalProperties.GetIPGlobalProperties ();
 
-			return GenerateMessageId (properties.HostName);
+				DefaultHostName = properties.HostName;
+			}
+
+			return GenerateMessageId (DefaultHostName);
 #endif
 		}
 
@@ -158,10 +153,8 @@ namespace MimeKit.Utils {
 		{
 			ParseUtils.ValidateArguments (buffer, startIndex, length);
 
-			byte[] sentinels = { (byte) '>' };
 			int endIndex = startIndex + length;
 			int index = startIndex;
-			string msgid;
 
 			do {
 				if (!ParseUtils.SkipCommentsAndWhiteSpace (buffer, ref index, endIndex, false))
@@ -171,74 +164,8 @@ namespace MimeKit.Utils {
 					break;
 
 				if (buffer[index] == '<') {
-					// skip over the '<'
-					index++;
-
-					if (index >= endIndex)
-						break;
-
-					string localpart;
-					if (!InternetAddress.TryParseLocalPart (buffer, ref index, endIndex, false, out localpart))
-						continue;
-
-					if (index >= endIndex)
-						break;
-
-					if (buffer[index] == (byte) '>') {
-						// The msgid token did not contain an @domain. Technically this is illegal, but for the
-						// sake of maximum compatibility, I guess we have no choice but to accept it...
-						index++;
-
-						yield return localpart;
-						continue;
-					}
-
-					if (buffer[index] != (byte) '@') {
-						// who the hell knows what we have here... ignore it and continue on?
-						continue;
-					}
-
-					// skip over the '@'
-					index++;
-
-					if (!ParseUtils.SkipCommentsAndWhiteSpace (buffer, ref index, endIndex, false))
-						break;
-
-					if (index >= endIndex)
-						break;
-
-					if (buffer[index] == (byte) '>') {
-						// The msgid token was in the form "<local-part@>". Technically this is illegal, but for
-						// the sake of maximum compatibility, I guess we have no choice but to accept it...
-						// https://github.com/jstedfast/MimeKit/issues/102
-						index++;
-
-						yield return localpart + "@";
-						continue;
-					}
-
-					string domain;
-					if (!ParseUtils.TryParseDomain (buffer, ref index, endIndex, sentinels, false, out domain))
-						continue;
-
-					msgid = localpart + "@" + domain;
-
-					// Note: some Message-Id's are broken and in the form "<local-part@domain@domain>"
-					// https://github.com/jstedfast/MailKit/issues/138
-					while (index < endIndex && buffer[index] == (byte) '@') {
-						int saved = index;
-
-						index++;
-
-						if (!ParseUtils.TryParseDomain (buffer, ref index, endIndex, sentinels, false, out domain)) {
-							index = saved;
-							break;
-						}
-
-						msgid += "@" + domain;
-					}
-
-					yield return msgid;
+					if (ParseUtils.TryParseMsgId (buffer, ref index, endIndex, true, false, out string msgid))
+						yield return msgid;
 				} else if (!ParseUtils.SkipWord (buffer, ref index, endIndex, false)) {
 					index++;
 				}
@@ -291,75 +218,11 @@ namespace MimeKit.Utils {
 		{
 			ParseUtils.ValidateArguments (buffer, startIndex, length);
 
-			byte[] sentinels = { (byte) '>' };
 			int endIndex = startIndex + length;
 			int index = startIndex;
 			string msgid;
 
-			if (!ParseUtils.SkipCommentsAndWhiteSpace (buffer, ref index, endIndex, false))
-				return null;
-
-			if (index >= endIndex)
-				return null;
-
-			if (buffer[index] == '<') {
-				// skip over the '<'
-				index++;
-
-				if (index >= endIndex)
-					return null;
-			}
-
-			string localpart;
-			if (!InternetAddress.TryParseLocalPart (buffer, ref index, endIndex, false, out localpart))
-				return null;
-
-			if (index >= endIndex)
-				return null;
-
-			if (buffer[index] == (byte) '>') {
-				// The msgid token did not contain an @domain. Technically this is illegal, but for the
-				// sake of maximum compatibility, I guess we have no choice but to accept it...
-				return localpart;
-			}
-
-			if (buffer[index] != (byte) '@') {
-				// who the hell knows what we have here...
-				return null;
-			}
-
-			// skip over the '@'
-			index++;
-
-			if (!ParseUtils.SkipCommentsAndWhiteSpace (buffer, ref index, endIndex, false))
-				return null;
-
-			if (index >= endIndex)
-				return null;
-
-			if (buffer[index] == (byte) '>') {
-				// The msgid token was in the form "<local-part@>". Technically this is illegal, but for
-				// the sake of maximum compatibility, I guess we have no choice but to accept it...
-				// https://github.com/jstedfast/MimeKit/issues/102
-				return localpart + "@";
-			}
-
-			string domain;
-			if (!ParseUtils.TryParseDomain (buffer, ref index, endIndex, sentinels, false, out domain))
-				return null;
-
-			msgid = localpart + "@" + domain;
-
-			// Note: some Message-Id's are broken and in the form "<local-part@domain@domain>"
-			// https://github.com/jstedfast/MailKit/issues/138
-			while (index < endIndex && buffer[index] == (byte) '@') {
-				index++;
-
-				if (!ParseUtils.TryParseDomain (buffer, ref index, endIndex, sentinels, false, out domain))
-					break;
-
-				msgid += "@" + domain;
-			}
+			ParseUtils.TryParseMsgId (buffer, ref index, endIndex, false, false, out msgid);
 
 			return msgid;
 		}
@@ -386,7 +249,7 @@ namespace MimeKit.Utils {
 		}
 
 		/// <summary>
-		/// Tries to parse a version from a header such as Mime-Version.
+		/// Try to parse a version from a header such as Mime-Version.
 		/// </summary>
 		/// <remarks>
 		/// Parses a MIME version string from the supplied buffer starting at the given index
@@ -445,7 +308,7 @@ namespace MimeKit.Utils {
 		}
 
 		/// <summary>
-		/// Tries to parse a version from a header such as Mime-Version.
+		/// Try to parse a version from a header such as Mime-Version.
 		/// </summary>
 		/// <remarks>
 		/// Parses a MIME version string from the specified text.
@@ -467,7 +330,7 @@ namespace MimeKit.Utils {
 		}
 
 		/// <summary>
-		/// Tries to parse the value of a Content-Transfer-Encoding header.
+		/// Try to parse the value of a Content-Transfer-Encoding header.
 		/// </summary>
 		/// <remarks>
 		/// Parses a Content-Transfer-Encoding header value.
@@ -507,6 +370,7 @@ namespace MimeKit.Utils {
 			case "quoted-printable": encoding = ContentEncoding.QuotedPrintable; break;
 			case "x-uuencode":       encoding = ContentEncoding.UUEncode; break;
 			case "uuencode":         encoding = ContentEncoding.UUEncode; break;
+			case "x-uue":            encoding = ContentEncoding.UUEncode; break;
 			default:                 encoding = ContentEncoding.Default; break;
 			}
 
@@ -564,7 +428,7 @@ namespace MimeKit.Utils {
 			if (index == -1)
 				return text;
 
-			var builder = new StringBuilder ();
+			var builder = new StringBuilder (text.Length);
 			bool escaped = false;
 			bool quoted = false;
 

@@ -1,9 +1,9 @@
-//
+﻿//
 // MimeMessageTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +30,7 @@ using System.Linq;
 using System.Text;
 using System.Net.Mail;
 using System.Reflection;
+using System.Threading.Tasks;
 
 using NUnit.Framework;
 
@@ -68,39 +69,77 @@ namespace UnitTests {
 			Assert.Throws<ArgumentNullException> (() => MimeMessage.Load (null, "fileName"));
 			Assert.Throws<ArgumentNullException> (() => MimeMessage.Load (ParserOptions.Default, (string) null));
 
-			Assert.Throws<ArgumentNullException> (async () => await MimeMessage.LoadAsync ((Stream) null));
-			Assert.Throws<ArgumentNullException> (async () => await MimeMessage.LoadAsync ((Stream) null, true));
-			Assert.Throws<ArgumentNullException> (async () => await MimeMessage.LoadAsync (null, Stream.Null));
-			Assert.Throws<ArgumentNullException> (async () => await MimeMessage.LoadAsync (ParserOptions.Default, (Stream) null));
-			Assert.Throws<ArgumentNullException> (async () => await MimeMessage.LoadAsync (null, Stream.Null, true));
-			Assert.Throws<ArgumentNullException> (async () => await MimeMessage.LoadAsync (ParserOptions.Default, (Stream) null, true));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeMessage.LoadAsync ((Stream) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeMessage.LoadAsync ((Stream) null, true));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeMessage.LoadAsync (null, Stream.Null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeMessage.LoadAsync (ParserOptions.Default, (Stream) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeMessage.LoadAsync (null, Stream.Null, true));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeMessage.LoadAsync (ParserOptions.Default, (Stream) null, true));
 
-			Assert.Throws<ArgumentNullException> (async () => await MimeMessage.LoadAsync ((string) null));
-			Assert.Throws<ArgumentNullException> (async () => await MimeMessage.LoadAsync (null, "fileName"));
-			Assert.Throws<ArgumentNullException> (async () => await MimeMessage.LoadAsync (ParserOptions.Default, (string) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeMessage.LoadAsync ((string) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeMessage.LoadAsync (null, "fileName"));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await MimeMessage.LoadAsync (ParserOptions.Default, (string) null));
 
 			Assert.Throws<ArgumentNullException> (() => message.Accept (null));
 			Assert.Throws<ArgumentOutOfRangeException> (() => message.Prepare (EncodingConstraint.None, 10));
 			Assert.Throws<ArgumentNullException> (() => message.WriteTo ((string) null));
 			Assert.Throws<ArgumentNullException> (() => message.WriteTo ((Stream) null));
 			Assert.Throws<ArgumentNullException> (() => message.WriteTo (null, Stream.Null));
+			Assert.Throws<ArgumentNullException> (() => message.WriteTo ((Stream) null, true));
 			Assert.Throws<ArgumentNullException> (() => message.WriteTo (FormatOptions.Default, (Stream) null));
 			Assert.Throws<ArgumentNullException> (() => message.WriteTo (null, "fileName"));
 			Assert.Throws<ArgumentNullException> (() => message.WriteTo (FormatOptions.Default, (string) null));
-			Assert.Throws<ArgumentNullException> (async () => await message.WriteToAsync ((string) null));
-			Assert.Throws<ArgumentNullException> (async () => await message.WriteToAsync ((Stream) null));
-			Assert.Throws<ArgumentNullException> (async () => await message.WriteToAsync (null, Stream.Null));
-			Assert.Throws<ArgumentNullException> (async () => await message.WriteToAsync (FormatOptions.Default, (Stream) null));
-			Assert.Throws<ArgumentNullException> (async () => await message.WriteToAsync (null, "fileName"));
-			Assert.Throws<ArgumentNullException> (async () => await message.WriteToAsync (FormatOptions.Default, (string) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await message.WriteToAsync ((string) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await message.WriteToAsync ((Stream) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await message.WriteToAsync (null, Stream.Null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await message.WriteToAsync ((Stream) null, true));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await message.WriteToAsync (FormatOptions.Default, (Stream) null));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await message.WriteToAsync (null, "fileName"));
+			Assert.ThrowsAsync<ArgumentNullException> (async () => await message.WriteToAsync (FormatOptions.Default, (string) null));
 			Assert.Throws<ArgumentNullException> (() => message.Sign (null));
 			Assert.Throws<ArgumentNullException> (() => message.Sign (null, DigestAlgorithm.Sha1));
 			Assert.Throws<ArgumentNullException> (() => message.Encrypt (null));
 			Assert.Throws<ArgumentNullException> (() => message.SignAndEncrypt (null));
+
+			Assert.Throws<ArgumentNullException> (() => MimeMessage.CreateFromMailMessage (null));
 		}
 
 		[Test]
-		public async void TestReserialization ()
+		public void TestPrependHeader ()
+		{
+			string rawMessageText = @"Date: Fri, 22 Jan 2016 8:44:05 -0500 (EST)
+From: MimeKit Unit Tests <unit.tests@mimekit.org>
+To: MimeKit Unit Tests <unit.tests@mimekit.org>
+Subject: This is a test off prepending headers.
+Message-Id: <id@localhost.com>
+MIME-Version: 1.0
+Content-Type: text/plain
+
+This is the message body.
+".Replace ("\r\n", "\n");
+			string expected = "X-Prepended: This is the prepended header\n" + rawMessageText;
+
+			using (var source = new MemoryStream (Encoding.UTF8.GetBytes (rawMessageText))) {
+				var parser = new MimeParser (source, MimeFormat.Default);
+				var message = parser.ParseMessage ();
+
+				message.Headers.Insert (0, new Header ("X-Prepended", "This is the prepended header"));
+
+				using (var serialized = new MemoryStream ()) {
+					var options = FormatOptions.Default.Clone ();
+					options.NewLineFormat = NewLineFormat.Unix;
+
+					message.WriteTo (options, serialized);
+
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (expected, result, "Reserialized message is not identical to the original.");
+				}
+			}
+		}
+
+		[Test]
+		public async Task TestReserialization ()
 		{
 			string rawMessageText = @"X-Andrew-Authenticated-As: 4099;greenbush.galaxy;Nathaniel Borenstein
 Received: from Messages.8.5.N.CUILIB.3.45.SNAP.NOT.LINKED.greenbush.galaxy.sun4.41
@@ -201,11 +240,36 @@ Just for fun....  -- Nathaniel<nl>
 
 					Assert.AreEqual (rawMessageText, result, "Reserialized (async) message is not identical to the original.");
 				}
+
+				var index = rawMessageText.IndexOf ("\n\n", StringComparison.Ordinal);
+				var headersOnly = rawMessageText.Substring (0, index + 2);
+
+				using (var serialized = new MemoryStream ()) {
+					var options = FormatOptions.Default.Clone ();
+					options.NewLineFormat = NewLineFormat.Unix;
+
+					message.WriteTo (options, serialized, true);
+
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (headersOnly, result, "Reserialized headers are not identical to the original.");
+				}
+
+				using (var serialized = new MemoryStream ()) {
+					var options = FormatOptions.Default.Clone ();
+					options.NewLineFormat = NewLineFormat.Unix;
+
+					await message.WriteToAsync (options, serialized, true);
+
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (headersOnly, result, "Reserialized headers (async) are not identical to the original.");
+				}
 			}
 		}
 
 		[Test]
-		public async void TestReserializationEmptyParts ()
+		public async Task TestReserializationEmptyParts ()
 		{
 			string rawMessageText = @"Date: Fri, 22 Jan 2016 8:44:05 -0500 (EST)
 From: MimeKit Unit Tests <unit.tests@mimekit.org>
@@ -264,7 +328,7 @@ Content-Description: this part contains a single blank line
 		}
 
 		[Test]
-		public async void TestReserializationMessageParts ()
+		public async Task TestReserializationMessageParts ()
 		{
 			string rawMessageText = @"Path: flop.mcom.com!news.Stanford.EDU!agate!tcsi.tcs.com!uunet!vixen.cso.uiuc.edu!gateway
 From: Internet-Drafts@CNRI.Reston.VA.US
@@ -369,6 +433,292 @@ Content-ID: <spankulate4@hubba.hubba.hubba>
 		}
 
 		[Test]
+		public async Task TestReserializationEpilogue ()
+		{
+			string rawMessageText = @"From: Example Test <test@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+   boundary=""simple boundary""
+
+This is the preamble.
+
+--simple boundary
+Content-TypeS: text/plain
+
+This is a test.
+
+--simple boundary
+Content-Type: text/plain
+Content-Disposition: attachment
+Content-Transfer-Encoding: 7bit
+
+Another test.
+
+--simple boundary--
+
+
+This is the epilogue.".Replace ("\r\n", "\n");
+
+			using (var source = new MemoryStream (Encoding.UTF8.GetBytes (rawMessageText))) {
+				var parser = new MimeParser (source, MimeFormat.Default);
+				var message = parser.ParseMessage ();
+
+				using (var serialized = new MemoryStream ()) {
+					var options = FormatOptions.Default.Clone ();
+					options.NewLineFormat = NewLineFormat.Unix;
+
+					message.WriteTo (options, serialized);
+
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (rawMessageText, result, "Reserialized message is not identical to the original.");
+				}
+
+				using (var serialized = new MemoryStream ()) {
+					var options = FormatOptions.Default.Clone ();
+					options.NewLineFormat = NewLineFormat.Unix;
+
+					await message.WriteToAsync (options, serialized);
+
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (rawMessageText, result, "Reserialized (async) message is not identical to the original.");
+				}
+
+				using (var serialized = new MemoryStream ()) {
+					var options = FormatOptions.Default.Clone ();
+					options.NewLineFormat = NewLineFormat.Unix;
+					options.EnsureNewLine = true;
+
+					message.WriteTo (options, serialized);
+
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (rawMessageText + "\n", result, "Reserialized message is not identical to the original (EnsureNewLine).");
+				}
+
+				using (var serialized = new MemoryStream ()) {
+					var options = FormatOptions.Default.Clone ();
+					options.NewLineFormat = NewLineFormat.Unix;
+					options.EnsureNewLine = true;
+
+					await message.WriteToAsync (options, serialized);
+
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (rawMessageText + "\n", result, "Reserialized (async) message is not identical to the original (EnsureNewLine).");
+				}
+			}
+		}
+
+		[Test]
+		public async Task TestReserializationMultipartPreambleNoBoundary ()
+		{
+			string rawMessageText = @"From: Example Test <test@example.com>
+Content-Type: multipart/mixed
+
+This is the preamble.
+.".Replace ("\r\n", "\n");
+
+			using (var source = new MemoryStream (Encoding.UTF8.GetBytes (rawMessageText))) {
+				var parser = new MimeParser (source, MimeFormat.Default);
+				var message = parser.ParseMessage ();
+
+				using (var serialized = new MemoryStream ()) {
+					var options = FormatOptions.Default.Clone ();
+					options.NewLineFormat = NewLineFormat.Unix;
+
+					message.WriteTo (options, serialized);
+
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (rawMessageText, result, "Reserialized message is not identical to the original.");
+				}
+
+				using (var serialized = new MemoryStream ()) {
+					var options = FormatOptions.Default.Clone ();
+					options.NewLineFormat = NewLineFormat.Unix;
+
+					await message.WriteToAsync (options, serialized);
+
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (rawMessageText, result, "Reserialized (async) message is not identical to the original.");
+				}
+
+				using (var serialized = new MemoryStream ()) {
+					var options = FormatOptions.Default.Clone ();
+					options.NewLineFormat = NewLineFormat.Unix;
+					options.EnsureNewLine = true;
+
+					message.WriteTo (options, serialized);
+
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (rawMessageText + "\n", result, "Reserialized message is not identical to the original (EnsureNewLine).");
+				}
+
+				using (var serialized = new MemoryStream ()) {
+					var options = FormatOptions.Default.Clone ();
+					options.NewLineFormat = NewLineFormat.Unix;
+					options.EnsureNewLine = true;
+
+					await message.WriteToAsync (options, serialized);
+
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (rawMessageText + "\n", result, "Reserialized (async) message is not identical to the original (EnsureNewLine).");
+				}
+			}
+		}
+
+		[Test]
+		public async Task TestReserializationInvalidHeaders ()
+		{
+			string rawMessageText = @"From: Example Test <test@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+   boundary=""simple boundary""
+Example: test
+Test
+Test Test
+Test:
+Test: 
+Test: Test
+Test Example:
+
+This is the preamble.
+
+--simple boundary
+Content-TypeS: text/plain
+
+This is a test.
+
+--simple boundary
+Content-Type: text/plain;
+Content-Disposition: attachment;
+Content-Transfer-Encoding: test;
+Content-Transfer-Encoding: binary;
+Test Test Test: Test Test
+Te$t($)*$= Test Test: Abc def
+test test = test
+test test :: test
+filename=""test.txt""
+
+Another test.
+
+--simple boundary--
+
+
+This is the epilogue.
+".Replace ("\r\n", "\n");
+
+			using (var source = new MemoryStream (Encoding.UTF8.GetBytes (rawMessageText))) {
+				var parser = new MimeParser (source, MimeFormat.Default);
+				var message = parser.ParseMessage ();
+
+				using (var serialized = new MemoryStream ()) {
+					var options = FormatOptions.Default.Clone ();
+					options.NewLineFormat = NewLineFormat.Unix;
+
+					message.WriteTo (options, serialized);
+
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (rawMessageText, result, "Reserialized message is not identical to the original.");
+				}
+
+				using (var serialized = new MemoryStream ()) {
+					var options = FormatOptions.Default.Clone ();
+					options.NewLineFormat = NewLineFormat.Unix;
+
+					await message.WriteToAsync (options, serialized);
+
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (rawMessageText, result, "Reserialized (async) message is not identical to the original.");
+				}
+			}
+		}
+
+		[Test]
+		public async Task TestReserializationDeliveryStatusReportWithEnsureNewLine ()
+		{
+			string rawMessageText = @"From: est@somwhere.com
+Date: Fri, 15 Feb 2019 16:00:08 +0000
+Subject: report_with_no_body
+To: tom@to.com
+MIME-Version: 1.0
+Content-Type: multipart/report; report-type=delivery-status; boundary=""A41C7.838631588=_/mm1""
+
+
+Processing your mail message caused the following errors:
+
+error: err.nosuchuser: newsletter-request@imusic.com
+
+--A41C7.838631588=_/mm1
+Content-Type: message/delivery-status
+
+Reporting-MTA: dns; mm1
+Arrival-Date: Mon, 29 Jul 1996 02:12:50 -0700
+
+Final-Recipient: RFC822; newsletter-request@imusic.com
+Action: failed
+Diagnostic-Code: X-LOCAL; 500 (err.nosuchuser)
+
+--A41C7.838631588=_/mm1
+Content-Type: message/rfc822
+
+Received: from urchin.netscape.com ([198.95.250.59]) by mm1.sprynet.com with ESMTP id <148217-12799>; Mon, 29 Jul 1996 02:12:50 -0700
+Received: from gruntle (gruntle.mcom.com [205.217.230.10]) by urchin.netscape.com (8.7.5/8.7.3) with SMTP id CAA24688 for <newsletter-request@imusic.com>; Mon, 29 Jul 1996 02:04:53 -0700 (PDT)
+Sender: jwz@netscape.com
+Message-ID: <31FC7EB4.41C6@netscape.com>
+Date: Mon, 29 Jul 1996 02:04:52 -0700
+From: Jamie Zawinski <jwz@netscape.com>
+Organization: Netscape Communications Corporation, Mozilla Division
+X-Mailer: Mozilla 3.0b6 (X11; U; IRIX 5.3 IP22)
+MIME-Version: 1.0
+To: newsletter-request@imusic.com
+Subject: unsubscribe
+References: <96Jul29.013736-0700pdt.148116-12799+675@mm1.sprynet.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+unsubscribe
+--A41C7.838631588=_/mm1--
+".Replace ("\r\n", "\n");
+
+			using (var source = new MemoryStream (Encoding.UTF8.GetBytes (rawMessageText))) {
+				var parser = new MimeParser (source, MimeFormat.Default);
+				var message = parser.ParseMessage ();
+
+				using (var serialized = new MemoryStream ()) {
+					var options = FormatOptions.Default.Clone ();
+					options.NewLineFormat = NewLineFormat.Unix;
+					options.EnsureNewLine = true;
+
+					message.WriteTo (options, serialized);
+
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (rawMessageText, result, "Reserialized message is not identical to the original.");
+				}
+
+				using (var serialized = new MemoryStream ()) {
+					var options = FormatOptions.Default.Clone ();
+					options.NewLineFormat = NewLineFormat.Unix;
+					options.EnsureNewLine = true;
+
+					await message.WriteToAsync (options, serialized);
+
+					var result = Encoding.UTF8.GetString (serialized.ToArray ());
+
+					Assert.AreEqual (rawMessageText, result, "Reserialized (async) message is not identical to the original.");
+				}
+			}
+		}
+
+		[Test]
 		public void TestMailMessageToMimeMessage ()
 		{
 			var mail = new MailMessage ();
@@ -380,6 +730,7 @@ Content-ID: <spankulate4@hubba.hubba.hubba>
 			mail.Bcc.Add (new MailAddress ("bcc@bcc.com", "The Blind Carbon-Copied Recipient"));
 			mail.Subject = "This is the message subject";
 			mail.Priority = MailPriority.High;
+			mail.Headers.Add ("X-MimeKit-Test", "does this get copied, too?");
 			mail.Body = "This is plain text.";
 
 			//var text = new MemoryStream (Encoding.ASCII.GetBytes ("This is plain text."), false);
@@ -413,6 +764,7 @@ Content-ID: <spankulate4@hubba.hubba.hubba>
 			Assert.AreEqual (mail.Bcc[0].Address, ((MailboxAddress) message.Bcc[0]).Address, "The bcc addresses do not match.");
 			Assert.AreEqual (mail.Subject, message.Subject, "The message subjects do not match.");
 			Assert.AreEqual (MessagePriority.Urgent, message.Priority, "The message priority does not match.");
+			Assert.AreEqual (mail.Headers["X-MimeKit-Test"], message.Headers["X-MimeKit-Test"], "The X-MimeKit-Test headers do not match");
 			Assert.IsInstanceOf<Multipart> (message.Body, "The top-level MIME part should be a multipart/mixed.");
 
 			var mixed = (Multipart) message.Body;
@@ -442,6 +794,17 @@ Content-ID: <spankulate4@hubba.hubba.hubba>
 			Assert.AreEqual ("id@jpeg", jpeg.ContentId);
 			Assert.AreEqual ("image/jpeg", jpeg.ContentType.MimeType);
 			Assert.AreEqual ("link", jpeg.ContentLocation.OriginalString);
+
+			// Test other priorities
+			mail.Priority = MailPriority.Low;
+			message = (MimeMessage) mail;
+
+			Assert.AreEqual (MessagePriority.NonUrgent, message.Priority, "The message priority does not match.");
+
+			mail.Priority = MailPriority.Normal;
+			message = (MimeMessage) mail;
+
+			Assert.AreEqual (MessagePriority.Normal, message.Priority, "The message priority does not match.");
 		}
 
 		[Test]
@@ -916,39 +1279,39 @@ Content-ID: <spankulate4@hubba.hubba.hubba>
 			const string TextBody = "This is the text body.";
 			MimeMessage message;
 
-			message = MimeMessage.Load (Path.Combine ("..", "..", "TestData", "messages", "body.1.txt"));
+			message = MimeMessage.Load (Path.Combine (TestHelper.ProjectDir, "TestData", "messages", "body.1.txt"));
 			Assert.AreEqual (TextBody, message.TextBody, "The text bodies do not match for body.1.txt.");
 			Assert.AreEqual (null, message.HtmlBody, "The HTML bodies do not match for body.1.txt.");
 
-			message = MimeMessage.Load (Path.Combine ("..", "..", "TestData", "messages", "body.2.txt"));
+			message = MimeMessage.Load (Path.Combine (TestHelper.ProjectDir, "TestData", "messages", "body.2.txt"));
 			Assert.AreEqual (null, message.TextBody, "The text bodies do not match for body.2.txt.");
 			Assert.AreEqual (HtmlBody, message.HtmlBody, "The HTML bodies do not match for body.2.txt.");
 
-			message = MimeMessage.Load (Path.Combine ("..", "..", "TestData", "messages", "body.3.txt"));
+			message = MimeMessage.Load (Path.Combine (TestHelper.ProjectDir, "TestData", "messages", "body.3.txt"));
 			Assert.AreEqual (TextBody, message.TextBody, "The text bodies do not match for body.3.txt.");
 			Assert.AreEqual (HtmlBody, message.HtmlBody, "The HTML bodies do not match for body.3.txt.");
 
-			message = MimeMessage.Load (Path.Combine ("..", "..", "TestData", "messages", "body.4.txt"));
+			message = MimeMessage.Load (Path.Combine (TestHelper.ProjectDir, "TestData", "messages", "body.4.txt"));
 			Assert.AreEqual (null, message.TextBody, "The text bodies do not match for body.4.txt.");
 			Assert.AreEqual (HtmlBody, message.HtmlBody, "The HTML bodies do not match for body.4.txt.");
 
-			message = MimeMessage.Load (Path.Combine ("..", "..", "TestData", "messages", "body.5.txt"));
+			message = MimeMessage.Load (Path.Combine (TestHelper.ProjectDir, "TestData", "messages", "body.5.txt"));
 			Assert.AreEqual (TextBody, message.TextBody, "The text bodies do not match for body.5.txt.");
 			Assert.AreEqual (HtmlBody, message.HtmlBody, "The HTML bodies do not match for body.5.txt.");
 
-			message = MimeMessage.Load (Path.Combine ("..", "..", "TestData", "messages", "body.6.txt"));
+			message = MimeMessage.Load (Path.Combine (TestHelper.ProjectDir, "TestData", "messages", "body.6.txt"));
 			Assert.AreEqual (TextBody, message.TextBody, "The text bodies do not match for body.6.txt.");
 			Assert.AreEqual (HtmlBody, message.HtmlBody, "The HTML bodies do not match for body.6.txt.");
 
-			message = MimeMessage.Load (Path.Combine ("..", "..", "TestData", "messages", "body.7.txt"));
+			message = MimeMessage.Load (Path.Combine (TestHelper.ProjectDir, "TestData", "messages", "body.7.txt"));
 			Assert.AreEqual (TextBody, message.TextBody, "The text bodies do not match for body.7.txt.");
 			Assert.AreEqual (HtmlBody, message.HtmlBody, "The HTML bodies do not match for body.7.txt.");
 
-			message = MimeMessage.Load (Path.Combine ("..", "..", "TestData", "messages", "body.8.txt"));
+			message = MimeMessage.Load (Path.Combine (TestHelper.ProjectDir, "TestData", "messages", "body.8.txt"));
 			Assert.AreEqual (TextBody, message.TextBody, "The text bodies do not match for body.8.txt.");
 			Assert.AreEqual (null, message.HtmlBody, "The HTML bodies do not match for body.8.txt.");
 
-			message = MimeMessage.Load (Path.Combine ("..", "..", "TestData", "messages", "body.9.txt"));
+			message = MimeMessage.Load (Path.Combine (TestHelper.ProjectDir, "TestData", "messages", "body.9.txt"));
 			Assert.AreEqual (null, message.TextBody, "The text bodies do not match for body.9.txt.");
 			Assert.AreEqual (HtmlBody, message.HtmlBody, "The HTML bodies do not match for body.9.txt.");
 		}

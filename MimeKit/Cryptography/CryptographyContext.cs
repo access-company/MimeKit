@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -44,7 +44,7 @@ namespace MimeKit.Cryptography {
 	{
 		const string SubclassAndRegisterFormat = "You need to subclass {0} and then register it with MimeKit.Cryptography.CryptographyContext.Register().";
 		static Func<SecureMimeContext> SecureMimeContextFactory;
-		static Func<OpenPgpContext> OpenPgpContextFactory;
+		static Func<OpenPgpContextBase> PgpContextFactory;
 		static readonly object mutex = new object ();
 
 		EncryptionAlgorithm[] encryptionAlgorithmRank;
@@ -54,7 +54,7 @@ namespace MimeKit.Cryptography {
 		int enabledDigestAlgorithms;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Cryptography.CryptographyContext"/> class.
+		/// Initialize a new instance of the <see cref="CryptographyContext"/> class.
 		/// </summary>
 		/// <remarks>
 		/// <para>Creates a new <see cref="CryptographyContext"/>.</para>
@@ -108,7 +108,7 @@ namespace MimeKit.Cryptography {
 
 #if NOT_YET
 		/// <summary>
-		/// Gets or sets a value indicating whether this <see cref="MimeKit.Cryptography.CryptographyContext"/> allows online
+		/// Gets or sets a value indicating whether this <see cref="CryptographyContext"/> allows online
 		/// certificate retrieval.
 		/// </summary>
 		/// <value><c>true</c> if online certificate retrieval should be allowed; otherwise, <c>false</c>.</value>
@@ -349,7 +349,7 @@ namespace MimeKit.Cryptography {
 		/// <remarks>
 		/// Cryptographically signs the content using the specified signer and digest algorithm.
 		/// </remarks>
-		/// <returns>A new <see cref="MimeKit.MimePart"/> instance
+		/// <returns>A new <see cref="MimePart"/> instance
 		/// containing the detached signature data.</returns>
 		/// <param name="signer">The signer.</param>
 		/// <param name="digestAlgo">The digest algorithm to use for signing.</param>
@@ -416,7 +416,7 @@ namespace MimeKit.Cryptography {
 		/// <remarks>
 		/// Encrypts the specified content for the specified recipients.
 		/// </remarks>
-		/// <returns>A new <see cref="MimeKit.MimePart"/> instance containing the encrypted data.</returns>
+		/// <returns>A new <see cref="MimePart"/> instance containing the encrypted data.</returns>
 		/// <param name="recipients">The recipients.</param>
 		/// <param name="content">The content.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -435,7 +435,7 @@ namespace MimeKit.Cryptography {
 		/// <remarks>
 		/// Decrypts the specified encryptedData.
 		/// </remarks>
-		/// <returns>The decrypted <see cref="MimeKit.MimeEntity"/>.</returns>
+		/// <returns>The decrypted <see cref="MimeEntity"/>.</returns>
 		/// <param name="encryptedData">The encrypted data.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -467,7 +467,7 @@ namespace MimeKit.Cryptography {
 		/// <remarks>
 		/// Exports the keys for the specified mailboxes.
 		/// </remarks>
-		/// <returns>A new <see cref="MimeKit.MimePart"/> instance containing the exported keys.</returns>
+		/// <returns>A new <see cref="MimePart"/> instance containing the exported keys.</returns>
 		/// <param name="mailboxes">The mailboxes.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="mailboxes"/> is <c>null</c>.
@@ -495,12 +495,12 @@ namespace MimeKit.Cryptography {
 		}
 
 		/// <summary>
-		/// Releases all resources used by the <see cref="MimeKit.Cryptography.CryptographyContext"/> object.
+		/// Releases all resources used by the <see cref="CryptographyContext"/> object.
 		/// </summary>
-		/// <remarks>Call <see cref="Dispose()"/> when you are finished using the <see cref="MimeKit.Cryptography.CryptographyContext"/>. The
-		/// <see cref="Dispose()"/> method leaves the <see cref="MimeKit.Cryptography.CryptographyContext"/> in an unusable state. After
-		/// calling <see cref="Dispose()"/>, you must release all references to the <see cref="MimeKit.Cryptography.CryptographyContext"/> so
-		/// the garbage collector can reclaim the memory that the <see cref="MimeKit.Cryptography.CryptographyContext"/> was occupying.</remarks>
+		/// <remarks>Call <see cref="Dispose()"/> when you are finished using the <see cref="CryptographyContext"/>. The
+		/// <see cref="Dispose()"/> method leaves the <see cref="CryptographyContext"/> in an unusable state. After
+		/// calling <see cref="Dispose()"/>, you must release all references to the <see cref="CryptographyContext"/> so
+		/// the garbage collector can reclaim the memory that the <see cref="CryptographyContext"/> was occupying.</remarks>
 		public void Dispose ()
 		{
 			Dispose (true);
@@ -542,28 +542,15 @@ namespace MimeKit.Cryptography {
 					if (SecureMimeContextFactory != null)
 						return SecureMimeContextFactory ();
 
-#if !PORTABLE
-					if (!SqliteCertificateDatabase.IsAvailable) {
-						const string format = "SQLite is not available. Either install the {0} nuget or subclass MimeKit.Cryptography.SecureMimeContext and register it with MimeKit.Cryptography.CryptographyContext.Register().";
-#if NETSTANDARD
-						throw new NotSupportedException (string.Format (format, "Microsoft.Data.Sqlite"));
-#else
-						throw new NotSupportedException (string.Format (format, "System.Data.SQLite"));
-#endif
-					}
-
 					return new DefaultSecureMimeContext ();
-#else
-					throw new NotSupportedException (string.Format (SubclassAndRegisterFormat, "MimeKit.Cryptography.SecureMimeContext"));
-#endif
 				case "application/x-pgp-signature":
 				case "application/pgp-signature":
 				case "application/x-pgp-encrypted":
 				case "application/pgp-encrypted":
 				case "application/x-pgp-keys":
 				case "application/pgp-keys":
-					if (OpenPgpContextFactory != null)
-						return OpenPgpContextFactory ();
+					if (PgpContextFactory != null)
+						return PgpContextFactory ();
 
 					throw new NotSupportedException (string.Format (SubclassAndRegisterFormat, "MimeKit.Cryptography.OpenPgpContext or MimeKit.Cryptography.GnuPGContext"));
 				default:
@@ -571,22 +558,6 @@ namespace MimeKit.Cryptography {
 				}
 			}
 		}
-
-#if PORTABLE
-		static ConstructorInfo GetConstructor (TypeInfo type)
-		{
-			foreach (var ctor in type.DeclaredConstructors) {
-				var args = ctor.GetParameters ();
-
-				if (args.Length != 0)
-					continue;
-
-				return ctor;
-			}
-
-			return null;
-		}
-#endif
 
 		/// <summary>
 		/// Registers a default <see cref="SecureMimeContext"/> or <see cref="OpenPgpContext"/>.
@@ -611,17 +582,13 @@ namespace MimeKit.Cryptography {
 			if (type == null)
 				throw new ArgumentNullException (nameof (type));
 
-#if PORTABLE || NETSTANDARD
+#if NETSTANDARD1_3 || NETSTANDARD1_6
 			var info = type.GetTypeInfo ();
 #else
 			var info = type;
 #endif
-
-#if PORTABLE
-			var ctor = GetConstructor (info);
-#else
 			var ctor = type.GetConstructor (new Type[0]);
-#endif
+
 			if (ctor == null)
 				throw new ArgumentException ("The specified type must have a parameterless constructor.", nameof (type));
 
@@ -629,9 +596,9 @@ namespace MimeKit.Cryptography {
 				lock (mutex) {
 					SecureMimeContextFactory = () => (SecureMimeContext) ctor.Invoke (new object[0]);
 				}
-			} else if (info.IsSubclassOf (typeof (OpenPgpContext))) {
+			} else if (info.IsSubclassOf (typeof (OpenPgpContextBase))) {
 				lock (mutex) {
-					OpenPgpContextFactory = () => (OpenPgpContext) ctor.Invoke (new object[0]);
+					PgpContextFactory = () => (OpenPgpContextBase) ctor.Invoke (new object[0]);
 				}
 			} else {
 				throw new ArgumentException ("The specified type must be a subclass of SecureMimeContext or OpenPgpContext.", nameof (type));
@@ -668,13 +635,13 @@ namespace MimeKit.Cryptography {
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="factory"/> is <c>null</c>.
 		/// </exception>
-		public static void Register (Func<OpenPgpContext> factory) 
+		public static void Register (Func<OpenPgpContextBase> factory)
 		{
 			if (factory == null)
 				throw new ArgumentNullException(nameof (factory));
 
 			lock (mutex) {
-				OpenPgpContextFactory = factory;
+				PgpContextFactory = factory;
 			}
 		}
 	}

@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,10 +25,17 @@
 //
 
 using System;
+using System.Collections.Generic;
 
 using Org.BouncyCastle.Cms;
 using Org.BouncyCastle.X509;
 using Org.BouncyCastle.Pkix;
+using Org.BouncyCastle.Asn1;
+using Org.BouncyCastle.Asn1.Cms;
+using Org.BouncyCastle.Asn1.Smime;
+using Org.BouncyCastle.Asn1.X509;
+
+using MimeKit.Utils;
 
 namespace MimeKit.Cryptography {
 	/// <summary>
@@ -42,9 +49,65 @@ namespace MimeKit.Cryptography {
 		DigitalSignatureVerifyException vex;
 		bool? valid;
 
-		internal SecureMimeDigitalSignature (SignerInformation signerInfo)
+		static DateTime ToAdjustedDateTime (DerUtcTime time)
 		{
+			//try {
+			//	return time.ToAdjustedDateTime ();
+			//} catch {
+			return DateUtils.Parse (time.AdjustedTimeString, "yyyyMMddHHmmsszzz");
+			//}
+		}
+
+		/// <summary>
+		/// Initialize a new instance of the <see cref="SecureMimeDigitalSignature"/> class.
+		/// </summary>
+		/// <remarks>
+		/// Creates a new <see cref="SecureMimeDigitalSignature"/>.
+		/// </remarks>
+		/// <param name="signerInfo">The information about the signer.</param>
+		/// <param name="certificate">The signer's certificate.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <paramref name="signerInfo"/> is <c>null</c>.
+		/// </exception>
+		public SecureMimeDigitalSignature (SignerInformation signerInfo, X509Certificate certificate)
+		{
+			if (signerInfo == null)
+				throw new ArgumentNullException (nameof (signerInfo));
+
 			SignerInfo = signerInfo;
+
+			var algorithms = new List<EncryptionAlgorithm> ();
+			DigestAlgorithm digestAlgo;
+
+			if (signerInfo.SignedAttributes != null) {
+				Asn1EncodableVector vector = signerInfo.SignedAttributes.GetAll (CmsAttributes.SigningTime);
+				foreach (Org.BouncyCastle.Asn1.Cms.Attribute attr in vector) {
+					var signingTime = (DerUtcTime) ((DerSet) attr.AttrValues)[0];
+					CreationDate = ToAdjustedDateTime (signingTime);
+					break;
+				}
+
+				vector = signerInfo.SignedAttributes.GetAll (SmimeAttributes.SmimeCapabilities);
+				foreach (Org.BouncyCastle.Asn1.Cms.Attribute attr in vector) {
+					foreach (Asn1Sequence sequence in attr.AttrValues) {
+						for (int i = 0; i < sequence.Count; i++) {
+							var identifier = AlgorithmIdentifier.GetInstance (sequence[i]);
+							EncryptionAlgorithm algorithm;
+
+							if (BouncyCastleSecureMimeContext.TryGetEncryptionAlgorithm (identifier, out algorithm))
+								algorithms.Add (algorithm);
+						}
+					}
+				}
+			}
+
+			EncryptionAlgorithms = algorithms.ToArray ();
+
+			if (BouncyCastleSecureMimeContext.TryGetDigestAlgorithm (signerInfo.DigestAlgorithmID, out digestAlgo))
+				DigestAlgorithm = digestAlgo;
+
+			if (certificate != null)
+				SignerCertificate = new SecureMimeDigitalCertificate (certificate);
 		}
 
 		/// <summary>
@@ -68,7 +131,7 @@ namespace MimeKit.Cryptography {
 		/// </remarks>
 		/// <value>The S/MIME encryption algorithms.</value>
 		public EncryptionAlgorithm[] EncryptionAlgorithms {
-			get; internal set;
+			get; private set;
 		}
 
 		/// <summary>
@@ -104,7 +167,7 @@ namespace MimeKit.Cryptography {
 		/// </remarks>
 		/// <value>The signer's certificate.</value>
 		public IDigitalCertificate SignerCertificate {
-			get; internal set;
+			get; private set;
 		}
 
 		/// <summary>
@@ -115,7 +178,7 @@ namespace MimeKit.Cryptography {
 		/// </remarks>
 		/// <value>The public key algorithm.</value>
 		public PublicKeyAlgorithm PublicKeyAlgorithm {
-			get { return PublicKeyAlgorithm.None; }
+			get { return SignerCertificate != null ? SignerCertificate.PublicKeyAlgorithm : PublicKeyAlgorithm.None; }
 		}
 
 		/// <summary>
@@ -126,7 +189,7 @@ namespace MimeKit.Cryptography {
 		/// </remarks>
 		/// <value>The digest algorithm.</value>
 		public DigestAlgorithm DigestAlgorithm {
-			get; internal set;
+			get; private set;
 		}
 
 		/// <summary>
@@ -137,7 +200,7 @@ namespace MimeKit.Cryptography {
 		/// </remarks>
 		/// <value>The creation date in coordinated universal time (UTC).</value>
 		public DateTime CreationDate {
-			get; internal set;
+			get; private set;
 		}
 
 		/// <summary>
@@ -146,39 +209,55 @@ namespace MimeKit.Cryptography {
 		/// <remarks>
 		/// Verifies the digital signature.
 		/// </remarks>
-		/// <returns><c>true</c> if the signature is valid; otherwise <c>false</c>.</returns>
+		/// <returns><c>true</c> if the signature is valid; otherwise, <c>false</c>.</returns>
 		/// <exception cref="DigitalSignatureVerifyException">
 		/// An error verifying the signature has occurred.
 		/// </exception>
 		public bool Verify ()
 		{
-			if (valid.HasValue)
-				return valid.Value;
+			return Verify (false);
+		}
 
+		/// <summary>
+		/// Verifies the digital signature.
+		/// </summary>
+		/// <remarks>
+		/// Verifies the digital signature.
+		/// </remarks>
+		/// <param name="verifySignatureOnly"><c>true</c> if only the signature itself should be verified; otherwise, both the signature and the certificate chain are validated.</param>
+		/// <returns><c>true</c> if the signature is valid; otherwise, <c>false</c>.</returns>
+		/// <exception cref="DigitalSignatureVerifyException">
+		/// An error verifying the signature has occurred.
+		/// </exception>
+		public bool Verify (bool verifySignatureOnly)
+		{
 			if (vex != null)
 				throw vex;
 
 			if (SignerCertificate == null) {
-				var message = string.Format ("Failed to verify digital signature: missing certificate.");
+				var message = "Failed to verify digital signature: missing certificate.";
 				vex = new DigitalSignatureVerifyException (message);
 				throw vex;
 			}
 
-			if (ChainException != null) {
-				var message = string.Format ("Failed to verify digital signature: {0}", ChainException.Message);
-				vex = new DigitalSignatureVerifyException (message, ChainException);
-				throw vex;
+			if (!valid.HasValue) {
+				try {
+					var certificate = ((SecureMimeDigitalCertificate) SignerCertificate).Certificate;
+					valid = SignerInfo.Verify (certificate);
+				} catch (Exception ex) {
+					var message = string.Format ("Failed to verify digital signature: {0}", ex.Message);
+					vex = new DigitalSignatureVerifyException (message, ex);
+					throw vex;
+				}
 			}
 
-			try {
-				var certificate = ((SecureMimeDigitalCertificate) SignerCertificate).Certificate;
-				valid = SignerInfo.Verify (certificate);
-				return valid.Value;
-			} catch (Exception ex) {
-				var message = string.Format ("Failed to verify digital signature: {0}", ex.Message);
-				vex = new DigitalSignatureVerifyException (message, ex);
-				throw vex;
+			if (!verifySignatureOnly && ChainException != null) {
+				var message = string.Format ("Failed to verify digital signature chain: {0}", ChainException.Message);
+
+				throw new DigitalSignatureVerifyException (message, ChainException);
 			}
+
+			return valid.Value;
 		}
 
 		#endregion

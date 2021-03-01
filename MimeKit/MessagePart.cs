@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -33,7 +33,7 @@ using MimeKit.IO;
 
 namespace MimeKit {
 	/// <summary>
-	/// A MIME part containing a <see cref="MimeKit.MimeMessage"/> as its content.
+	/// A MIME part containing a <see cref="MimeMessage"/> as its content.
 	/// </summary>
 	/// <remarks>
 	/// Represents MIME entities such as those with a Content-Type of message/rfc822 or message/news.
@@ -41,10 +41,10 @@ namespace MimeKit {
 	public class MessagePart : MimeEntity
 	{
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.MessagePart"/> class.
+		/// Initialize a new instance of the <see cref="MessagePart"/> class.
 		/// </summary>
 		/// <remarks>
-		/// This constructor is used by <see cref="MimeKit.MimeParser"/>.
+		/// This constructor is used by <see cref="MimeParser"/>.
 		/// </remarks>
 		/// <param name="args">Information used by the constructor.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -55,7 +55,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.MessagePart"/> class.
+		/// Initialize a new instance of the <see cref="MessagePart"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="MessagePart"/>.
@@ -68,7 +68,7 @@ namespace MimeKit {
 		/// <para><paramref name="args"/> is <c>null</c>.</para>
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
-		/// <para><paramref name="args"/> contains more than one <see cref="MimeKit.MimeMessage"/>.</para>
+		/// <para><paramref name="args"/> contains more than one <see cref="MimeMessage"/>.</para>
 		/// <para>-or-</para>
 		/// <para><paramref name="args"/> contains one or more arguments of an unknown type.</para>
 		/// </exception>
@@ -83,8 +83,7 @@ namespace MimeKit {
 				if (obj == null || TryInit (obj))
 					continue;
 
-				var mesg = obj as MimeMessage;
-				if (mesg != null) {
+				if (obj is MimeMessage mesg) {
 					if (message != null)
 						throw new ArgumentException ("MimeMessage should not be specified more than once.");
 
@@ -100,7 +99,24 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.MessagePart"/> class.
+		/// Initialize a new instance of the <see cref="MessagePart"/> class.
+		/// </summary>
+		/// <remarks>
+		/// Initializes the <see cref="ContentType"/> based on the provided media type and subtype.
+		/// </remarks>
+		/// <param name="mediaType">The media type.</param>
+		/// <param name="mediaSubtype">The media subtype.</param>
+		/// <exception cref="System.ArgumentNullException">
+		/// <para><paramref name="mediaType"/> is <c>null</c>.</para>
+		/// <para>-or-</para>
+		/// <para><paramref name="mediaSubtype"/> is <c>null</c>.</para>
+		/// </exception>
+		protected MessagePart (string mediaType, string mediaSubtype) : base (mediaType, mediaSubtype)
+		{
+		}
+
+		/// <summary>
+		/// Initialize a new instance of the <see cref="MessagePart"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new MIME message entity with the specified subtype.
@@ -109,12 +125,12 @@ namespace MimeKit {
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="subtype"/> is <c>null</c>.
 		/// </exception>
-		public MessagePart (string subtype) : base ("message", subtype)
+		public MessagePart (string subtype) : this ("message", subtype)
 		{
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.MessagePart"/> class.
+		/// Initialize a new instance of the <see cref="MessagePart"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new message/rfc822 MIME entity.
@@ -138,12 +154,12 @@ namespace MimeKit {
 		/// Dispatches to the specific visit method for this MIME entity.
 		/// </summary>
 		/// <remarks>
-		/// This default implementation for <see cref="MimeKit.MessagePart"/> nodes
-		/// calls <see cref="MimeKit.MimeVisitor.VisitMessagePart"/>. Override this
+		/// This default implementation for <see cref="MessagePart"/> nodes
+		/// calls <see cref="MimeVisitor.VisitMessagePart"/>. Override this
 		/// method to call into a more specific method on a derived visitor class
-		/// of the <see cref="MimeKit.MimeVisitor"/> class. However, it should still
+		/// of the <see cref="MimeVisitor"/> class. However, it should still
 		/// support unknown visitors by calling
-		/// <see cref="MimeKit.MimeVisitor.VisitMessagePart"/>.
+		/// <see cref="MimeVisitor.VisitMessagePart"/>.
 		/// </remarks>
 		/// <param name="visitor">The visitor.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -180,7 +196,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Writes the <see cref="MimeKit.MessagePart"/> to the output stream.
+		/// Write the <see cref="MessagePart"/> to the output stream.
 		/// </summary>
 		/// <remarks>
 		/// Writes the MIME entity and its message to the output stream.
@@ -219,15 +235,21 @@ namespace MimeKit {
 				}
 			}
 
+			if (options.EnsureNewLine) {
+				options = options.Clone ();
+				options.EnsureNewLine = false;
+			}
+
 			Message.WriteTo (options, stream, cancellationToken);
 		}
 
 		/// <summary>
-		/// Asynchronously writes the <see cref="MimeKit.MessagePart"/> to the output stream.
+		/// Asynchronously write the <see cref="MessagePart"/> to the output stream.
 		/// </summary>
 		/// <remarks>
-		/// Writes the MIME entity and its message to the output stream.
+		/// Asynchronously writes the MIME entity and its message to the output stream.
 		/// </remarks>
+		/// <returns>An awaitable task.</returns>
 		/// <param name="options">The formatting options.</param>
 		/// <param name="stream">The output stream.</param>
 		/// <param name="contentOnly"><c>true</c> if only the content should be written; otherwise, <c>false</c>.</param>
@@ -253,6 +275,11 @@ namespace MimeKit {
 			if (Message.MboxMarker != null && Message.MboxMarker.Length != 0) {
 				await stream.WriteAsync (Message.MboxMarker, 0, Message.MboxMarker.Length, cancellationToken).ConfigureAwait (false);
 				await stream.WriteAsync (options.NewLineBytes, 0, options.NewLineBytes.Length, cancellationToken).ConfigureAwait (false);
+			}
+
+			if (options.EnsureNewLine) {
+				options = options.Clone ();
+				options.EnsureNewLine = false;
 			}
 
 			await Message.WriteToAsync (options, stream, cancellationToken).ConfigureAwait (false);

@@ -1,9 +1,9 @@
-//
+﻿//
 // EncoderTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -58,57 +58,150 @@ namespace UnitTests.Encodings {
 			"This is the plain text message!"
 		};
 		static readonly string[] base64EncodedLongPatterns = {
-			"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCU"
-			+ "mJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0"
-			+ "xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3Bxc"
-			+ "nN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeY"
-			+ "mZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6"
-			+ "/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5O"
-			+ "Xm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+			"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCU" +
+			"mJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0" +
+			"xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3Bxc" +
+			"nN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeY" +
+			"mZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6" +
+			"/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5O" +
+			"Xm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
 
-			"AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSY"
-			+ "nKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE"
-			+ "1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc"
-			+ "3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZ"
-			+ "mpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/"
-			+ "AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5e"
-			+ "bn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AA==",
+			"AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSY" +
+			"nKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE" +
+			"1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc" +
+			"3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZ" +
+			"mpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/" +
+			"AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5e" +
+			"bn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AA==",
 
-			"AgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJic"
-			+ "oKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU"
-			+ "5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzd"
-			+ "HV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJma"
-			+ "m5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8D"
-			+ "BwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5u"
-			+ "fo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQ=="
+			"AgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJic" +
+			"oKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU" +
+			"5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzd" +
+			"HV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJma" +
+			"m5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8D" +
+			"BwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5u" +
+			"fo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQ=="
 		};
 
-		[Test]
-		public void TestBase64Decode ()
-		{
-			using (var original = new MemoryStream ()) {
-				using (var file = File.OpenRead ("../../TestData/encoders/photo.jpg"))
-					file.CopyTo (original, 4096);
+		static readonly string dataDir = Path.Combine (TestHelper.ProjectDir, "TestData", "encoders");
+		static readonly byte[] wikipedia_unix;
+		static readonly byte[] wikipedia_dos;
+		static readonly byte[] photo;
 
-				using (var decoded = new MemoryStream ()) {
-					using (var file = File.OpenRead ("../../TestData/encoders/photo.b64")) {
-						using (var filtered = new FilteredStream (file)) {
-							filtered.Add (DecoderFilter.Create (ContentEncoding.Base64));
-							filtered.CopyTo (decoded, 4096);
+		static EncoderTests ()
+		{
+			using (var memory = new MemoryStream ()) {
+				using (var filtered = new FilteredStream (memory)) {
+					filtered.Add (new Dos2UnixFilter ());
+
+					using (var file = File.OpenRead (Path.Combine (dataDir, "wikipedia.txt")))
+						file.CopyTo (filtered, 4096);
+
+					filtered.Flush ();
+				}
+
+				wikipedia_unix = memory.ToArray ();
+			}
+
+			using (var memory = new MemoryStream ()) {
+				using (var filtered = new FilteredStream (memory)) {
+					filtered.Add (new Unix2DosFilter ());
+
+					using (var file = File.OpenRead (Path.Combine (dataDir, "wikipedia.txt")))
+						file.CopyTo (filtered, 4096);
+
+					filtered.Flush ();
+				}
+
+				wikipedia_dos = memory.ToArray ();
+			}
+
+			photo = File.ReadAllBytes (Path.Combine (dataDir, "photo.jpg"));
+		}
+
+		void TestEncoder (ContentEncoding encoding, byte[] rawData, string encodedFile, int bufferSize)
+		{
+			int n;
+
+			using (var original = new MemoryStream ()) {
+				using (var file = File.OpenRead (Path.Combine (dataDir, encodedFile))) {
+					using (var filtered = new FilteredStream (original)) {
+						filtered.Add (new Dos2UnixFilter ());
+						file.CopyTo (filtered, 4096);
+						filtered.Flush ();
+					}
+				}
+
+				using (var encoded = new MemoryStream ()) {
+					if (encoding == ContentEncoding.UUEncode) {
+						var begin = Encoding.ASCII.GetBytes ("begin 644 photo.jpg\n");
+						encoded.Write (begin, 0, begin.Length);
+					}
+
+					using (var filtered = new FilteredStream (encoded)) {
+						filtered.Add (EncoderFilter.Create (encoding));
+
+						using (var memory = new MemoryStream (rawData, false)) {
+							var buffer = new byte[bufferSize];
+
+							while ((n = memory.Read (buffer, 0, bufferSize)) > 0)
+								filtered.Write (buffer, 0, n);
 						}
+
+						filtered.Flush ();
+					}
+
+					if (encoding == ContentEncoding.UUEncode) {
+						var end = Encoding.ASCII.GetBytes ("end\n");
+						encoded.Write (end, 0, end.Length);
 					}
 
 					var buf0 = original.GetBuffer ();
-					var buf1 = decoded.GetBuffer ();
-					int n = (int) original.Length;
+					var buf1 = encoded.GetBuffer ();
+					n = (int) original.Length;
 
-					Assert.AreEqual (original.Length, decoded.Length, "Decoded length is incorrect.");
+					Assert.AreEqual (original.Length, encoded.Length, "Encoded length is incorrect.");
 
 					for (int i = 0; i < n; i++)
 						Assert.AreEqual (buf0[i], buf1[i], "The byte at offset {0} does not match.", i);
 				}
 			}
+		}
 
+		void TestDecoder (ContentEncoding encoding, byte[] rawData, string encodedFile, int bufferSize, bool unix = false)
+		{
+			int n;
+
+			using (var decoded = new MemoryStream ()) {
+				using (var filtered = new FilteredStream (decoded)) {
+					filtered.Add (DecoderFilter.Create (encoding));
+
+					if (unix)
+						filtered.Add (new Dos2UnixFilter ());
+
+					using (var file = File.OpenRead (Path.Combine (dataDir, encodedFile))) {
+						var buffer = new byte[bufferSize];
+
+						while ((n = file.Read (buffer, 0, bufferSize)) > 0)
+							filtered.Write (buffer, 0, n);
+					}
+
+					filtered.Flush ();
+				}
+
+				var buf = decoded.GetBuffer ();
+				n = rawData.Length;
+
+				Assert.AreEqual (rawData.Length, decoded.Length, "Decoded length is incorrect.");
+
+				for (int i = 0; i < n; i++)
+					Assert.AreEqual (rawData[i], buf[i], "The byte at offset {0} does not match.", i);
+			}
+		}
+
+		[Test]
+		public void TestBase64DecodePatterns ()
+		{
 			var decoder = new Base64Decoder ();
 			var output = new byte[4096];
 
@@ -132,106 +225,49 @@ namespace UnitTests.Encodings {
 			}
 		}
 
-		[Test]
-		public void TestBase64Encode ()
+		[TestCase (4096)]
+		[TestCase (1024)]
+		[TestCase (16)]
+		[TestCase (1)]
+		public void TestBase64Encode (int bufferSize)
 		{
-			using (var original = new MemoryStream ()) {
-				using (var file = File.OpenRead ("../../TestData/encoders/photo.b64")) {
-					using (var filtered = new FilteredStream (original)) {
-						filtered.Add (new Dos2UnixFilter ());
-						file.CopyTo (filtered, 4096);
-						filtered.Flush ();
-					}
-				}
-
-				using (var encoded = new MemoryStream ()) {
-					using (var filtered = new FilteredStream (encoded)) {
-						filtered.Add (EncoderFilter.Create (ContentEncoding.Base64));
-
-						using (var file = File.OpenRead ("../../TestData/encoders/photo.jpg"))
-							file.CopyTo (filtered, 4096);
-
-						filtered.Flush ();
-					}
-
-					var buf0 = original.GetBuffer ();
-					var buf1 = encoded.GetBuffer ();
-					int n = (int) original.Length;
-
-					Assert.AreEqual (original.Length, encoded.Length, "Encoded length is incorrect.");
-
-					for (int i = 0; i < n; i++)
-						Assert.AreEqual (buf0[i], buf1[i], "The byte at offset {0} does not match.", i);
-				}
-			}
+			TestEncoder (ContentEncoding.Base64, photo, "photo.b64", bufferSize);
 		}
 
-		[Test]
-		public void TestUUDecode ()
+		[TestCase (4096)]
+		[TestCase (1024)]
+		[TestCase (16)]
+		[TestCase (1)]
+		public void TestBase64Decode (int bufferSize)
 		{
-			using (var original = new MemoryStream ()) {
-				using (var file = File.OpenRead ("../../TestData/encoders/photo.jpg"))
-					file.CopyTo (original, 4096);
-
-				using (var decoded = new MemoryStream ()) {
-					using (var file = File.OpenRead ("../../TestData/encoders/photo.uu")) {
-						using (var filtered = new FilteredStream (file)) {
-							filtered.Add (DecoderFilter.Create (ContentEncoding.UUEncode));
-							filtered.CopyTo (decoded, 4096);
-						}
-					}
-
-					var buf0 = original.GetBuffer ();
-					var buf1 = decoded.GetBuffer ();
-					int n = (int) original.Length;
-
-					Assert.AreEqual (original.Length, decoded.Length, "Decoded length is incorrect.");
-
-					for (int i = 0; i < n; i++)
-						Assert.AreEqual (buf0[i], buf1[i], "The byte at offset {0} does not match.", i);
-				}
-			}
+			TestDecoder (ContentEncoding.Base64, photo, "photo.b64", bufferSize);
 		}
 
-		[Test]
-		public void TestUUEncode ()
+		[TestCase (4096)]
+		[TestCase (1024)]
+		[TestCase (16)]
+		[TestCase (1)]
+		public void TestUUEncode (int bufferSize)
 		{
-			using (var original = new MemoryStream ()) {
-				using (var file = File.OpenRead ("../../TestData/encoders/photo.uu")) {
-					using (var filtered = new FilteredStream (original)) {
-						filtered.Add (new Dos2UnixFilter ());
-						file.CopyTo (filtered, 4096);
-						filtered.Flush ();
-					}
-				}
+			TestEncoder (ContentEncoding.UUEncode, photo, "photo.uu", bufferSize);
+		}
 
-				using (var encoded = new MemoryStream ()) {
-					var begin = Encoding.ASCII.GetBytes ("begin 644 photo.jpg\n");
-					var end = Encoding.ASCII.GetBytes ("end\n");
+		[TestCase (4096)]
+		[TestCase (1024)]
+		[TestCase (16)]
+		[TestCase (1)]
+		public void TestUUDecode (int bufferSize)
+		{
+			TestDecoder (ContentEncoding.UUEncode, photo, "photo.uu", bufferSize);
+		}
 
-					encoded.Write (begin, 0, begin.Length);
-
-					using (var filtered = new FilteredStream (encoded)) {
-						filtered.Add (EncoderFilter.Create (ContentEncoding.UUEncode));
-
-						using (var file = File.OpenRead ("../../TestData/encoders/photo.jpg"))
-							file.CopyTo (filtered, 4096);
-
-						filtered.Flush ();
-					}
-
-					encoded.Write (end, 0, end.Length);
-
-					var buf0 = original.GetBuffer ();
-					var buf1 = encoded.GetBuffer ();
-					int n = (int) original.Length;
-
-					Assert.AreEqual (original.Length, encoded.Length, "Encoded length is incorrect.");
-
-					for (int i = 0; i < n; i++)
-						Assert.AreEqual (buf0[i], buf1[i], "The byte at offset {0} does not match.", i);
-				}
-			}
+		[TestCase (4096)]
+		[TestCase (1024)]
+		[TestCase (16)]
+		[TestCase (1)]
+		public void TestUUDecodeBeginStateChanges (int bufferSize)
+		{
+			TestDecoder (ContentEncoding.UUEncode, photo, "photo.uu-states", bufferSize);
 		}
 
 		static readonly string[] qpEncodedPatterns = {
@@ -253,7 +289,135 @@ namespace UnitTests.Encodings {
 		};
 
 		[Test]
-		public void TestQuotedPrintableDecode ()
+		public void TestQuotedPrintableDecodePatterns ()
+		{
+			var decoder = new QuotedPrintableDecoder ();
+			var encoding = CharsetUtils.Latin1;
+			var output = new byte[4096];
+			string actual;
+			byte[] buf;
+			int n;
+
+			for (int i = 0; i < qpEncodedPatterns.Length; i++) {
+				decoder.Reset ();
+				buf = encoding.GetBytes (qpEncodedPatterns[i]);
+				n = decoder.Decode (buf, 0, buf.Length, output);
+				actual = encoding.GetString (output, 0, n);
+				Assert.AreEqual (qpDecodedPatterns[i], actual, "Failed to decode qpEncodedPatterns[{0}]", i);
+			}
+		}
+
+		[TestCase (4096)]
+		[TestCase (1024)]
+		[TestCase (16)]
+		[TestCase (1)]
+		public void TestQuotedPrintableEncodeDos (int bufferSize)
+		{
+			TestEncoder (ContentEncoding.QuotedPrintable, wikipedia_dos, "wikipedia.qp", bufferSize);
+		}
+
+		[TestCase (4096)]
+		[TestCase (1024)]
+		[TestCase (16)]
+		[TestCase (1)]
+		public void TestQuotedPrintableEncodeUnix (int bufferSize)
+		{
+			TestEncoder (ContentEncoding.QuotedPrintable, wikipedia_unix, "wikipedia.qp", bufferSize);
+		}
+
+		[TestCase (4096)]
+		[TestCase (1024)]
+		[TestCase (16)]
+		[TestCase (1)]
+		public void TestQuotedPrintableDecode (int bufferSize)
+		{
+			TestDecoder (ContentEncoding.QuotedPrintable, wikipedia_unix, "wikipedia.qp", bufferSize, true);
+		}
+
+		[Test]
+		public void TestQuotedPrintableEncodeSpaceDosLineBreak ()
+		{
+			const string input = "This line ends with a space \r\nbefore a line break.";
+			const string expected = "This line ends with a space=20\nbefore a line break.";
+			var encoder = new QuotedPrintableEncoder ();
+			var output = new byte[1024];
+			string actual;
+			byte[] buf;
+			int n;
+
+			Assert.AreEqual (ContentEncoding.QuotedPrintable, encoder.Encoding);
+
+			buf = Encoding.ASCII.GetBytes (input);
+			n = encoder.Flush (buf, 0, buf.Length, output);
+			actual = Encoding.ASCII.GetString (output, 0, n);
+			Assert.AreEqual (expected, actual);
+		}
+
+		[Test]
+		public void TestQuotedPrintableEncodeSpaceUnixLineBreak ()
+		{
+			const string input = "This line ends with a space \nbefore a line break.";
+			const string expected = "This line ends with a space=20\nbefore a line break.";
+			var encoder = new QuotedPrintableEncoder ();
+			var output = new byte[1024];
+			string actual;
+			byte[] buf;
+			int n;
+
+			Assert.AreEqual (ContentEncoding.QuotedPrintable, encoder.Encoding);
+
+			buf = Encoding.ASCII.GetBytes (input);
+			n = encoder.Flush (buf, 0, buf.Length, output);
+			actual = Encoding.ASCII.GetString (output, 0, n);
+			Assert.AreEqual (expected, actual);
+		}
+
+		[Test]
+		public void TestQuotedPrintableEncodeFlush ()
+		{
+			const string input = "This line ends with a space ";
+			const string expected = "This line ends with a space=20=\n";
+			var encoder = new QuotedPrintableEncoder ();
+			var decoder = new QuotedPrintableDecoder ();
+			var output = new byte[1024];
+			string actual;
+			byte[] buf;
+			int n;
+
+			Assert.AreEqual (ContentEncoding.QuotedPrintable, encoder.Encoding);
+
+			buf = Encoding.ASCII.GetBytes (input);
+			n = encoder.Flush (buf, 0, buf.Length, output);
+			actual = Encoding.ASCII.GetString (output, 0, n);
+			Assert.AreEqual (expected, actual);
+
+			buf = Encoding.ASCII.GetBytes (expected);
+			n = decoder.Decode (buf, 0, buf.Length, output);
+			actual = Encoding.ASCII.GetString (output, 0, n);
+			Assert.AreEqual (input, actual);
+		}
+
+		[Test]
+		public void TestQuotedPrintableDecodeInvalidSoftBreak ()
+		{
+			const string input = "This is an invalid=\rsoft break.";
+			const string expected = "This is an invalid=\rsoft break.";
+			var decoder = new QuotedPrintableDecoder ();
+			var output = new byte[1024];
+			string actual;
+			byte[] buf;
+			int n;
+
+			Assert.AreEqual (ContentEncoding.QuotedPrintable, decoder.Encoding);
+
+			buf = Encoding.ASCII.GetBytes (input);
+			n = decoder.Decode (buf, 0, buf.Length, output);
+			actual = Encoding.ASCII.GetString (output, 0, n);
+			Assert.AreEqual (expected, actual);
+		}
+
+		[Test]
+		public void TestQuotedPrintableDecode2 ()
 		{
 			const string input = "This is an ordinary text message in which my name (=ED=E5=EC=F9 =EF=E1 =E9=EC=E8=F4=F0)\nis in Hebrew (=FA=E9=F8=E1=F2).";
 			const string expected = "This is an ordinary text message in which my name (םולש ןב ילטפנ)\nis in Hebrew (תירבע).";
@@ -270,32 +434,40 @@ namespace UnitTests.Encodings {
 			n = decoder.Decode (buf, 0, buf.Length, output);
 			actual = encoding.GetString (output, 0, n);
 			Assert.AreEqual (expected, actual);
-
-			encoding = CharsetUtils.Latin1;
-
-			for (int i = 0; i < qpEncodedPatterns.Length; i++) {
-				decoder.Reset ();
-				buf = encoding.GetBytes (qpEncodedPatterns[i]);
-				n = decoder.Decode (buf, 0, buf.Length, output);
-				actual = encoding.GetString (output, 0, n);
-				Assert.AreEqual (qpDecodedPatterns[i], actual, "Failed to decode qpEncodedPatterns[{0}]", i);
-			}
 		}
 
 		[Test]
-		public void TestQuotedPrintableEncode ()
+		public void TestQuotedPrintableEncode2 ()
 		{
 			const string expected = "This is an ordinary text message in which my name (=ED=E5=EC=F9 =EF=E1=\n =E9=EC=E8=F4=F0)\nis in Hebrew (=FA=E9=F8=E1=F2).\n";
 			const string input = "This is an ordinary text message in which my name (םולש ןב ילטפנ)\nis in Hebrew (תירבע).\n";
 			var encoding = Encoding.GetEncoding ("iso-8859-8");
 			var encoder = new QuotedPrintableEncoder ();
-			var output = new byte[4096];
+			var output = new byte[1024];
 
 			Assert.AreEqual (ContentEncoding.QuotedPrintable, encoder.Encoding);
 
 			var buf = encoding.GetBytes (input);
 			int n = encoder.Flush (buf, 0, buf.Length, output);
 			var actual = Encoding.ASCII.GetString (output, 0, n);
+
+			Assert.AreEqual (expected, actual);
+		}
+
+		[Test]
+		public void TestHexDecoder ()
+		{
+			const string input = "This should decode: (%ED%E5%EC%F9 %EF%E1 %E9%EC%E8%F4%F0) while %X1%S1%Z1 should not";
+			const string expected = "This should decode: (םולש ןב ילטפנ) while %X1%S1%Z1 should not";
+			var encoding = Encoding.GetEncoding ("iso-8859-8");
+			var decoder = new HexDecoder ();
+			var output = new byte[1024];
+
+			Assert.AreEqual (ContentEncoding.Default, decoder.Encoding);
+
+			var buf = Encoding.ASCII.GetBytes (input);
+			int n = decoder.Decode (buf, 0, buf.Length, output);
+			var actual = encoding.GetString (output, 0, n);
 
 			Assert.AreEqual (expected, actual);
 		}

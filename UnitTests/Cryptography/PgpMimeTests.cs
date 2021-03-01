@@ -1,9 +1,9 @@
-//
+﻿//
 // PgpMimeTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -48,7 +48,7 @@ namespace UnitTests.Cryptography {
 		static PgpMimeTests ()
 		{
 			Environment.SetEnvironmentVariable ("GNUPGHOME", Path.GetFullPath ("."));
-			var dataDir = Path.Combine ("..", "..", "TestData", "openpgp");
+			var dataDir = Path.Combine (TestHelper.ProjectDir, "TestData", "openpgp");
 
 			CryptographyContext.Register (typeof (DummyOpenPgpContext));
 
@@ -231,20 +231,28 @@ namespace UnitTests.Cryptography {
 
 				var signatures = multipart.Verify (ctx);
 				Assert.AreEqual (1, signatures.Count, "Verify returned an unexpected number of signatures.");
-				foreach (var signature in signatures) {
-					try {
-						bool valid = signature.Verify ();
 
-						Assert.IsTrue (valid, "Bad signature from {0}", signature.SignerCertificate.Email);
-					} catch (DigitalSignatureVerifyException ex) {
-						Assert.Fail ("Failed to verify signature: {0}", ex);
-					}
+				var signature = signatures[0];
+
+				Assert.AreEqual ("MimeKit UnitTests", signature.SignerCertificate.Name);
+				Assert.AreEqual ("mimekit@example.com", signature.SignerCertificate.Email);
+				Assert.AreEqual ("44CD48EEC90D8849961F36BA50DCD107AB0821A2", signature.SignerCertificate.Fingerprint);
+				Assert.AreEqual (new DateTime (2013, 11, 3, 18, 32, 27), signature.SignerCertificate.CreationDate, "CreationDate");
+				Assert.AreEqual (DateTime.MaxValue, signature.SignerCertificate.ExpirationDate, "ExpirationDate");
+				Assert.AreEqual (PublicKeyAlgorithm.RsaGeneral, signature.SignerCertificate.PublicKeyAlgorithm);
+
+				try {
+					bool valid = signature.Verify ();
+
+					Assert.IsTrue (valid, "Bad signature from {0}", signature.SignerCertificate.Email);
+				} catch (DigitalSignatureVerifyException ex) {
+					Assert.Fail ("Failed to verify signature: {0}", ex);
 				}
 			}
 		}
 
 		[Test]
-		public async void TestMimeMessageSignAsync ()
+		public async Task TestMimeMessageSignAsync ()
 		{
 			var body = new TextPart ("plain") { Text = "This is some cleartext that we'll end up signing..." };
 			var self = new MailboxAddress ("MimeKit UnitTests", "mimekit@example.com");
@@ -278,14 +286,22 @@ namespace UnitTests.Cryptography {
 
 				var signatures = await multipart.VerifyAsync (ctx);
 				Assert.AreEqual (1, signatures.Count, "Verify returned an unexpected number of signatures.");
-				foreach (var signature in signatures) {
-					try {
-						bool valid = signature.Verify ();
 
-						Assert.IsTrue (valid, "Bad signature from {0}", signature.SignerCertificate.Email);
-					} catch (DigitalSignatureVerifyException ex) {
-						Assert.Fail ("Failed to verify signature: {0}", ex);
-					}
+				var signature = signatures[0];
+
+				Assert.AreEqual ("MimeKit UnitTests", signature.SignerCertificate.Name);
+				Assert.AreEqual ("mimekit@example.com", signature.SignerCertificate.Email);
+				Assert.AreEqual ("44CD48EEC90D8849961F36BA50DCD107AB0821A2", signature.SignerCertificate.Fingerprint);
+				Assert.AreEqual (new DateTime (2013, 11, 3, 18, 32, 27), signature.SignerCertificate.CreationDate, "CreationDate");
+				Assert.AreEqual (DateTime.MaxValue, signature.SignerCertificate.ExpirationDate, "ExpirationDate");
+				Assert.AreEqual (PublicKeyAlgorithm.RsaGeneral, signature.SignerCertificate.PublicKeyAlgorithm);
+
+				try {
+					bool valid = signature.Verify ();
+
+					Assert.IsTrue (valid, "Bad signature from {0}", signature.SignerCertificate.Email);
+				} catch (DigitalSignatureVerifyException ex) {
+					Assert.Fail ("Failed to verify signature: {0}", ex);
 				}
 			}
 		}
@@ -339,7 +355,7 @@ namespace UnitTests.Cryptography {
 		}
 
 		[Test]
-		public async void TestMultipartSignedSignUsingKeysAsync ()
+		public async Task TestMultipartSignedSignUsingKeysAsync ()
 		{
 			var body = new TextPart ("plain") { Text = "This is some cleartext that we'll end up signing..." };
 			var self = new SecureMailboxAddress ("MimeKit UnitTests", "mimekit@example.com", "44CD48EEC90D8849961F36BA50DCD107AB0821A2");
@@ -454,8 +470,20 @@ namespace UnitTests.Cryptography {
 
 			var encrypted = MultipartEncrypted.Encrypt (new [] { self }, body);
 
-			//using (var file = File.Create ("pgp-encrypted.asc"))
-			//	encrypted.WriteTo (file);
+			using (var stream = new MemoryStream ()) {
+				encrypted.WriteTo (stream);
+				stream.Position = 0;
+
+				var entity = MimeEntity.Load (stream);
+
+				Assert.IsInstanceOf<MultipartEncrypted> (entity, "Encrypted part is not the expected type");
+
+				encrypted = (MultipartEncrypted) entity;
+
+				Assert.IsInstanceOf<ApplicationPgpEncrypted> (encrypted[0], "First child of multipart/encrypted is not the expected type");
+				Assert.IsInstanceOf<MimePart> (encrypted[1], "Second child of multipart/encrypted is not the expected type");
+				Assert.AreEqual ("application/octet-stream", encrypted[1].ContentType.MimeType, "Second child of multipart/encrypted is not the expected mime-type");
+			}
 
 			var decrypted = encrypted.Decrypt ();
 
@@ -752,7 +780,7 @@ namespace UnitTests.Cryptography {
 		[Test]
 		public void TestAutoKeyRetrieve ()
 		{
-			var message = MimeMessage.Load (Path.Combine ("..", "..", "TestData", "openpgp", "[Announce] GnuPG 2.1.20 released.eml"));
+			var message = MimeMessage.Load (Path.Combine (TestHelper.ProjectDir, "TestData", "openpgp", "[Announce] GnuPG 2.1.20 released.eml"));
 			var multipart = (MultipartSigned) ((Multipart) message.Body)[0];
 
 			Assert.AreEqual (2, multipart.Count, "The multipart/signed has an unexpected number of children.");
@@ -767,7 +795,19 @@ namespace UnitTests.Cryptography {
 			Assert.IsInstanceOf<TextPart> (multipart[0], "The first child is not a text part.");
 			Assert.IsInstanceOf<ApplicationPgpSignature> (multipart[1], "The second child is not a detached signature.");
 
-			var signatures = multipart.Verify ();
+			DigitalSignatureCollection signatures;
+
+			try {
+				signatures = multipart.Verify ();
+			} catch (IOException ex) {
+				if (ex.Message == "unknown signature key algorithm: EdDsa") {
+					Assert.Ignore ("Known issue: {0}", ex.Message);
+					return;
+				}
+
+				throw;
+			}
+
 			Assert.AreEqual (1, signatures.Count, "Verify returned an unexpected number of signatures.");
 			foreach (var signature in signatures) {
 				try {
@@ -986,8 +1026,8 @@ namespace UnitTests.Cryptography {
 				Assert.Throws<ArgumentNullException> (() => ctx.DecryptTo (stream, null), "DecryptTo");
 
 				// DecryptToAsync
-				Assert.Throws<ArgumentNullException> (async () => await ctx.DecryptToAsync (null, stream), "DecryptToAsync");
-				Assert.Throws<ArgumentNullException> (async () => await ctx.DecryptToAsync (stream, null), "DecryptToAsync");
+				Assert.ThrowsAsync<ArgumentNullException> (async () => await ctx.DecryptToAsync (null, stream), "DecryptToAsync");
+				Assert.ThrowsAsync<ArgumentNullException> (async () => await ctx.DecryptToAsync (stream, null), "DecryptToAsync");
 
 				// GetDigestAlgorithmName
 				Assert.Throws<ArgumentOutOfRangeException> (() => ctx.GetDigestAlgorithmName (DigestAlgorithm.None), "GetDigestAlgorithmName");
@@ -1035,9 +1075,9 @@ namespace UnitTests.Cryptography {
 				Assert.Throws<ArgumentNullException> (() => ctx.Verify (null, stream), "Verify");
 				Assert.Throws<ArgumentNullException> (() => ctx.Verify (stream, null), "Verify");
 
-				// Verify
-				Assert.Throws<ArgumentNullException> (async () => await ctx.VerifyAsync (null, stream), "VerifyAsync");
-				Assert.Throws<ArgumentNullException> (async () => await ctx.VerifyAsync (stream, null), "VerifyAsync");
+				// VerifyAsync
+				Assert.ThrowsAsync<ArgumentNullException> (async () => await ctx.VerifyAsync (null, stream), "VerifyAsync");
+				Assert.ThrowsAsync<ArgumentNullException> (async () => await ctx.VerifyAsync (stream, null), "VerifyAsync");
 
 				// MultipartEncrypted
 
@@ -1147,7 +1187,7 @@ namespace UnitTests.Cryptography {
 				Assert.Throws<ArgumentNullException> (() => signed.Accept (null));
 
 				Assert.Throws<ArgumentNullException> (() => signed.Verify (null));
-				Assert.Throws<ArgumentNullException> (async () => await signed.VerifyAsync (null));
+				Assert.ThrowsAsync<ArgumentNullException> (async () => await signed.VerifyAsync (null));
 			}
 		}
 
@@ -1176,14 +1216,14 @@ namespace UnitTests.Cryptography {
 		{
 			var filter = new OpenPgpDetectionFilter ();
 
-			PumpDataThroughFilter (filter, Path.Combine ("..", "..", "TestData", "openpgp", "mimekit.gpg.pub"), true);
+			PumpDataThroughFilter (filter, Path.Combine (TestHelper.ProjectDir, "TestData", "openpgp", "mimekit.gpg.pub"), true);
 			Assert.AreEqual (OpenPgpDataType.PublicKey, filter.DataType);
 			Assert.AreEqual (0, filter.BeginOffset);
 			Assert.AreEqual (1754, filter.EndOffset);
 
 			filter.Reset ();
 
-			PumpDataThroughFilter (filter, Path.Combine ("..", "..", "TestData", "openpgp", "mimekit.gpg.sec"), true);
+			PumpDataThroughFilter (filter, Path.Combine (TestHelper.ProjectDir, "TestData", "openpgp", "mimekit.gpg.sec"), true);
 			Assert.AreEqual (OpenPgpDataType.PrivateKey, filter.DataType);
 			Assert.AreEqual (0, filter.BeginOffset);
 			Assert.AreEqual (3650, filter.EndOffset);

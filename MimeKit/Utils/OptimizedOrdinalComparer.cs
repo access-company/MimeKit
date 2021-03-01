@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace MimeKit.Utils {
 	/// <summary>
@@ -34,10 +35,10 @@ namespace MimeKit.Utils {
 	/// <remarks>
 	/// An optimized version of <see cref="StringComparer.OrdinalIgnoreCase">StringComparer.OrdinalIgnoreCase</see>.
 	/// </remarks>
-	class OptimizedOrdinalIgnoreCaseComparer : IEqualityComparer<string>
+	sealed class OptimizedOrdinalIgnoreCaseComparer : IEqualityComparer<string>
 	{
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Utils.OptimizedOrdinalIgnoreCaseComparer"/> class.
+		/// Initialize a new instance of the <see cref="OptimizedOrdinalIgnoreCaseComparer"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="OptimizedOrdinalIgnoreCaseComparer"/>.
@@ -46,9 +47,11 @@ namespace MimeKit.Utils {
 		{
 		}
 
+		[MethodImpl (MethodImplOptions.AggressiveInlining)]
 		static int ToUpper (int c)
 		{
-			if (c >= 0x61 && c <= 0x7A)
+			// check if the char is within the lowercase range
+			if ((uint) (c - 'a') <= 'z' - 'a')
 				return c - 0x20;
 
 			return c;
@@ -85,7 +88,8 @@ namespace MimeKit.Utils {
 			if (x.Length != y.Length)
 				return false;
 
-			for (int i = 0; i < x.Length; i++) {
+			int length = x.Length;
+			for (int i = 0; i < length; i++) {
 				if (ToUpper (x[i]) != ToUpper (y[i]))
 					return false;
 			}

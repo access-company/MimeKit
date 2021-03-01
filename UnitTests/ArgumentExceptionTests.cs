@@ -1,9 +1,9 @@
-//
+﻿//
 // ArgumentExceptionTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -233,6 +233,17 @@ namespace UnitTests {
 			AssertParseArguments (typeof (MimeUtils));
 		}
 
+		[Test]
+		public void TestBufferPoolArguments ()
+		{
+			Assert.Throws<ArgumentOutOfRangeException> (() => new BufferPool (-1, 16));
+			Assert.Throws<ArgumentOutOfRangeException> (() => new BufferPool (1024, -1));
+
+			var pool = new BufferPool (16, 2);
+			Assert.Throws<ArgumentNullException> (() => pool.Return (null));
+			Assert.Throws<ArgumentException> (() => pool.Return (new byte[8]));
+		}
+
 		static void AssertStreamArguments (Stream stream)
 		{
 			var buffer = new byte[1024];
@@ -259,30 +270,30 @@ namespace UnitTests {
 					"{0}.Read() does not throw an ArgumentOutOfRangeException when count > buffer length.", stream.GetType ().Name);
 				Assert.AreEqual ("count", ex.ParamName);
 
-				ex = Assert.Throws<ArgumentNullException> (async () => await stream.ReadAsync (null, 0, 0),
+				ex = Assert.ThrowsAsync<ArgumentNullException> (async () => await stream.ReadAsync (null, 0, 0),
 					"{0}.ReadAsync() does not throw an ArgumentNullException when buffer is null.", stream.GetType ().Name);
 				Assert.AreEqual ("buffer", ex.ParamName);
 
-				ex = Assert.Throws<ArgumentOutOfRangeException> (async () => await stream.ReadAsync (buffer, -1, 0),
+				ex = Assert.ThrowsAsync<ArgumentOutOfRangeException> (async () => await stream.ReadAsync (buffer, -1, 0),
 					"{0}.ReadAsync() does not throw an ArgumentOutOfRangeException when offset is -1.", stream.GetType ().Name);
 				Assert.AreEqual ("offset", ex.ParamName);
 
-				ex = Assert.Throws<ArgumentOutOfRangeException> (async () => await stream.ReadAsync (buffer, buffer.Length + 1, 0),
+				ex = Assert.ThrowsAsync<ArgumentOutOfRangeException> (async () => await stream.ReadAsync (buffer, buffer.Length + 1, 0),
 					"{0}.ReadAsync() does not throw an ArgumentOutOfRangeException when offset > buffer length.", stream.GetType ().Name);
 				Assert.AreEqual ("offset", ex.ParamName);
 
-				ex = Assert.Throws<ArgumentOutOfRangeException> (async () => await stream.ReadAsync (buffer, 0, -1),
+				ex = Assert.ThrowsAsync<ArgumentOutOfRangeException> (async () => await stream.ReadAsync (buffer, 0, -1),
 					"{0}.ReadAsync() does not throw an ArgumentOutOfRangeException when count is -1.", stream.GetType ().Name);
 				Assert.AreEqual ("count", ex.ParamName);
 
-				ex = Assert.Throws<ArgumentOutOfRangeException> (async () => await stream.ReadAsync (buffer, 0, buffer.Length + 1),
+				ex = Assert.ThrowsAsync<ArgumentOutOfRangeException> (async () => await stream.ReadAsync (buffer, 0, buffer.Length + 1),
 					"{0}.ReadAsync() does not throw an ArgumentOutOfRangeException when count > buffer length.", stream.GetType ().Name);
 				Assert.AreEqual ("count", ex.ParamName);
 			} else {
 				Assert.Throws<NotSupportedException> (() => stream.Read (buffer, 0, buffer.Length),
 					"{0}.Read() does not throw a NotSupportedException when CanRead is false.", stream.GetType ().Name);
 
-				Assert.Throws<NotSupportedException> (async () => await stream.ReadAsync (buffer, 0, buffer.Length),
+				Assert.ThrowsAsync<NotSupportedException> (async () => await stream.ReadAsync (buffer, 0, buffer.Length),
 					"{0}.ReadAsync() does not throw a NotSupportedException when CanRead is false.", stream.GetType ().Name);
 			}
 
@@ -307,30 +318,30 @@ namespace UnitTests {
 					"{0}.Write() does not throw an ArgumentOutOfRangeException when count > buffer length.", stream.GetType ().Name);
 				Assert.AreEqual ("count", ex.ParamName);
 
-				ex = Assert.Throws<ArgumentNullException> (async () => await stream.WriteAsync (null, 0, 0),
+				ex = Assert.ThrowsAsync<ArgumentNullException> (async () => await stream.WriteAsync (null, 0, 0),
 					"{0}.WriteAsync() does not throw an ArgumentNullException when buffer is null.", stream.GetType ().Name);
 				Assert.AreEqual ("buffer", ex.ParamName);
 
-				ex = Assert.Throws<ArgumentOutOfRangeException> (async () => await stream.WriteAsync (buffer, -1, 0),
+				ex = Assert.ThrowsAsync<ArgumentOutOfRangeException> (async () => await stream.WriteAsync (buffer, -1, 0),
 					"{0}.WriteAsync() does not throw an ArgumentOutOfRangeException when offset is -1.", stream.GetType ().Name);
 				Assert.AreEqual ("offset", ex.ParamName);
 
-				ex = Assert.Throws<ArgumentOutOfRangeException> (async () => await stream.WriteAsync (buffer, buffer.Length + 1, 0),
+				ex = Assert.ThrowsAsync<ArgumentOutOfRangeException> (async () => await stream.WriteAsync (buffer, buffer.Length + 1, 0),
 					"{0}.WriteAsync() does not throw an ArgumentOutOfRangeException when offset > buffer length.", stream.GetType ().Name);
 				Assert.AreEqual ("offset", ex.ParamName);
 
-				ex = Assert.Throws<ArgumentOutOfRangeException> (async () => await stream.WriteAsync (buffer, 0, -1),
+				ex = Assert.ThrowsAsync<ArgumentOutOfRangeException> (async () => await stream.WriteAsync (buffer, 0, -1),
 					"{0}.WriteAsync() does not throw an ArgumentOutOfRangeException when count is -1.", stream.GetType ().Name);
 				Assert.AreEqual ("count", ex.ParamName);
 
-				ex = Assert.Throws<ArgumentOutOfRangeException> (async () => await stream.WriteAsync (buffer, 0, buffer.Length + 1),
+				ex = Assert.ThrowsAsync<ArgumentOutOfRangeException> (async () => await stream.WriteAsync (buffer, 0, buffer.Length + 1),
 					"{0}.WriteAsync() does not throw an ArgumentOutOfRangeException when count > buffer length.", stream.GetType ().Name);
 				Assert.AreEqual ("count", ex.ParamName);
 			} else {
 				Assert.Throws<NotSupportedException> (() => stream.Write (buffer, 0, buffer.Length),
 					"{0}.Write() does not throw a NotSupportedException when CanWrite is false.", stream.GetType ().Name);
 
-				Assert.Throws<NotSupportedException> (async () => await stream.WriteAsync (buffer, 0, buffer.Length),
+				Assert.ThrowsAsync<NotSupportedException> (async () => await stream.WriteAsync (buffer, 0, buffer.Length),
 					"{0}.WriteAsync() does not throw a NotSupportedException when CanWrite is false.", stream.GetType ().Name);
 			}
 
@@ -354,6 +365,8 @@ namespace UnitTests {
 				AssertStreamArguments (stream);
 
 			using (var memory = new MemoryStream ()) {
+				Assert.Throws<ArgumentNullException> (() => new FilteredStream (null));
+
 				using (var stream = new FilteredStream (memory))
 					AssertStreamArguments (stream);
 			}
@@ -411,21 +424,39 @@ namespace UnitTests {
 
 			collection.Add (new HeaderList ());
 			Assert.Throws<ArgumentNullException> (() => collection[0] = null);
+			Assert.DoesNotThrow (() => collection[0] = new HeaderList ());
 		}
 
 		[Test]
-		public void TestMimeIteratorArguments ()
+		public void TestMimeMessageBeginEventArgs ()
 		{
-			var iter = new MimeIterator (new MimeMessage { Body = new TextPart ("plain") });
+			Assert.Throws<ArgumentNullException> (() => new MimeMessageBeginEventArgs (null));
+			Assert.Throws<ArgumentNullException> (() => new MimeMessageBeginEventArgs (null, new MessagePart ()));
+			Assert.Throws<ArgumentNullException> (() => new MimeMessageBeginEventArgs (new MimeMessage (), null));
+		}
 
-			Assert.Throws<ArgumentNullException> (() => new MimeIterator (null));
-			Assert.Throws<InvalidOperationException> (() => { var x = iter.Depth; });
-			Assert.Throws<InvalidOperationException> (() => { var x = iter.Current; });
-			Assert.Throws<InvalidOperationException> (() => { var x = iter.Parent; });
-			Assert.Throws<InvalidOperationException> (() => { var x = iter.PathSpecifier; });
-			Assert.Throws<ArgumentNullException> (() => iter.MoveTo (null));
-			Assert.Throws<ArgumentException> (() => iter.MoveTo (string.Empty));
-			Assert.Throws<FormatException> (() => iter.MoveTo ("xyz"));
+		[Test]
+		public void TestMimeMessageEndEventArgs ()
+		{
+			Assert.Throws<ArgumentNullException> (() => new MimeMessageEndEventArgs (null));
+			Assert.Throws<ArgumentNullException> (() => new MimeMessageEndEventArgs (null, new MessagePart ()));
+			Assert.Throws<ArgumentNullException> (() => new MimeMessageEndEventArgs (new MimeMessage (), null));
+		}
+
+		[Test]
+		public void TestMimeEntityBeginEventArgs ()
+		{
+			Assert.Throws<ArgumentNullException> (() => new MimeEntityBeginEventArgs (null));
+			Assert.Throws<ArgumentNullException> (() => new MimeEntityBeginEventArgs (null, new Multipart ()));
+			Assert.Throws<ArgumentNullException> (() => new MimeEntityBeginEventArgs (new MimePart (), null));
+		}
+
+		[Test]
+		public void TestMimeEntityEndEventArgs ()
+		{
+			Assert.Throws<ArgumentNullException> (() => new MimeEntityEndEventArgs (null));
+			Assert.Throws<ArgumentNullException> (() => new MimeEntityEndEventArgs (null, new Multipart ()));
+			Assert.Throws<ArgumentNullException> (() => new MimeEntityEndEventArgs (new MimePart (), null));
 		}
 	}
 }

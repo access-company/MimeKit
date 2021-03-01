@@ -42,7 +42,7 @@ container which you'll then want to add the message body to first. Once you've a
 then add MIME parts to it that contain the content of the files you'd like to attach, being sure to set
 the `Content-Disposition` header value to attachment. You'll probably also want to set the `filename`
 parameter on the `Content-Disposition` header as well as the `name` parameter on the `Content-Type`
-header. The most convenient way to do this is to simply use the
+header. The most convenient way to do this is to use the
 [MimePart.FileName](http://www.mimekit.net/docs/html/P_MimeKit_MimePart_FileName.htm) property which
 will set both parameters for you as well as setting the `Content-Disposition` header value to `attachment`
 if it has not already been set to something else.
@@ -113,7 +113,7 @@ builder.Attachments.Add (@"C:\Users\Joey\Documents\party.ics");
 message.Body = builder.ToMessageBody ();
 ```
 
-For more information, see [Creating Messages](http://www.mimekit.net/docs/html/CreatingMessages.htm).
+For more information, see [Creating Messages](http://www.mimekit.net/docs/html/Creating-Messages.htm).
 
 ### <a name="MessageBody">Q: How do I get the main body of a message?</a>
 
@@ -190,7 +190,7 @@ for this: [TextBody](http://www.mimekit.net/docs/html/P_MimeKit_MimeMessage_Text
 appropriate body part with a `Content-Type` of `text/html` that can be interpreted as the message body.
 Likewise, the `TextBody` property can be used to get the `text/plain` version of the message body.
 
-For more information, see [Working with Messages](http://www.mimekit.net/docs/html/WorkingWithMessages.htm).
+For more information, see [Working with Messages](http://www.mimekit.net/docs/html/Working-With-Messages.htm).
 
 ### <a name="HasAttachments">Q: How do I tell if a message has attachments?</a>
 
@@ -302,11 +302,17 @@ class HtmlPreviewVisitor : MimeVisitor
         return false;
     }
 
-    // Save the image to our temp directory and return a "file://" url suitable for
-    // the browser control to load.
-    // Note: if you'd rather embed the image data into the HTML, you can construct a
-    // "data:" url instead.
-    string SaveImage (MimePart image, string url)
+    /// <summary>
+    /// Get a file:// URI for the image attachment.
+    /// </summary>
+    /// <remarks>
+    /// Saves the image attachment to a temp file and returns a file:// URI for the
+    /// temp file.
+    /// </remarks>
+    /// <returns>The file:// URI.</returns>
+    /// <param name="image">The image attachment.</param>
+    /// <param name="url">The original HTML image URL.</param>
+    string GetFileUri (MimePart image, string url)
     {
         string fileName = url.Replace (':', '_').Replace ('\\', '_').Replace ('/', '_');
 
@@ -318,6 +324,28 @@ class HtmlPreviewVisitor : MimeVisitor
         }
 
         return "file://" + path.Replace ('\\', '/');
+    }
+
+    /// <summary>
+    /// Get a file:// URI for the image attachment.
+    /// </summary>
+    /// <remarks>
+    /// Saves the image attachment to a temp file and returns a file:// URI for the
+    /// temp file.
+    /// </remarks>
+    /// <returns>The file:// URI.</returns>
+    /// <param name="image">The image attachment.</param>
+    /// <param name="url">The original HTML image URL.</param>
+    string GetDataUri (MimePart image)
+    {
+        using (var memory = new MemoryStream ()) {
+            image.Content.DecodeTo (memory);
+            var buffer = memory.GetBuffer ();
+            var length = (int) memory.Length;
+            var base64 = Convert.ToBase64String (buffer, 0, length);
+
+            return string.Format ("data:{0};base64,{1}", image.ContentType.MimeType, base64);
+        }
     }
 
     // Replaces <img src=...> urls that refer to images embedded within the message with
@@ -338,7 +366,10 @@ class HtmlPreviewVisitor : MimeVisitor
                         continue;
                     }
 
-                    url = SaveImage (image, attribute.Value);
+                    // Note: you can either use a "file://" URI or you can use a
+                    // "data:" URI, the choice is yours.
+                    url = GetFileUri (image, attribute.Value);
+                    //uri = GetDataUri (image);
 
                     htmlWriter.WriteAttributeName (attribute.Name);
                     htmlWriter.WriteAttributeValue (url);
@@ -614,7 +645,7 @@ To: John Smith <john@smith.com>
 ```
 
 If you only care about getting a flattened list of the mailbox addresses in a `From`, `To`, or `Cc`
-header, you can simply do something like this:
+header, you can do something like this:
 
 ```csharp
 foreach (var mailbox in message.To.Mailboxes)
@@ -649,13 +680,12 @@ if (attachment.ContentDisposition.Parameters.TryGetValue ("filename", out param)
     param.EncodingMethod = ParameterEncodingMethod.Rfc2047;
 ```
 
-The other way is to use a [FormatOptions](http://www.mimekit.net/docs/html/T_MimeKit_FormatOptions.htm):
+Or
 
 ```csharp
-var options = FormatOptions.Default.Clone ();
-options.ParameterEncodingMethod = ParameterEncodingMethod.Rfc2047;
-
-message.WriteTo (options, stream);
+foreach (var param in attachment.ContentDisposition.Parameters) {
+    param.EncodingMethod = ParameterEncodingMethod.Rfc2047;
+}
 ```
 
 ### <a name="DecryptInlinePGP">Q: How do I decrypt PGP messages that are embedded in the main message text?</a>
@@ -1102,7 +1132,7 @@ public static MimeMessage Forward (MimeMessage original, MailboxAddress from, IE
 }
 ```
 
-To forward a message by simply inlining the original message's text content, you can do something like this:
+To forward a message by inlining the original message's text content, you can do something like this:
 
 ```csharp
 public static MimeMessage Forward (MimeMessage original, MailboxAddress from, IEnumerable<InternetAddress> to)
@@ -1162,6 +1192,6 @@ MimeEntity ParseMultipartFormData (HttpWebResponse response)
 {
     var contentType = ContentType.Parse (response.ContentType);
 
-    return MimeEntity.Parse (contentType, response.GetResponseStream ());
+    return MimeEntity.Load (contentType, response.GetResponseStream ());
 }
 ```

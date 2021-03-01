@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -28,22 +28,10 @@ using System;
 using System.IO;
 using System.Text;
 
-#if PORTABLE
-using EncoderReplacementFallback = Portable.Text.EncoderReplacementFallback;
-using DecoderReplacementFallback = Portable.Text.DecoderReplacementFallback;
-using EncoderExceptionFallback = Portable.Text.EncoderExceptionFallback;
-using DecoderExceptionFallback = Portable.Text.DecoderExceptionFallback;
-using EncoderFallbackException = Portable.Text.EncoderFallbackException;
-using DecoderFallbackException = Portable.Text.DecoderFallbackException;
-using DecoderFallbackBuffer = Portable.Text.DecoderFallbackBuffer;
-using DecoderFallback = Portable.Text.DecoderFallback;
-using Encoding = Portable.Text.Encoding;
-using Encoder = Portable.Text.Encoder;
-using Decoder = Portable.Text.Decoder;
-#endif
-
+using MimeKit.IO;
 using MimeKit.Text;
 using MimeKit.Utils;
+using MimeKit.IO.Filters;
 
 namespace MimeKit {
 	/// <summary>
@@ -61,10 +49,10 @@ namespace MimeKit {
 	public class TextPart : MimePart
 	{
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.TextPart"/> class.
+		/// Initialize a new instance of the <see cref="TextPart"/> class.
 		/// </summary>
 		/// <remarks>
-		/// This constructor is used by <see cref="MimeKit.MimeParser"/>.
+		/// This constructor is used by <see cref="MimeParser"/>.
 		/// </remarks>
 		/// <param name="args">Information used by the constructor.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -75,7 +63,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.TextPart"/>
+		/// Initialize a new instance of the <see cref="TextPart"/>
 		/// class with the specified text subtype.
 		/// </summary>
 		/// <remarks>
@@ -114,8 +102,7 @@ namespace MimeKit {
 				if (obj == null || TryInit (obj))
 					continue;
 
-				var enc = obj as Encoding;
-				if (enc != null) {
+				if (obj is Encoding enc) {
 					if (encoding != null)
 						throw new ArgumentException ("An encoding should not be specified more than once.");
 
@@ -123,8 +110,7 @@ namespace MimeKit {
 					continue;
 				}
 
-				var str = obj as string;
-				if (str != null) {
+				if (obj is string str) {
 					if (text != null)
 						throw new ArgumentException ("The text should not be specified more than once.");
 
@@ -146,7 +132,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.TextPart"/>
+		/// Initialize a new instance of the <see cref="TextPart"/>
 		/// class with the specified text subtype.
 		/// </summary>
 		/// <remarks>
@@ -185,7 +171,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.TextPart"/>
+		/// Initialize a new instance of the <see cref="TextPart"/>
 		/// class with the specified text format.
 		/// </summary>
 		/// <remarks>
@@ -202,7 +188,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.TextPart"/>
+		/// Initialize a new instance of the <see cref="TextPart"/>
 		/// class with a Content-Type of text/plain.
 		/// </summary>
 		/// <remarks>
@@ -213,6 +199,42 @@ namespace MimeKit {
 		}
 
 		/// <summary>
+		/// Get the text format of the content.
+		/// </summary>
+		/// <remarks>
+		/// Gets the text format of the content.
+		/// </remarks>
+		/// <value>The text format of the content.</value>
+		public TextFormat Format {
+			get {
+				if (ContentType.MediaType.Equals ("text", StringComparison.OrdinalIgnoreCase)) {
+					if (ContentType.MediaSubtype.Equals ("plain")) {
+						string format;
+
+						if (ContentType.Parameters.TryGetValue ("format", out format)) {
+							format = format.Trim ();
+
+							if (format.Equals ("flowed", StringComparison.OrdinalIgnoreCase))
+								return TextFormat.Flowed;
+						}
+					} else if (ContentType.MediaSubtype.Equals ("html", StringComparison.OrdinalIgnoreCase)) {
+						return TextFormat.Html;
+					} else if (ContentType.MediaSubtype.Equals ("rtf", StringComparison.OrdinalIgnoreCase)) {
+						return TextFormat.RichText;
+					} else if (ContentType.MediaSubtype.Equals ("enriched", StringComparison.OrdinalIgnoreCase)) {
+						return TextFormat.Enriched;
+					} else if (ContentType.MediaSubtype.Equals ("richtext", StringComparison.OrdinalIgnoreCase)) {
+						return TextFormat.Enriched;
+					}
+				} else if (ContentType.IsMimeType ("application", "rtf")) {
+					return TextFormat.RichText;
+				}
+
+				return TextFormat.Plain;
+			}
+		}
+
+		/// <summary>
 		/// Gets whether or not this text part contains enriched text.
 		/// </summary>
 		/// <remarks>
@@ -220,7 +242,7 @@ namespace MimeKit {
 		/// predecessor, <c>text/richtext</c> (not to be confused with <c>text/rtf</c>).
 		/// </remarks>
 		/// <value><c>true</c> if the text is enriched; otherwise, <c>false</c>.</value>
-		bool IsEnriched {
+		public bool IsEnriched {
 			get { return ContentType.IsMimeType ("text", "enriched") || ContentType.IsMimeType ("text", "richtext"); }
 		}
 
@@ -244,7 +266,7 @@ namespace MimeKit {
 
 				format = format.Trim ();
 
-				return format.ToLowerInvariant () == "flowed";
+				return format.Equals ("flowed", StringComparison.OrdinalIgnoreCase);
 			}
 		}
 
@@ -285,52 +307,22 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets the decoded text content.
+		/// Get the decoded text content.
 		/// </summary>
 		/// <remarks>
 		/// <para>If the charset parameter on the <see cref="MimeEntity.ContentType"/>
 		/// is set, it will be used in order to convert the raw content into unicode.
-		/// If that fails or if the charset parameter is not set, iso-8859-1 will be
-		/// used instead.</para>
+		/// If that fails or if the charset parameter is not set, the first 2 bytes of
+		/// the content will be checked for a unicode BOM. If a BOM exists, then that
+		/// will be used for conversion. If no BOM is found, then UTF-8 is attempted.
+		/// If conversion fails, then iso-8859-1 will be used as the final fallback.</para>
 		/// <para>For more control, use <see cref="GetText(Encoding)"/>
 		/// or <see cref="GetText(String)"/>.</para>
 		/// </remarks>
-		/// <value>The text.</value>
+		/// <value>The decocded text.</value>
 		public string Text {
 			get {
-				if (Content == null)
-					return string.Empty;
-
-				var charset = ContentType.Parameters["charset"];
-
-				using (var memory = new MemoryStream ()) {
-					Content.DecodeTo (memory);
-
-#if !PORTABLE && !NETSTANDARD
-					var content = memory.GetBuffer ();
-#else
-					var content = memory.ToArray ();
-#endif
-					Encoding encoding = null;
-
-					if (charset != null) {
-						try {
-							encoding = CharsetUtils.GetEncoding (charset);
-						} catch (NotSupportedException) {
-						}
-					}
-
-					if (encoding == null) {
-						try {
-							return CharsetUtils.UTF8.GetString (content, 0, (int) memory.Length);
-						} catch (DecoderFallbackException) {
-							// fall back to iso-8859-1
-							encoding = CharsetUtils.Latin1;
-						}
-					}
-
-					return encoding.GetString (content, 0, (int) memory.Length);
-				}
+				return GetText (out Encoding encoding);
 			}
 			set {
 				SetText (Encoding.UTF8, value);
@@ -341,12 +333,12 @@ namespace MimeKit {
 		/// Dispatches to the specific visit method for this MIME entity.
 		/// </summary>
 		/// <remarks>
-		/// This default implementation for <see cref="MimeKit.TextPart"/> nodes
-		/// calls <see cref="MimeKit.MimeVisitor.VisitTextPart"/>. Override this
+		/// This default implementation for <see cref="TextPart"/> nodes
+		/// calls <see cref="MimeVisitor.VisitTextPart"/>. Override this
 		/// method to call into a more specific method on a derived visitor class
-		/// of the <see cref="MimeKit.MimeVisitor"/> class. However, it should still
+		/// of the <see cref="MimeVisitor"/> class. However, it should still
 		/// support unknown visitors by calling
-		/// <see cref="MimeKit.MimeVisitor.VisitTextPart"/>.
+		/// <see cref="MimeVisitor.VisitTextPart"/>.
 		/// </remarks>
 		/// <param name="visitor">The visitor.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -381,6 +373,47 @@ namespace MimeKit {
 		}
 
 		/// <summary>
+		/// Get the decoded text and the encoding used to convert it into unicode.
+		/// </summary>
+		/// <remarks>
+		/// <para>If the charset parameter on the <see cref="MimeEntity.ContentType"/>
+		/// is set, it will be used in order to convert the raw content into unicode.
+		/// If that fails or if the charset parameter is not set, the first 2 bytes of
+		/// the content will be checked for a unicode BOM. If a BOM exists, then that
+		/// will be used for conversion. If no BOM is found, then UTF-8 is attempted.
+		/// If conversion fails, then iso-8859-1 will be used as the final fallback.</para>
+		/// <para>For more control, use <see cref="GetText(Encoding)"/>
+		/// or <see cref="GetText(String)"/>.</para>
+		/// </remarks>
+		/// <param name="encoding">The encoding used to convert the text into unicode.</param>
+		/// <returns>The decoded text.</returns>
+		public string GetText (out Encoding encoding)
+		{
+			if (Content == null) {
+				encoding = Encoding.ASCII;
+				return string.Empty;
+			}
+
+			encoding = ContentType.CharsetEncoding;
+
+			if (encoding == null) {
+				try {
+					using (var content = Content.Open ()) {
+						if (!CharsetUtils.TryGetBomEncoding (content, out encoding))
+							encoding = CharsetUtils.UTF8;
+					}
+
+					return GetText (encoding);
+				} catch (DecoderFallbackException) {
+					// fall back to iso-8859-1
+					encoding = CharsetUtils.Latin1;
+				}
+			}
+
+			return GetText (encoding);
+		}
+
+		/// <summary>
 		/// Gets the decoded text content using the provided charset encoding to
 		/// override the charset specified in the Content-Type parameters.
 		/// </summary>
@@ -403,15 +436,20 @@ namespace MimeKit {
 				return string.Empty;
 
 			using (var memory = new MemoryStream ()) {
-				Content.DecodeTo (memory);
+				using (var filtered = new FilteredStream (memory)) {
+					filtered.Add (new CharsetFilter (encoding, CharsetUtils.UTF8));
+					filtered.Add (FormatOptions.Default.CreateNewLineFilter ());
+					Content.DecodeTo (filtered);
+					filtered.Flush ();
+				}
 
-#if !PORTABLE && !NETSTANDARD
+#if !NETSTANDARD1_3 && !NETSTANDARD1_6
 				var buffer = memory.GetBuffer ();
 #else
 				var buffer = memory.ToArray ();
 #endif
 
-				return encoding.GetString (buffer, 0, (int) memory.Length);
+				return CharsetUtils.UTF8.GetString (buffer, 0, (int) memory.Length);
 			}
 		}
 
@@ -463,8 +501,8 @@ namespace MimeKit {
 			if (text == null)
 				throw new ArgumentNullException (nameof (text));
 
-			ContentType.Parameters["charset"] = CharsetUtils.GetMimeCharset (encoding);
 			var content = new MemoryStream (encoding.GetBytes (text));
+			ContentType.CharsetEncoding = encoding;
 			Content = new MimeContent (content);
 		}
 

@@ -1,9 +1,9 @@
-//
+﻿//
 // ParseUtilsTests.cs
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2017 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -133,6 +133,227 @@ namespace UnitTests.Utils {
 				Assert.AreEqual (BadDomainTokenIndexes[i], ex.TokenIndex, "Unexpected token index.");
 				Assert.AreEqual (BadDomainErrorIndexes[i], ex.ErrorIndex, "Unexpected error index.");
 			}
+		}
+
+		static readonly string[] MsgIdInputs = {
+			" <Messe_Bauma_rz(1)_ae284449-6bdc-488f-8ec3-5be5e5b09efb.jpg>",
+			" Messe_Bauma_rz(1)_ae284449-6bdc-488f-8ec3-5be5e5b09efb.jpg",
+		};
+		static readonly string[] MsgIdOutputs = {
+			"Messe_Bauma_rz(1)_ae284449-6bdc-488f-8ec3-5be5e5b09efb.jpg",
+			"Messe_Bauma_rz(1)_ae284449-6bdc-488f-8ec3-5be5e5b09efb.jpg",
+		};
+
+		[Test]
+		public void TestTryParseMsgIdTokens ()
+		{
+			for (int i = 0; i < MsgIdInputs.Length; i++) {
+				var buffer = Encoding.ASCII.GetBytes (MsgIdInputs[i]);
+				int endIndex = buffer.Length;
+				int index = 0;
+				string msgid;
+
+				Assert.IsTrue (ParseUtils.TryParseMsgId (buffer, ref index, endIndex, false, false, out msgid), "TryParseMsgId");
+				Assert.AreEqual (MsgIdOutputs[i], msgid, "MsgIdOutputs[{0}]", i);
+			}
+		}
+
+		[Test]
+		public void TestTryParseMsgIdEmptyString ()
+		{
+			var buffer = Encoding.ASCII.GetBytes (" ");
+			int index = 0;
+			string msgid;
+
+			Assert.IsFalse (ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, false, out msgid), "TryParseMsgId");
+
+			try {
+				index = 0;
+				ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, true, out msgid);
+				Assert.Fail ("throwOnError");
+			} catch (ParseException ex) {
+				Assert.AreEqual (1, ex.TokenIndex, "TokenIndex");
+				Assert.AreEqual (1, ex.ErrorIndex, "ErrorIndex");
+			}
+		}
+
+		[Test]
+		public void TestTryParseMsgIdLessThan ()
+		{
+			var buffer = Encoding.ASCII.GetBytes (" <");
+			int index = 0;
+			string msgid;
+
+			Assert.IsFalse (ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, false, out msgid), "TryParseMsgId");
+
+			try {
+				index = 0;
+				ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, true, out msgid);
+				Assert.Fail ("throwOnError");
+			} catch (ParseException ex) {
+				Assert.AreEqual (1, ex.TokenIndex, "TokenIndex");
+				Assert.AreEqual (2, ex.ErrorIndex, "ErrorIndex");
+			}
+		}
+
+		[Test]
+		public void TestTryParseMsgIdLessThanLocalPart ()
+		{
+			var buffer = Encoding.ASCII.GetBytes (" <local-part");
+			int index = 0;
+			string msgid;
+
+			Assert.IsFalse (ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, false, out msgid), "TryParseMsgId");
+
+			try {
+				index = 0;
+				ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, true, out msgid);
+				Assert.Fail ("throwOnError");
+			} catch (ParseException ex) {
+				Assert.AreEqual (1, ex.TokenIndex, "TokenIndex");
+				Assert.AreEqual (12, ex.ErrorIndex, "ErrorIndex");
+			}
+		}
+
+		//[Test]
+		//public void TestTryParseMsgIdLessThanLocalPartCtrl ()
+		//{
+		//	var buffer = Encoding.ASCII.GetBytes (" <local-part\b");
+		//	int index = 0;
+		//	string msgid;
+
+		//	Assert.IsFalse (ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, false, out msgid), "TryParseMsgId");
+
+		//	try {
+		//		index = 0;
+		//		ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, true, out msgid);
+		//		Assert.Fail ("throwOnError");
+		//	} catch (ParseException ex) {
+		//		Assert.AreEqual (1, ex.TokenIndex, "TokenIndex");
+		//		Assert.AreEqual (12, ex.ErrorIndex, "ErrorIndex");
+		//	}
+		//}
+
+		[Test]
+		public void TestTryParseMsgIdLessThanLocalPartDot ()
+		{
+			var buffer = Encoding.ASCII.GetBytes (" <local-part.");
+			int index = 0;
+			string msgid;
+
+			Assert.IsFalse (ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, false, out msgid), "TryParseMsgId");
+
+			try {
+				index = 0;
+				ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, true, out msgid);
+				Assert.Fail ("throwOnError");
+			} catch (ParseException ex) {
+				Assert.AreEqual (1, ex.TokenIndex, "TokenIndex");
+				Assert.AreEqual (13, ex.ErrorIndex, "ErrorIndex");
+			}
+		}
+
+		[Test]
+		public void TestTryParseMsgIdLessThanLocalPartAt ()
+		{
+			var buffer = Encoding.ASCII.GetBytes (" <local-part@");
+			int index = 0;
+			string msgid;
+
+			Assert.IsFalse (ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, false, out msgid), "TryParseMsgId");
+
+			try {
+				index = 0;
+				ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, true, out msgid);
+				Assert.Fail ("throwOnError");
+			} catch (ParseException ex) {
+				Assert.AreEqual (1, ex.TokenIndex, "TokenIndex");
+				Assert.AreEqual (13, ex.ErrorIndex, "ErrorIndex");
+			}
+		}
+
+		[Test]
+		public void TestTryParseMsgIdLessThanLocalPartAtGreaterThan ()
+		{
+			var buffer = Encoding.ASCII.GetBytes (" <local-part@>");
+			int index = 0;
+			string msgid;
+
+			Assert.IsTrue (ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, false, out msgid), "TryParseMsgId");
+			Assert.AreEqual ("local-part@", msgid);
+		}
+
+		[Test]
+		public void TestTryParseMsgIdLessThanLocalPartAtDomainMissingGreaterThan ()
+		{
+			var buffer = Encoding.ASCII.GetBytes (" <local-part@domain");
+			int index = 0;
+			string msgid;
+
+			Assert.IsFalse (ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, false, out msgid), "TryParseMsgId");
+
+			try {
+				index = 0;
+				ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, true, out msgid);
+				Assert.Fail ("throwOnError");
+			} catch (ParseException ex) {
+				Assert.AreEqual (1, ex.TokenIndex, "TokenIndex");
+				Assert.AreEqual (19, ex.ErrorIndex, "ErrorIndex");
+			}
+		}
+
+		[Test]
+		public void TestTryParseMsgIdInvalidQuotedLocalPart ()
+		{
+			var buffer = Encoding.ASCII.GetBytes (" <\"quoted-string@domain>");
+			int index = 0;
+			string msgid;
+
+			Assert.IsFalse (ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, false, out msgid), "TryParseMsgId");
+
+			try {
+				index = 0;
+				ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, true, out msgid);
+				Assert.Fail ("throwOnError");
+			} catch (ParseException ex) {
+				Assert.AreEqual (2, ex.TokenIndex, "TokenIndex");
+				Assert.AreEqual (24, ex.ErrorIndex, "ErrorIndex");
+			}
+		}
+
+		[Test]
+		public void TestTryParseMsgIdInvalidInternationalLocalPart ()
+		{
+			var buffer = Encoding.GetEncoding ("iso-8859-1").GetBytes (" <æøå@domain>");
+			int index = 0;
+			string msgid;
+
+			Assert.IsFalse (ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, false, out msgid), "TryParseMsgId");
+
+			try {
+				index = 0;
+				ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, true, out msgid);
+				Assert.Fail ("throwOnError");
+			} catch (ParseException ex) {
+				Assert.AreEqual (2, ex.TokenIndex, "TokenIndex");
+				Assert.AreEqual (2, ex.ErrorIndex, "ErrorIndex");
+			}
+		}
+
+		[Test]
+		public void TestTryParseMsgIdWithIdnDomain ()
+		{
+			var buffer = Encoding.ASCII.GetBytes (" <id@xn--v8jxj3d1dzdz08w.com>");
+			const string expected = "id@名がドメイン.com";
+			int index = 0;
+			string msgid;
+
+			Assert.IsTrue (ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, false, out msgid), "TryParseMsgId");
+			Assert.AreEqual (expected, msgid, "msgid");
+
+			index = 0;
+			Assert.IsTrue (ParseUtils.TryParseMsgId (buffer, ref index, buffer.Length, false, true, out msgid), "TryParseMsgId+thowOnError");
+			Assert.AreEqual (expected, msgid, "msgid");
 		}
 	}
 }

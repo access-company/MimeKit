@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -42,17 +42,20 @@ using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Pkix;
 using Org.BouncyCastle.X509;
 using Org.BouncyCastle.Crypto;
+using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Asn1.Cms;
+using Org.BouncyCastle.Asn1.Pkcs;
+using Org.BouncyCastle.Asn1.X509;
+using Org.BouncyCastle.Asn1.Smime;
 using Org.BouncyCastle.X509.Store;
 using Org.BouncyCastle.Utilities.Date;
+using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Utilities.Collections;
-using Org.BouncyCastle.Asn1.Smime;
-using Org.BouncyCastle.Asn1.X509;
 
 using AttributeTable = Org.BouncyCastle.Asn1.Cms.AttributeTable;
+using IssuerAndSerialNumber = Org.BouncyCastle.Asn1.Cms.IssuerAndSerialNumber;
 
 using MimeKit.IO;
-using MimeKit.Utils;
 
 namespace MimeKit.Cryptography
 {
@@ -64,30 +67,36 @@ namespace MimeKit.Cryptography
 	/// </remarks>
 	public abstract class BouncyCastleSecureMimeContext : SecureMimeContext
 	{
+		static readonly string RsassaPssOid = PkcsObjectIdentifiers.IdRsassaPss.Id;
+
 		HttpClient client;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Cryptography.SecureMimeContext"/> class.
+		/// Initialize a new instance of the <see cref="SecureMimeContext"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="BouncyCastleSecureMimeContext"/>
 		/// </remarks>
 		protected BouncyCastleSecureMimeContext ()
 		{
-			CheckCertificateRevocation = true;
 			client = new HttpClient ();
 		}
 
 		/// <summary>
-		/// Get or set whether or not certificate revocation should be checked when verifying signatures.
+		/// Get or set whether or not certificate revocation lists should be downloaded when verifying signatures.
 		/// </summary>
 		/// <remarks>
-		/// <para>Gets or sets whether or not certificate revocation should be checked when verifying signatures.</para>
+		/// <para>Gets or sets whether or not certificate revocation lists should be downloaded when verifying
+		/// signatures.</para>
 		/// <para>If enabled, the <see cref="BouncyCastleSecureMimeContext"/> will attempt to automatically download
 		/// Certificate Revocation Lists (CRLs) from the internet based on the CRL Distribution Point extension on
 		/// each certificate.</para>
+		/// <note type="security">Enabling this feature opens the client up to potential privacy risks. An attacker
+		/// can generate a custom X.509 certificate containing a CRL Distribution Point or OCSP URL pointing to an
+		/// attacker-controlled server, thereby getting a notification when the user decrypts the message or verifies
+		/// its digital signature.</note>
 		/// </remarks>
-		/// <value><c>true</c> if certificate revocation should be checked; otherwise, <c>false</c>.</value>
+		/// <value><c>true</c> if CRLs should be downloaded automatically; otherwise, <c>false</c>.</value>
 		public bool CheckCertificateRevocation {
 			get; set;
 		}
@@ -237,20 +246,40 @@ namespace MimeKit.Cryptography
 		/// <param name="timestamp">The timestamp.</param>
 		protected abstract void UpdateSecureMimeCapabilities (X509Certificate certificate, EncryptionAlgorithm[] algorithms, DateTime timestamp);
 
-		AttributeTable AddSecureMimeCapabilities (AttributeTable signedAttributes)
+		CmsAttributeTableGenerator AddSecureMimeCapabilities (AttributeTable signedAttributes)
 		{
-			var attr = GetSecureMimeCapabilitiesAttribute ();
+			var attr = GetSecureMimeCapabilitiesAttribute (true);
 
 			// populate our signed attributes with some S/MIME capabilities
-			return signedAttributes.Add (attr.AttrType, attr.AttrValues[0]);
+			return new DefaultSignedAttributeTableGenerator (signedAttributes.Add (attr.AttrType, attr.AttrValues[0]));
 		}
 
 		Stream Sign (CmsSigner signer, Stream content, bool encapsulate)
 		{
+			var unsignedAttributes = new SimpleAttributeTableGenerator (signer.UnsignedAttributes);
+			var signedAttributes = AddSecureMimeCapabilities (signer.SignedAttributes);
 			var signedData = new CmsSignedDataStreamGenerator ();
+			var digestOid = GetDigestOid (signer.DigestAlgorithm);
+			byte[] subjectKeyId = null;
 
-			signedData.AddSigner (signer.PrivateKey, signer.Certificate, GetDigestOid (signer.DigestAlgorithm),
-			                      AddSecureMimeCapabilities (signer.SignedAttributes), signer.UnsignedAttributes);
+			if (signer.SignerIdentifierType == SubjectIdentifierType.SubjectKeyIdentifier) {
+				var subjectKeyIdentifier = signer.Certificate.GetExtensionValue (X509Extensions.SubjectKeyIdentifier);
+				if (subjectKeyIdentifier != null) {
+					var id = (Asn1OctetString) Asn1Object.FromByteArray (subjectKeyIdentifier.GetOctets ());
+					subjectKeyId = id.GetOctets ();
+				}
+			}
+
+			if (signer.PrivateKey is RsaKeyParameters && signer.RsaSignaturePadding == RsaSignaturePadding.Pss) {
+				if (subjectKeyId == null)
+					signedData.AddSigner (signer.PrivateKey, signer.Certificate, RsassaPssOid, digestOid, signedAttributes, unsignedAttributes);
+				else
+					signedData.AddSigner (signer.PrivateKey, subjectKeyId, RsassaPssOid, digestOid, signedAttributes, unsignedAttributes);
+			} else if (subjectKeyId == null) {
+				signedData.AddSigner (signer.PrivateKey, signer.Certificate, digestOid, signedAttributes, unsignedAttributes);
+			} else {
+				signedData.AddSigner (signer.PrivateKey, subjectKeyId, digestOid, signedAttributes, unsignedAttributes);
+			}
 
 			signedData.AddCertificates (signer.CertificateChain);
 
@@ -270,7 +299,7 @@ namespace MimeKit.Cryptography
 		/// <remarks>
 		/// Cryptographically signs and encapsulates the content using the specified signer.
 		/// </remarks>
-		/// <returns>A new <see cref="MimeKit.Cryptography.ApplicationPkcs7Mime"/> instance
+		/// <returns>A new <see cref="ApplicationPkcs7Mime"/> instance
 		/// containing the detached signature data.</returns>
 		/// <param name="signer">The signer.</param>
 		/// <param name="content">The content.</param>
@@ -299,7 +328,7 @@ namespace MimeKit.Cryptography
 		/// <remarks>
 		/// Cryptographically signs and encapsulates the content using the specified signer and digest algorithm.
 		/// </remarks>
-		/// <returns>A new <see cref="MimeKit.Cryptography.ApplicationPkcs7Mime"/> instance
+		/// <returns>A new <see cref="ApplicationPkcs7Mime"/> instance
 		/// containing the detached signature data.</returns>
 		/// <param name="signer">The signer.</param>
 		/// <param name="digestAlgo">The digest algorithm to use for signing.</param>
@@ -340,7 +369,7 @@ namespace MimeKit.Cryptography
 		/// <remarks>
 		/// Cryptographically signs the content using the specified signer.
 		/// </remarks>
-		/// <returns>A new <see cref="MimeKit.Cryptography.ApplicationPkcs7Signature"/> instance
+		/// <returns>A new <see cref="ApplicationPkcs7Signature"/> instance
 		/// containing the detached signature data.</returns>
 		/// <param name="signer">The signer.</param>
 		/// <param name="content">The content.</param>
@@ -369,7 +398,7 @@ namespace MimeKit.Cryptography
 		/// <remarks>
 		/// Cryptographically signs the content using the specified signer and digest algorithm.
 		/// </remarks>
-		/// <returns>A new <see cref="MimeKit.MimePart"/> instance
+		/// <returns>A new <see cref="MimePart"/> instance
 		/// containing the detached signature data.</returns>
 		/// <param name="signer">The signer.</param>
 		/// <param name="digestAlgo">The digest algorithm to use for signing.</param>
@@ -414,30 +443,69 @@ namespace MimeKit.Cryptography
 			return GetCertificate (signer);
 		}
 
-		PkixCertPath BuildCertPath (HashSet anchors, IX509Store certificates, IX509Store crls, X509Certificate certificate, DateTime? signingTime)
+		/// <summary>
+		/// Build a certificate chain.
+		/// </summary>
+		/// <remarks>
+		/// <para>Builds a certificate chain for the provided certificate to include when signing.</para>
+		/// <para>This method is ideal for use with custom <see cref="GetCmsSigner"/>
+		/// implementations when it is desirable to include the certificate chain
+		/// in the signature.</para>
+		/// </remarks>
+		/// <param name="certificate">The certificate to build the chain for.</param>
+		/// <returns>The certificate chain, including the specified certificate.</returns>
+		protected IList<X509Certificate> BuildCertificateChain (X509Certificate certificate)
 		{
-			var intermediate = new X509CertificateStore ();
-			foreach (X509Certificate cert in certificates.GetMatches (null))
-				intermediate.Add (cert);
-
 			var selector = new X509CertStoreSelector ();
 			selector.Certificate = certificate;
 
-			var parameters = new PkixBuilderParameters (anchors, selector);
-			parameters.AddStore (GetIntermediateCertificates ());
-			parameters.AddStore (intermediate);
+			var intermediates = new X509CertificateStore ();
+			intermediates.Add (certificate);
 
-			var localCrls = GetCertificateRevocationLists ();
-			parameters.AddStore (localCrls);
+			var parameters = new PkixBuilderParameters (GetTrustedAnchors (), selector);
+			parameters.ValidityModel = PkixParameters.PkixValidityModel;
+			parameters.AddStore (intermediates);
+			parameters.AddStore (GetIntermediateCertificates ());
+			parameters.IsRevocationEnabled = false;
+			parameters.Date = new DateTimeObject (DateTime.UtcNow);
+
+			var builder = new PkixCertPathBuilder ();
+			var result = builder.Build (parameters);
+
+			var chain = new X509Certificate[result.CertPath.Certificates.Count];
+
+			for (int i = 0; i < chain.Length; i++)
+				chain[i] = (X509Certificate) result.CertPath.Certificates[i];
+
+			return chain;
+		}
+
+		PkixCertPath BuildCertPath (HashSet anchors, IX509Store certificates, IX509Store crls, X509Certificate certificate, DateTime signingTime)
+		{
+			var selector = new X509CertStoreSelector ();
+			selector.Certificate = certificate;
+
+			var intermediates = new X509CertificateStore ();
+			intermediates.Add (certificate);
+
+			foreach (X509Certificate cert in certificates.GetMatches (null))
+				intermediates.Add (cert);
+
+			var parameters = new PkixBuilderParameters (anchors, selector);
+			parameters.AddStore (intermediates);
 			parameters.AddStore (crls);
+
+			parameters.AddStore (GetIntermediateCertificates ());
+			parameters.AddStore (GetCertificateRevocationLists ());
 
 			parameters.ValidityModel = PkixParameters.PkixValidityModel;
 			parameters.IsRevocationEnabled = false;
 
-			if (signingTime.HasValue)
-				parameters.Date = new DateTimeObject (signingTime.Value);
+			if (signingTime != default (DateTime))
+				parameters.Date = new DateTimeObject (signingTime);
 
-			var result = new PkixCertPathBuilder ().Build (parameters);
+			var builder = new PkixCertPathBuilder ();
+			var result = builder.Build (parameters);
 
 			return result.CertPath;
 		}
@@ -456,7 +524,7 @@ namespace MimeKit.Cryptography
 		/// <exception cref="System.ArgumentNullException">
 		/// <paramref name="identifier"/> is <c>null</c>.
 		/// </exception>
-		protected static bool TryGetDigestAlgorithm (AlgorithmIdentifier identifier, out DigestAlgorithm algorithm)
+		internal protected static bool TryGetDigestAlgorithm (AlgorithmIdentifier identifier, out DigestAlgorithm algorithm)
 		{
 			if (identifier == null)
 				throw new ArgumentNullException (nameof (identifier));
@@ -576,23 +644,14 @@ namespace MimeKit.Cryptography
 			return false;
 		}
 
-		static DateTime ToAdjustedDateTime (DerUtcTime time)
-		{
-			//try {
-			//	return time.ToAdjustedDateTime ();
-			//} catch {
-			return DateUtils.Parse (time.AdjustedTimeString, "yyyyMMddHHmmsszzz");
-			//}
-		}
-
 		async Task<bool> DownloadCrlsOverHttpAsync (string location, Stream stream, bool doAsync, CancellationToken cancellationToken)
 		{
 			try {
 				if (doAsync) {
-					using (var response = await client.GetAsync (location, cancellationToken))
-						await response.Content.CopyToAsync (stream);
+					using (var response = await client.GetAsync (location, cancellationToken).ConfigureAwait (false))
+						await response.Content.CopyToAsync (stream).ConfigureAwait (false);
 				} else {
-#if !NETSTANDARD && !PORTABLE
+#if !NETSTANDARD1_3 && !NETSTANDARD1_6
 					cancellationToken.ThrowIfCancellationRequested ();
 
 					var request = (HttpWebRequest) WebRequest.Create (location);
@@ -750,58 +809,22 @@ namespace MimeKit.Cryptography
 
 			foreach (SignerInformation signerInfo in store.GetSigners ()) {
 				var certificate = GetCertificate (certificates, signerInfo.SignerID);
-				var signature = new SecureMimeDigitalSignature (signerInfo);
-				var algorithms = new List<EncryptionAlgorithm> ();
-				DateTime? signedDate = null;
-				DigestAlgorithm digestAlgo;
+				var signature = new SecureMimeDigitalSignature (signerInfo, certificate);
 
 				if (CheckCertificateRevocation && certificate != null)
 					await DownloadCrlsAsync (certificate, doAsync, cancellationToken).ConfigureAwait (false);
 
-				if (signerInfo.SignedAttributes != null) {
-					Asn1EncodableVector vector = signerInfo.SignedAttributes.GetAll (CmsAttributes.SigningTime);
-					foreach (Org.BouncyCastle.Asn1.Cms.Attribute attr in vector) {
-						var signingTime = (DerUtcTime) ((DerSet) attr.AttrValues)[0];
-						signature.CreationDate = ToAdjustedDateTime (signingTime);
-						signedDate = signature.CreationDate;
-						break;
-					}
-
-					vector = signerInfo.SignedAttributes.GetAll (SmimeAttributes.SmimeCapabilities);
-					foreach (Org.BouncyCastle.Asn1.Cms.Attribute attr in vector) {
-						foreach (Asn1Sequence sequence in attr.AttrValues) {
-							for (int i = 0; i < sequence.Count; i++) {
-								var identifier = AlgorithmIdentifier.GetInstance (sequence[i]);
-								EncryptionAlgorithm algorithm;
-
-								if (TryGetEncryptionAlgorithm (identifier, out algorithm))
-									algorithms.Add (algorithm);
-							}
-						}
-					}
-
-					signature.EncryptionAlgorithms = algorithms.ToArray ();
-				}
-
-				if (TryGetDigestAlgorithm (signerInfo.DigestAlgorithmID, out digestAlgo))
-					signature.DigestAlgorithm = digestAlgo;
-
 				if (certificate != null) {
-					signature.SignerCertificate = new SecureMimeDigitalCertificate (certificate);
-					if (algorithms.Count > 0 && signedDate != null) {
-						UpdateSecureMimeCapabilities (certificate, signature.EncryptionAlgorithms, signedDate.Value);
-					} else {
-						try {
-							Import (certificate);
-						} catch {
-						}
-					}
+					Import (certificate);
+
+					if (signature.EncryptionAlgorithms.Length > 0 && signature.CreationDate != default (DateTime))
+						UpdateSecureMimeCapabilities (certificate, signature.EncryptionAlgorithms, signature.CreationDate);
 				}
 
 				var anchors = GetTrustedAnchors ();
 
 				try {
-					signature.Chain = BuildCertPath (anchors, certificates, crls, certificate, signedDate);
+					signature.Chain = BuildCertPath (anchors, certificates, crls, certificate, signature.CreationDate);
 				} catch (Exception ex) {
 					signature.ChainException = ex;
 				}
@@ -959,6 +982,73 @@ namespace MimeKit.Cryptography
 			return content;
 		}
 
+		class CmsRecipientInfoGenerator : RecipientInfoGenerator
+		{
+			readonly CmsRecipient recipient;
+
+			public CmsRecipientInfoGenerator (CmsRecipient recipient)
+			{
+				this.recipient = recipient;
+			}
+
+			IWrapper CreateWrapper (AlgorithmIdentifier keyExchangeAlgorithm)
+			{
+				string name;
+
+				if (PkcsObjectIdentifiers.IdRsaesOaep.Id.Equals (keyExchangeAlgorithm.Algorithm.Id, StringComparison.Ordinal)) {
+					var oaepParameters = RsaesOaepParameters.GetInstance (keyExchangeAlgorithm.Parameters);
+					name = "RSA//OAEPWITH" + DigestUtilities.GetAlgorithmName (oaepParameters.HashAlgorithm.Algorithm) + "ANDMGF1Padding";
+				} else if (PkcsObjectIdentifiers.RsaEncryption.Id.Equals (keyExchangeAlgorithm.Algorithm.Id, StringComparison.Ordinal)) {
+					name = "RSA//PKCS1Padding";
+				} else {
+					name = keyExchangeAlgorithm.Algorithm.Id;
+				}
+
+				return WrapperUtilities.GetWrapper (name);
+			}
+
+			byte[] GenerateWrappedKey (KeyParameter contentEncryptionKey, AlgorithmIdentifier keyEncryptionAlgorithm, AsymmetricKeyParameter publicKey, SecureRandom random)
+			{
+				var keyWrapper = CreateWrapper (keyEncryptionAlgorithm);
+				var keyBytes = contentEncryptionKey.GetKey ();
+
+				keyWrapper.Init (true, new ParametersWithRandom (publicKey, random));
+
+				return keyWrapper.Wrap (keyBytes, 0, keyBytes.Length);
+			}
+
+			public RecipientInfo Generate (KeyParameter contentEncryptionKey, SecureRandom random)
+			{
+				var tbs = Asn1Object.FromByteArray (recipient.Certificate.GetTbsCertificate ());
+				var certificate = TbsCertificateStructure.GetInstance (tbs);
+				var publicKey = recipient.Certificate.GetPublicKey ();
+				var publicKeyInfo = certificate.SubjectPublicKeyInfo;
+				AlgorithmIdentifier keyEncryptionAlgorithm;
+
+				if (publicKey is RsaKeyParameters && recipient.RsaEncryptionPadding?.Scheme == RsaEncryptionPaddingScheme.Oaep) {
+					keyEncryptionAlgorithm = recipient.RsaEncryptionPadding.GetAlgorithmIdentifier ();
+				} else {
+					keyEncryptionAlgorithm = publicKeyInfo.AlgorithmID;
+				}
+
+				var encryptedKeyBytes = GenerateWrappedKey (contentEncryptionKey, keyEncryptionAlgorithm, publicKey, random);
+				RecipientIdentifier recipientIdentifier = null;
+
+				if (recipient.RecipientIdentifierType == SubjectIdentifierType.SubjectKeyIdentifier) {
+					var subjectKeyIdentifier = recipient.Certificate.GetExtensionValue (X509Extensions.SubjectKeyIdentifier);
+					recipientIdentifier = new RecipientIdentifier (subjectKeyIdentifier);
+				}
+
+				if (recipientIdentifier == null) {
+					var issuerAndSerial = new IssuerAndSerialNumber (certificate.Issuer, certificate.SerialNumber.Value);
+					recipientIdentifier = new RecipientIdentifier (issuerAndSerial);
+				}
+
+				return new RecipientInfo (new KeyTransRecipientInfo (recipientIdentifier, keyEncryptionAlgorithm,
+					new DerOctetString (encryptedKeyBytes)));
+			}
+		}
+
 		Stream Envelope (CmsRecipientCollection recipients, Stream content)
 		{
 			var unique = new HashSet<X509Certificate> ();
@@ -967,7 +1057,7 @@ namespace MimeKit.Cryptography
 
 			foreach (var recipient in recipients) {
 				if (unique.Add (recipient.Certificate)) {
-					cms.AddKeyTransRecipient (recipient.Certificate);
+					cms.AddRecipientInfoGenerator (new CmsRecipientInfoGenerator (recipient));
 					count++;
 				}
 			}
@@ -1041,7 +1131,7 @@ namespace MimeKit.Cryptography
 		/// <remarks>
 		/// Encrypts the specified content for the specified recipients.
 		/// </remarks>
-		/// <returns>A new <see cref="MimeKit.Cryptography.ApplicationPkcs7Mime"/> instance
+		/// <returns>A new <see cref="ApplicationPkcs7Mime"/> instance
 		/// containing the encrypted content.</returns>
 		/// <param name="recipients">The recipients.</param>
 		/// <param name="content">The content.</param>
@@ -1070,7 +1160,7 @@ namespace MimeKit.Cryptography
 		/// <remarks>
 		/// Encrypts the specified content for the specified recipients.
 		/// </remarks>
-		/// <returns>A new <see cref="MimeKit.MimePart"/> instance
+		/// <returns>A new <see cref="MimePart"/> instance
 		/// containing the encrypted data.</returns>
 		/// <param name="recipients">The recipients.</param>
 		/// <param name="content">The content.</param>
@@ -1105,7 +1195,7 @@ namespace MimeKit.Cryptography
 		/// <remarks>
 		/// Decrypts the specified encryptedData.
 		/// </remarks>
-		/// <returns>The decrypted <see cref="MimeKit.MimeEntity"/>.</returns>
+		/// <returns>The decrypted <see cref="MimeEntity"/>.</returns>
 		/// <param name="encryptedData">The encrypted data.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -1147,22 +1237,22 @@ namespace MimeKit.Cryptography
 		/// Decrypts the specified encryptedData to an output stream.
 		/// </remarks>
 		/// <param name="encryptedData">The encrypted data.</param>
-		/// <param name="output">The output stream.</param>
+		/// <param name="decryptedData">The output stream.</param>
 		/// <exception cref="System.ArgumentNullException">
 		/// <para><paramref name="encryptedData"/> is <c>null</c>.</para>
 		/// <para>-or-</para>
-		/// <para><paramref name="output"/> is <c>null</c>.</para>
+		/// <para><paramref name="decryptedData"/> is <c>null</c>.</para>
 		/// </exception>
 		/// <exception cref="Org.BouncyCastle.Cms.CmsException">
 		/// An error occurred in the cryptographic message syntax subsystem.
 		/// </exception>
-		public override void DecryptTo (Stream encryptedData, Stream output)
+		public override void DecryptTo (Stream encryptedData, Stream decryptedData)
 		{
 			if (encryptedData == null)
 				throw new ArgumentNullException (nameof (encryptedData));
 
-			if (output == null)
-				throw new ArgumentNullException (nameof (output));
+			if (decryptedData == null)
+				throw new ArgumentNullException (nameof (decryptedData));
 
 			var parser = new CmsEnvelopedDataParser (encryptedData);
 			var recipients = parser.GetRecipientInfos ();
@@ -1174,8 +1264,7 @@ namespace MimeKit.Cryptography
 					continue;
 
 				var content = recipient.GetContentStream (key);
-
-				content.ContentStream.CopyTo (output, 4096);
+				content.ContentStream.CopyTo (decryptedData, 4096);
 				return;
 			}
 
@@ -1188,7 +1277,7 @@ namespace MimeKit.Cryptography
 		/// <remarks>
 		/// Exports the certificates for the specified mailboxes.
 		/// </remarks>
-		/// <returns>A new <see cref="MimeKit.Cryptography.ApplicationPkcs7Mime"/> instance containing
+		/// <returns>A new <see cref="ApplicationPkcs7Mime"/> instance containing
 		/// the exported keys.</returns>
 		/// <param name="mailboxes">The mailboxes.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -1221,9 +1310,9 @@ namespace MimeKit.Cryptography
 				throw new ArgumentException ("No mailboxes specified.", nameof (mailboxes));
 
 			var cms = new CmsSignedDataStreamGenerator ();
-			var memory = new MemoryBlockStream ();
-
 			cms.AddCertificates (certificates);
+
+			var memory = new MemoryBlockStream ();
 			cms.Open (memory).Dispose ();
 			memory.Position = 0;
 

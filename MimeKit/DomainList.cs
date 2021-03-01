@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,7 @@
 using System;
 using System.Text;
 using System.Collections;
+using System.Globalization;
 using System.Collections.Generic;
 
 using MimeKit.Utils;
@@ -44,7 +45,7 @@ namespace MimeKit {
 		readonly List<string> domains;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.DomainList"/> class.
+		/// Initialize a new instance of the <see cref="DomainList"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="DomainList"/> based on the domains provided.
@@ -62,7 +63,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.DomainList"/> class.
+		/// Initialize a new instance of the <see cref="DomainList"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="DomainList"/>.
@@ -216,7 +217,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Copies all of the domains in the <see cref="MimeKit.DomainList"/> to the specified array.
+		/// Copies all of the domains in the <see cref="DomainList"/> to the specified array.
 		/// </summary>
 		/// <remarks>
 		/// Copies all of the domains within the <see cref="DomainList"/> into the array,
@@ -260,7 +261,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets the number of domains in the <see cref="MimeKit.DomainList"/>.
+		/// Gets the number of domains in the <see cref="DomainList"/>.
 		/// </summary>
 		/// <remarks>
 		/// Indicates the number of domains in the list.
@@ -271,7 +272,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets a value indicating whether this instance is read only.
+		/// Get a value indicating whether the <see cref="DomainList"/> is read only.
 		/// </summary>
 		/// <remarks>
 		/// A <see cref="DomainList"/> is never read-only.
@@ -333,14 +334,11 @@ namespace MimeKit {
 			var builder = new StringBuilder ();
 
 			for (int i = 0; i < domains.Count; i++) {
-				if (IsNullOrWhiteSpace (domains[i]) && builder.Length == 0)
+				if (IsNullOrWhiteSpace (domains[i]))
 					continue;
 
 				if (builder.Length > 0)
 					builder.Append (',');
-
-				if (IsNullOrWhiteSpace (domains[i]))
-					continue;
 
 				builder.Append ('@');
 
@@ -369,14 +367,13 @@ namespace MimeKit {
 			var builder = new StringBuilder ();
 
 			for (int i = 0; i < domains.Count; i++) {
-				if (IsNullOrWhiteSpace (domains[i]) && builder.Length == 0)
+				if (IsNullOrWhiteSpace (domains[i]))
 					continue;
 
 				if (builder.Length > 0)
 					builder.Append (',');
 
-				if (!IsNullOrWhiteSpace (domains[i]))
-					builder.Append ('@');
+				builder.Append ('@');
 
 				builder.Append (domains[i]);
 			}
@@ -393,7 +390,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Tries to parse a list of domains.
+		/// Try to parse a list of domains.
 		/// </summary>
 		/// <remarks>
 		/// Attempts to parse a <see cref="DomainList"/> from the text buffer starting at the
@@ -422,7 +419,7 @@ namespace MimeKit {
 
 				if (index >= endIndex) {
 					if (throwOnError)
-						throw new ParseException (string.Format ("Incomplete domain-list at offset: {0}", startIndex), startIndex, index);
+						throw new ParseException (string.Format (CultureInfo.InvariantCulture, "Incomplete domain-list at offset: {0}", startIndex), startIndex, index);
 
 					return false;
 				}
@@ -453,7 +450,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Tries to parse a list of domains.
+		/// Try to parse a list of domains.
 		/// </summary>
 		/// <remarks>
 		/// Attempts to parse a <see cref="DomainList"/> from the supplied text. The index

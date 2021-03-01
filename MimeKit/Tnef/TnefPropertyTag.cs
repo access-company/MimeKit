@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -378,6 +378,38 @@ namespace MimeKit.Tnef {
 		/// The MAPI property PR_ATTACH_LONG_PATHNAME.
 		/// </remarks>
 		public static readonly TnefPropertyTag AttachLongPathnameW = new TnefPropertyTag (TnefPropertyId.AttachLongPathname, TnefPropertyType.Unicode);
+
+		/// <summary>
+		/// The MAPI property PR_ATTACHMENT_CONTACTPHOTO.
+		/// </summary>
+		/// <remarks>
+		/// The MAPI property PR_ATTACHMENT_CONTACTPHOTO.
+		/// </remarks>
+		public static readonly TnefPropertyTag AttachmentContactPhoto = new TnefPropertyTag (TnefPropertyId.AttachmentContactPhoto, TnefPropertyType.Boolean);
+
+		/// <summary>
+		/// The MAPI property PR_ATTACHMENT_FLAGS.
+		/// </summary>
+		/// <remarks>
+		/// The MAPI property PR_ATTACHMENT_FLAGS.
+		/// </remarks>
+		public static readonly TnefPropertyTag AttachmentFlags = new TnefPropertyTag (TnefPropertyId.AttachmentFlags, TnefPropertyType.Long);
+
+		/// <summary>
+		/// The MAPI property PR_ATTACHMENT_HIDDEN.
+		/// </summary>
+		/// <remarks>
+		/// The MAPI property PR_ATTACHMENT_HIDDEN.
+		/// </remarks>
+		public static readonly TnefPropertyTag AttachmentHidden = new TnefPropertyTag (TnefPropertyId.AttachmentHidden, TnefPropertyType.Boolean);
+
+		/// <summary>
+		/// The MAPI property PR_ATTACHMENT_LINKID.
+		/// </summary>
+		/// <remarks>
+		/// The MAPI property PR_ATTACHMENT_LINKID.
+		/// </remarks>
+		public static readonly TnefPropertyTag AttachmentLinkId = new TnefPropertyTag (TnefPropertyId.AttachmentLinkId, TnefPropertyType.Long);
 
 		/// <summary>
 		/// The MAPI property PR_ATTACHMENT_X400_PARAMETERS.
@@ -2484,6 +2516,22 @@ namespace MimeKit.Tnef {
 		public static readonly TnefPropertyTag LastModificationTime = new TnefPropertyTag (TnefPropertyId.LastModificationTime, TnefPropertyType.SysTime);
 
 		/// <summary>
+		/// The MAPI property PR_LAST_MODIFIER_NAME.
+		/// </summary>
+		/// <remarks>
+		/// The MAPI property PR_LAST_MODIFIER_NAME.
+		/// </remarks>
+		public static readonly TnefPropertyTag LastModifierNameA = new TnefPropertyTag (TnefPropertyId.LastModifierName, TnefPropertyType.String8);
+
+		/// <summary>
+		/// The MAPI property PR_LAST_MODIFIER_NAME.
+		/// </summary>
+		/// <remarks>
+		/// The MAPI property PR_LAST_MODIFIER_NAME.
+		/// </remarks>
+		public static readonly TnefPropertyTag LastModifierNameW = new TnefPropertyTag (TnefPropertyId.LastModifierName, TnefPropertyType.Unicode);
+
+		/// <summary>
 		/// The MAPI property PR_LATEST_DELIVERY_TIME.
 		/// </summary>
 		/// <remarks>
@@ -4309,6 +4357,22 @@ namespace MimeKit.Tnef {
 		public static readonly TnefPropertyTag RecipientCertificate = new TnefPropertyTag (TnefPropertyId.RecipientCertificate, TnefPropertyType.Binary);
 
 		/// <summary>
+		/// The MAPI property PR_RECIPIENT_DISPLAY_NAME.
+		/// </summary>
+		/// <remarks>
+		/// The MAPI property PR_RECIPIENT_DISPLAY_NAME.
+		/// </remarks>
+		public static readonly TnefPropertyTag RecipientDisplayNameA = new TnefPropertyTag (TnefPropertyId.RecipientDisplayName, TnefPropertyType.String8);
+
+		/// <summary>
+		/// The MAPI property PR_RECIPIENT_DISPLAY_NAME.
+		/// </summary>
+		/// <remarks>
+		/// The MAPI property PR_RECIPIENT_DISPLAY_NAME.
+		/// </remarks>
+		public static readonly TnefPropertyTag RecipientDisplayNameW = new TnefPropertyTag (TnefPropertyId.RecipientDisplayName, TnefPropertyType.Unicode);
+
+		/// <summary>
 		/// The MAPI property PR_RECIPIENT_NUMBER_FOR_ADVICE.
 		/// </summary>
 		/// <remarks>
@@ -5556,7 +5620,7 @@ namespace MimeKit.Tnef {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Tnef.TnefPropertyTag"/> struct.
+		/// Initialize a new instance of the <see cref="TnefPropertyTag"/> struct.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="TnefPropertyTag"/> based on a 32-bit integer tag as read from
@@ -5576,7 +5640,7 @@ namespace MimeKit.Tnef {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.Tnef.TnefPropertyTag"/> struct.
+		/// Initialize a new instance of the <see cref="TnefPropertyTag"/> struct.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new <see cref="TnefPropertyTag"/> based on a <see cref="TnefPropertyId"/>
@@ -5617,10 +5681,10 @@ namespace MimeKit.Tnef {
 		}
 
 		/// <summary>
-		/// Serves as a hash function for a <see cref="MimeKit.Tnef.TnefPropertyTag"/> object.
+		/// Serves as a hash function for a <see cref="TnefPropertyTag"/> object.
 		/// </summary>
 		/// <remarks>
-		/// Serves as a hash function for a <see cref="MimeKit.Tnef.TnefPropertyTag"/> object.
+		/// Serves as a hash function for a <see cref="TnefPropertyTag"/> object.
 		/// </remarks>
 		/// <returns>A hash code for this instance that is suitable for use in hashing algorithms
 		/// and data structures such as a hash table.</returns>
@@ -5630,14 +5694,14 @@ namespace MimeKit.Tnef {
 		}
 
 		/// <summary>
-		/// Determines whether the specified <see cref="System.Object"/> is equal to the current <see cref="MimeKit.Tnef.TnefPropertyTag"/>.
+		/// Determines whether the specified <see cref="System.Object"/> is equal to the current <see cref="TnefPropertyTag"/>.
 		/// </summary>
 		/// <remarks>
-		/// Determines whether the specified <see cref="System.Object"/> is equal to the current <see cref="MimeKit.Tnef.TnefPropertyTag"/>.
+		/// Determines whether the specified <see cref="System.Object"/> is equal to the current <see cref="TnefPropertyTag"/>.
 		/// </remarks>
-		/// <param name="obj">The <see cref="System.Object"/> to compare with the current <see cref="MimeKit.Tnef.TnefPropertyTag"/>.</param>
+		/// <param name="obj">The <see cref="System.Object"/> to compare with the current <see cref="TnefPropertyTag"/>.</param>
 		/// <returns><c>true</c> if the specified <see cref="System.Object"/> is equal to the current
-		/// <see cref="MimeKit.Tnef.TnefPropertyTag"/>; otherwise, <c>false</c>.</returns>
+		/// <see cref="TnefPropertyTag"/>; otherwise, <c>false</c>.</returns>
 		public override bool Equals (object obj)
 		{
 			if (!(obj is TnefPropertyTag))
@@ -5649,12 +5713,12 @@ namespace MimeKit.Tnef {
 		}
 
 		/// <summary>
-		/// Returns a <see cref="System.String"/> that represents the current <see cref="MimeKit.Tnef.TnefPropertyTag"/>.
+		/// Returns a <see cref="System.String"/> that represents the current <see cref="TnefPropertyTag"/>.
 		/// </summary>
 		/// <remarks>
-		/// Returns a <see cref="System.String"/> that represents the current <see cref="MimeKit.Tnef.TnefPropertyTag"/>.
+		/// Returns a <see cref="System.String"/> that represents the current <see cref="TnefPropertyTag"/>.
 		/// </remarks>
-		/// <returns>A <see cref="System.String"/> that represents the current <see cref="MimeKit.Tnef.TnefPropertyTag"/>.</returns>
+		/// <returns>A <see cref="System.String"/> that represents the current <see cref="TnefPropertyTag"/>.</returns>
 		public override string ToString ()
 		{
 			return string.Format ("{0} ({1})", Id, ValueTnefType);

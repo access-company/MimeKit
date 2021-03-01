@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -33,10 +33,10 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle ("MimeKit")]
 [assembly: AssemblyDescription ("A complete MIME library with support for S/MIME, PGP, DKIM and Unix mbox spools.")]
 [assembly: AssemblyConfiguration ("")]
-[assembly: AssemblyCompany ("Xamarin Inc.")]
+[assembly: AssemblyCompany (".NET Foundation")]
 [assembly: AssemblyProduct ("MimeKit")]
-[assembly: AssemblyCopyright ("Copyright © 2013-2018 Xamarin Inc. (www.xamarin.com)")]
-[assembly: AssemblyTrademark ("Xamarin Inc.")]
+[assembly: AssemblyCopyright ("Copyright © 2013-2020 .NET Foundation and Contributors")]
+[assembly: AssemblyTrademark (".NET Foundation")]
 [assembly: AssemblyCulture ("")]
 
 // Setting ComVisible to false makes the types in this assembly not visible
@@ -44,7 +44,6 @@ using System.Runtime.InteropServices;
 // COM, set the ComVisible attribute to true on that type.
 [assembly: ComVisible (true)]
 
-#if !PORTABLE
 // The following GUID is for the ID of the typelib if this project is exposed to COM
 [assembly: Guid ("2fe79b66-d107-45da-9493-175f59c4a53c")]
 [assembly: InternalsVisibleTo ("UnitTests, PublicKey=002400000480000094000000060200" +
@@ -52,7 +51,6 @@ using System.Runtime.InteropServices;
 	"4656c5bfe4c47803453a91ae525f723f4316fd90a3f87366f4d948593277e950f6d2df6ee26068" +
 	"1877a6d9e71c3ea77e87e61f3878af1d69bf10dce8debe92c54ca8a10afc44dc08674f3db6594e" +
 	"f545d67d31cc3e18b8f90d8f220c4b67d7e87f5b7e8df410ac8faeb3")]
-#endif
 
 // Version information for an assembly consists of the following four values:
 //
@@ -80,6 +78,6 @@ using System.Runtime.InteropServices;
 //
 // If there have only been bug fixes, bump the Micro Version and/or the Build Number
 //    in the AssemblyFileVersion attribute.
-[assembly: AssemblyInformationalVersion ("2.0.1.1.0")]
-[assembly: AssemblyFileVersion ("2.0.1.1.0")]
-[assembly: AssemblyVersion ("2.0.0.0")]
+[assembly: AssemblyInformationalVersion ("2.10.1.0")]
+[assembly: AssemblyFileVersion ("2.10.1.0")]
+[assembly: AssemblyVersion ("2.10.0.0")]

@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -32,16 +32,12 @@ using System.Collections;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
-#if PORTABLE
-using Encoding = Portable.Text.Encoding;
-#endif
-
 using MimeKit.IO;
 using MimeKit.Utils;
 
 namespace MimeKit {
 	/// <summary>
-	/// A list of <see cref="MimeKit.Header"/>s.
+	/// A list of <see cref="Header"/>s.
 	/// </summary>
 	/// <remarks>
 	/// Represents a list of headers as found in a <see cref="MimeMessage"/>
@@ -63,7 +59,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.HeaderList"/> class.
+		/// Initialize a new instance of the <see cref="HeaderList"/> class.
 		/// </summary>
 		/// <remarks>
 		/// Creates a new empty header list.
@@ -73,7 +69,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Adds a header with the specified field and value.
+		/// Add a header with the specified field and value.
 		/// </summary>
 		/// <remarks>
 		/// Adds a new header for the specified field and value pair.
@@ -92,7 +88,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Adds a header with the specified field and value.
+		/// Add a header with the specified field and value.
 		/// </summary>
 		/// <remarks>
 		/// Adds a new header for the specified field and value pair.
@@ -113,7 +109,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Adds a header with the specified field and value.
+		/// Add a header with the specified field and value.
 		/// </summary>
 		/// <remarks>
 		/// Adds a new header for the specified field and value pair.
@@ -135,7 +131,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Adds a header with the specified field and value.
+		/// Add a header with the specified field and value.
 		/// </summary>
 		/// <remarks>
 		/// Adds a new header for the specified field and value pair.
@@ -159,7 +155,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Checks if the <see cref="MimeKit.HeaderList"/> contains a header with the specified field name.
+		/// Check if the <see cref="HeaderList"/> contains a header with the specified field name.
 		/// </summary>
 		/// <remarks>
 		/// Determines whether or not the header list contains the specified header.
@@ -179,7 +175,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Checks if the <see cref="MimeKit.HeaderList"/> contains a header with the specified field name.
+		/// Check if the <see cref="HeaderList"/> contains a header with the specified field name.
 		/// </summary>
 		/// <remarks>
 		/// Determines whether or not the header list contains the specified header.
@@ -199,7 +195,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets the index of the requested header, if it exists.
+		/// Get the index of the requested header, if it exists.
 		/// </summary>
 		/// <remarks>
 		/// Finds the first index of the specified header, if it exists.
@@ -223,7 +219,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets the index of the requested header, if it exists.
+		/// Get the index of the requested header, if it exists.
 		/// </summary>
 		/// <remarks>
 		/// Finds the first index of the specified header, if it exists.
@@ -247,7 +243,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Inserts a header with the specified field and value at the given index.
+		/// Insert a header with the specified field and value at the given index.
 		/// </summary>
 		/// <remarks>
 		/// Inserts the header at the specified index in the list.
@@ -269,7 +265,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Inserts a header with the specified field and value at the given index.
+		/// Insert a header with the specified field and value at the given index.
 		/// </summary>
 		/// <remarks>
 		/// Inserts the header at the specified index in the list.
@@ -294,7 +290,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Inserts a header with the specified field and value at the given index.
+		/// Insert a header with the specified field and value at the given index.
 		/// </summary>
 		/// <remarks>
 		/// Inserts the header at the specified index in the list.
@@ -319,7 +315,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Inserts a header with the specified field and value at the given index.
+		/// Insert a header with the specified field and value at the given index.
 		/// </summary>
 		/// <remarks>
 		/// Inserts the header at the specified index in the list.
@@ -347,7 +343,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets the last index of the requested header, if it exists.
+		/// Get the last index of the requested header, if it exists.
 		/// </summary>
 		/// <remarks>
 		/// Finds the last index of the specified header, if it exists.
@@ -371,7 +367,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets the last index of the requested header, if it exists.
+		/// Get the last index of the requested header, if it exists.
 		/// </summary>
 		/// <remarks>
 		/// Finds the last index of the specified header, if it exists.
@@ -395,7 +391,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Removes the first occurance of the specified header field.
+		/// Remove the first occurance of the specified header field.
 		/// </summary>
 		/// <remarks>
 		/// Removes the first occurance of the specified header field, if any exist.
@@ -419,7 +415,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Removes the first occurance of the specified header field.
+		/// Remove the first occurance of the specified header field.
 		/// </summary>
 		/// <remarks>
 		/// Removes the first occurance of the specified header field, if any exist.
@@ -443,7 +439,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Removes all of the headers matching the specified field name.
+		/// Remove all of the headers matching the specified field name.
 		/// </summary>
 		/// <remarks>
 		/// Removes all of the headers matching the specified field name.
@@ -471,7 +467,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Removes all of the headers matching the specified field name.
+		/// Remove all of the headers matching the specified field name.
 		/// </summary>
 		/// <remarks>
 		/// Removes all of the headers matching the specified field name.
@@ -499,7 +495,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Replaces all headers with identical field names with the single specified header.
+		/// Replace all headers with identical field names with the single specified header.
 		/// </summary>
 		/// <remarks>
 		/// <para>Replaces all headers with identical field names with the single specified header.</para>
@@ -522,7 +518,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Replaces all headers with identical field names with the single specified header.
+		/// Replace all headers with identical field names with the single specified header.
 		/// </summary>
 		/// <remarks>
 		/// <para>Replaces all headers with identical field names with the single specified header.</para>
@@ -542,7 +538,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Replaces all headers with identical field names with the single specified header.
+		/// Replace all headers with identical field names with the single specified header.
 		/// </summary>
 		/// <remarks>
 		/// <para>Replaces all headers with identical field names with the single specified header.</para>
@@ -564,7 +560,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Replaces all headers with identical field names with the single specified header.
+		/// Replace all headers with identical field names with the single specified header.
 		/// </summary>
 		/// <remarks>
 		/// <para>Replaces all headers with identical field names with the single specified header.</para>
@@ -586,7 +582,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets or sets the value of the first occurance of a header
+		/// Get or set the value of the first occurance of a header
 		/// with the specified field name.
 		/// </summary>
 		/// <remarks>
@@ -626,7 +622,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets or sets the value of the first occurance of a header
+		/// Get or set the value of the first occurance of a header
 		/// with the specified field name.
 		/// </summary>
 		/// <remarks>
@@ -668,7 +664,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Write the <see cref="MimeKit.HeaderList"/> to the specified output stream.
+		/// Write the <see cref="HeaderList"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// Writes all of the headers to the output stream.
@@ -699,11 +695,14 @@ namespace MimeKit {
 				filtered.Add (options.CreateNewLineFilter ());
 
 				foreach (var header in headers) {
-					var rawValue = header.GetRawValue (options);
-
 					filtered.Write (header.RawField, 0, header.RawField.Length, cancellationToken);
-					filtered.Write (Header.Colon, 0, Header.Colon.Length, cancellationToken);
-					filtered.Write (rawValue, 0, rawValue.Length, cancellationToken);
+
+					if (!header.IsInvalid) {
+						var rawValue = header.GetRawValue (options);
+
+						filtered.Write (Header.Colon, 0, Header.Colon.Length, cancellationToken);
+						filtered.Write (rawValue, 0, rawValue.Length, cancellationToken);
+					}
 				}
 
 				filtered.Flush (cancellationToken);
@@ -720,7 +719,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Asynchronously write the <see cref="MimeKit.HeaderList"/> to the specified output stream.
+		/// Asynchronously write the <see cref="HeaderList"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// Writes all of the headers to the output stream.
@@ -752,11 +751,14 @@ namespace MimeKit {
 				filtered.Add (options.CreateNewLineFilter ());
 
 				foreach (var header in headers) {
-					var rawValue = header.GetRawValue (options);
-
 					await filtered.WriteAsync (header.RawField, 0, header.RawField.Length, cancellationToken).ConfigureAwait (false);
-					await filtered.WriteAsync (Header.Colon, 0, Header.Colon.Length, cancellationToken).ConfigureAwait (false);
-					await filtered.WriteAsync (rawValue, 0, rawValue.Length, cancellationToken).ConfigureAwait (false);
+
+					if (!header.IsInvalid) {
+						var rawValue = header.GetRawValue (options);
+
+						await filtered.WriteAsync (Header.Colon, 0, Header.Colon.Length, cancellationToken).ConfigureAwait (false);
+						await filtered.WriteAsync (rawValue, 0, rawValue.Length, cancellationToken).ConfigureAwait (false);
+					}
 				}
 
 				await filtered.FlushAsync (cancellationToken).ConfigureAwait (false);
@@ -766,7 +768,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Write the <see cref="MimeKit.HeaderList"/> to the specified output stream.
+		/// Write the <see cref="HeaderList"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// Writes all of the headers to the output stream.
@@ -788,7 +790,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Asynchronously write the <see cref="MimeKit.HeaderList"/> to the specified output stream.
+		/// Asynchronously write the <see cref="HeaderList"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// Writes all of the headers to the output stream.
@@ -813,7 +815,7 @@ namespace MimeKit {
 		#region ICollection implementation
 
 		/// <summary>
-		/// Gets the number of headers in the list.
+		/// Get the number of headers in the list.
 		/// </summary>
 		/// <remarks>
 		/// Gets the number of headers in the list.
@@ -824,7 +826,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets whether or not the header list is read only.
+		/// Get whether or not the header list is read only.
 		/// </summary>
 		/// <remarks>
 		/// A <see cref="HeaderList"/> is never read-only.
@@ -835,7 +837,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Adds the specified header.
+		/// Add the specified header.
 		/// </summary>
 		/// <remarks>
 		/// Adds the specified header to the end of the header list.
@@ -859,7 +861,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Clears the header list.
+		/// Clear the header list.
 		/// </summary>
 		/// <remarks>
 		/// Removes all of the headers from the list.
@@ -876,7 +878,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Checks if the <see cref="HeaderList"/> contains the specified header.
+		/// Check if the <see cref="HeaderList"/> contains the specified header.
 		/// </summary>
 		/// <remarks>
 		/// Determines whether or not the header list contains the specified header.
@@ -896,7 +898,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Copies all of the headers in the <see cref="MimeKit.HeaderList"/> to the specified array.
+		/// Copy all of the headers in the <see cref="HeaderList"/> to the specified array.
 		/// </summary>
 		/// <remarks>
 		/// Copies all of the headers within the <see cref="HeaderList"/> into the array,
@@ -916,7 +918,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Removes the specified header.
+		/// Remove the specified header.
 		/// </summary>
 		/// <remarks>
 		/// Removes the specified header from the list if it exists.
@@ -959,7 +961,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Replaces all headers with identical field names with the single specified header.
+		/// Replace all headers with identical field names with the single specified header.
 		/// </summary>
 		/// <remarks>
 		/// <para>Replaces all headers with identical field names with the single specified header.</para>
@@ -1008,7 +1010,7 @@ namespace MimeKit {
 		#region IList implementation
 
 		/// <summary>
-		/// Gets the index of the requested header, if it exists.
+		/// Get the index of the requested header, if it exists.
 		/// </summary>
 		/// <remarks>
 		/// Finds the index of the specified header, if it exists.
@@ -1027,7 +1029,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Inserts the specified header at the given index.
+		/// Insert the specified header at the given index.
 		/// </summary>
 		/// <remarks>
 		/// Inserts the header at the specified index in the list.
@@ -1066,7 +1068,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Removes the header at the specified index.
+		/// Remove the header at the specified index.
 		/// </summary>
 		/// <remarks>
 		/// Removes the header at the specified index.
@@ -1077,7 +1079,7 @@ namespace MimeKit {
 		/// </exception>
 		public void RemoveAt (int index)
 		{
-			if (index < 0 || index > Count)
+			if (index < 0 || index >= Count)
 				throw new ArgumentOutOfRangeException (nameof (index));
 
 			var header = headers[index];
@@ -1102,10 +1104,10 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Gets or sets the <see cref="MimeKit.Header"/> at the specified index.
+		/// Get or set the <see cref="Header"/> at the specified index.
 		/// </summary>
 		/// <remarks>
-		/// Gets or sets the <see cref="MimeKit.Header"/> at the specified index.
+		/// Gets or sets the <see cref="Header"/> at the specified index.
 		/// </remarks>
 		/// <value>The header at the specified index.</value>
 		/// <param name="index">The index.</param>
@@ -1117,13 +1119,13 @@ namespace MimeKit {
 		/// </exception>
 		public Header this [int index] {
 			get {
-				if (index < 0 || index > Count)
+				if (index < 0 || index >= Count)
 					throw new ArgumentOutOfRangeException (nameof (index));
 
 				return headers[index];
 			}
 			set {
-				if (index < 0 || index > Count)
+				if (index < 0 || index >= Count)
 					throw new ArgumentOutOfRangeException (nameof (index));
 
 				if (value == null)
@@ -1182,7 +1184,7 @@ namespace MimeKit {
 		#region IEnumerable implementation
 
 		/// <summary>
-		/// Gets an enumerator for the list of headers.
+		/// Get an enumerator for the list of headers.
 		/// </summary>
 		/// <remarks>
 		/// Gets an enumerator for the list of headers.
@@ -1198,7 +1200,7 @@ namespace MimeKit {
 		#region IEnumerable implementation
 
 		/// <summary>
-		/// Gets an enumerator for the list of headers.
+		/// Get an enumerator for the list of headers.
 		/// </summary>
 		/// <remarks>
 		/// Gets an enumerator for the list of headers.
@@ -1362,7 +1364,6 @@ namespace MimeKit {
 			return LoadAsync (ParserOptions.Default, stream, cancellationToken);
 		}
 
-#if !PORTABLE
 		/// <summary>
 		/// Load a <see cref="HeaderList"/> from the specified file.
 		/// </summary>
@@ -1381,8 +1382,7 @@ namespace MimeKit {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.IO.DirectoryNotFoundException">
 		/// <paramref name="fileName"/> is an invalid file path.
@@ -1432,8 +1432,7 @@ namespace MimeKit {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.IO.DirectoryNotFoundException">
 		/// <paramref name="fileName"/> is an invalid file path.
@@ -1480,8 +1479,7 @@ namespace MimeKit {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.IO.DirectoryNotFoundException">
 		/// <paramref name="fileName"/> is an invalid file path.
@@ -1521,8 +1519,7 @@ namespace MimeKit {
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
 		/// <paramref name="fileName"/> is a zero-length string, contains only white space, or
-		/// contains one or more invalid characters as defined by
-		/// <see cref="System.IO.Path.InvalidPathChars"/>.
+		/// contains one or more invalid characters.
 		/// </exception>
 		/// <exception cref="System.IO.DirectoryNotFoundException">
 		/// <paramref name="fileName"/> is an invalid file path.
@@ -1546,6 +1543,5 @@ namespace MimeKit {
 		{
 			return LoadAsync (ParserOptions.Default, fileName, cancellationToken);
 		}
-#endif // !PORTABLE
 	}
 }

@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,20 +27,6 @@
 using System;
 using System.IO;
 using System.Text;
-
-#if PORTABLE
-using EncoderReplacementFallback = Portable.Text.EncoderReplacementFallback;
-using DecoderReplacementFallback = Portable.Text.DecoderReplacementFallback;
-using EncoderExceptionFallback = Portable.Text.EncoderExceptionFallback;
-using DecoderExceptionFallback = Portable.Text.DecoderExceptionFallback;
-using EncoderFallbackException = Portable.Text.EncoderFallbackException;
-using DecoderFallbackException = Portable.Text.DecoderFallbackException;
-using DecoderFallbackBuffer = Portable.Text.DecoderFallbackBuffer;
-using DecoderFallback = Portable.Text.DecoderFallback;
-using Encoding = Portable.Text.Encoding;
-using Encoder = Portable.Text.Encoder;
-using Decoder = Portable.Text.Decoder;
-#endif
 
 namespace MimeKit.Tnef {
 	/// <summary>
@@ -329,7 +315,8 @@ namespace MimeKit.Tnef {
 			if (valueIndex >= valueCount)
 				throw new InvalidOperationException ();
 
-			int end = RawValueStreamOffset + RawValueLength;
+			int startOffset = RawValueStreamOffset;
+			int length = RawValueLength;
 
 			if (propertyCount > 0 && reader.StreamOffset == RawValueStreamOffset) {
 				switch (propertyTag.ValueTnefType) {
@@ -337,14 +324,19 @@ namespace MimeKit.Tnef {
 				case TnefPropertyType.String8:
 				case TnefPropertyType.Binary:
 				case TnefPropertyType.Object:
-					ReadInt32 ();
+					int n = ReadInt32 ();
+					if (n >= 0 && n + 4 < length)
+						length = n + 4;
 					break;
 				}
 			}
 
 			valueIndex++;
 
-			return new TnefReaderStream (reader, end);
+			int valueEndOffset = startOffset + RawValueLength;
+			int dataEndOffset = startOffset + length;
+
+			return new TnefReaderStream (reader, dataEndOffset, valueEndOffset);
 		}
 
 		bool CheckRawValueLength ()
@@ -413,7 +405,7 @@ namespace MimeKit.Tnef {
 		{
 			// The check done this way will take care of NaN
 			if (!(value < OADateMaxAsDouble) || !(value > OADateMinAsDouble))
-				throw new ArgumentException ("Invalid OLE Automation Date.");
+				throw new ArgumentException ("Invalid OLE Automation Date.", nameof (value));
 
 			long millis = (long) (value * MillisPerDay + (value >= 0 ? 0.5 : -0.5));
 
@@ -423,7 +415,7 @@ namespace MimeKit.Tnef {
 			millis += DoubleDateOffset / TicksPerMillisecond;
 
 			if (millis < 0 || millis >= MaxMillis)
-				throw new ArgumentException ("Invalid OLE Automation Date.");
+				throw new ArgumentException ("Invalid OLE Automation Date.", nameof (value));
 
 			return millis * TicksPerMillisecond;
 		}
@@ -487,7 +479,7 @@ namespace MimeKit.Tnef {
 
 			if (codepage != 0 && codepage != 1252) {
 				try {
-					return Encoding.GetEncoding (codepage, new EncoderExceptionFallback (), new DecoderExceptionFallback ());
+					return Encoding.GetEncoding (codepage);
 				} catch {
 					return DefaultEncoding;
 				}
@@ -584,12 +576,12 @@ namespace MimeKit.Tnef {
 		/// </exception>
 		public bool ReadNextProperty ()
 		{
+			while (ReadNextValue ()) {
+				// skip over the remaining value(s) for the current property...
+			}
+
 			if (propertyIndex >= propertyCount)
 				return false;
-
-			while (ReadNextValue ()) {
-				// skip over the value...
-			}
 
 			try {
 				var type = (TnefPropertyType) ReadInt16 ();
@@ -632,12 +624,12 @@ namespace MimeKit.Tnef {
 		/// </exception>
 		public bool ReadNextRow ()
 		{
+			while (ReadNextProperty ()) {
+				// skip over the remaining property/properties in the current row...
+			}
+
 			if (rowIndex >= rowCount)
 				return false;
-
-			while (ReadNextProperty ()) {
-				// skip over the property...
-			}
 
 			try {
 				LoadPropertyCount ();
@@ -797,7 +789,7 @@ namespace MimeKit.Tnef {
 
 			var bytes = new byte[n];
 
-			n = reader.ReadAttributeRawValue (bytes, 0, bytes.Length);
+			n = reader.ReadAttributeRawValue (bytes, 0, n);
 
 			var flush = reader.StreamOffset >= valueEndOffset;
 
@@ -1518,10 +1510,36 @@ namespace MimeKit.Tnef {
 		}
 
 		/// <summary>
-		/// Serves as a hash function for a <see cref="MimeKit.Tnef.TnefPropertyReader"/> object.
+		/// Reads the value as a Uri.
 		/// </summary>
 		/// <remarks>
-		/// Serves as a hash function for a <see cref="MimeKit.Tnef.TnefPropertyReader"/> object.
+		/// Reads any string or binary blob values as a Uri.
+		/// </remarks>
+		/// <returns>The value as a Uri.</returns>
+		/// <exception cref="System.InvalidOperationException">
+		/// There are no more values to read or the value could not be read as a string.
+		/// </exception>
+		/// <exception cref="System.IO.EndOfStreamException">
+		/// The TNEF stream is truncated and the value could not be read.
+		/// </exception>
+		internal Uri ReadValueAsUri ()
+		{
+			var value = ReadValueAsString ();
+
+			if (Uri.IsWellFormedUriString (value, UriKind.Absolute))
+				return new Uri (value, UriKind.Absolute);
+
+			if (Uri.IsWellFormedUriString (value, UriKind.Relative))
+				return new Uri (value, UriKind.Relative);
+
+			return null;
+		}
+
+		/// <summary>
+		/// Serves as a hash function for a <see cref="TnefPropertyReader"/> object.
+		/// </summary>
+		/// <remarks>
+		/// Serves as a hash function for a <see cref="TnefPropertyReader"/> object.
 		/// </remarks>
 		/// <returns>A hash code for this instance that is suitable for use in hashing algorithms
 		/// and data structures such as a hash table.</returns>
@@ -1531,14 +1549,14 @@ namespace MimeKit.Tnef {
 		}
 
 		/// <summary>
-		/// Determines whether the specified <see cref="System.Object"/> is equal to the current <see cref="MimeKit.Tnef.TnefPropertyReader"/>.
+		/// Determines whether the specified <see cref="System.Object"/> is equal to the current <see cref="TnefPropertyReader"/>.
 		/// </summary>
 		/// <remarks>
-		/// Determines whether the specified <see cref="System.Object"/> is equal to the current <see cref="MimeKit.Tnef.TnefPropertyReader"/>.
+		/// Determines whether the specified <see cref="System.Object"/> is equal to the current <see cref="TnefPropertyReader"/>.
 		/// </remarks>
-		/// <param name="obj">The <see cref="System.Object"/> to compare with the current <see cref="MimeKit.Tnef.TnefPropertyReader"/>.</param>
+		/// <param name="obj">The <see cref="System.Object"/> to compare with the current <see cref="TnefPropertyReader"/>.</param>
 		/// <returns><c>true</c> if the specified <see cref="System.Object"/> is equal to the current
-		/// <see cref="MimeKit.Tnef.TnefPropertyReader"/>; otherwise, <c>false</c>.</returns>
+		/// <see cref="TnefPropertyReader"/>; otherwise, <c>false</c>.</returns>
 		public override bool Equals (object obj)
 		{
 			var prop = obj as TnefPropertyReader;

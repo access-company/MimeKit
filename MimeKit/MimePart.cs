@@ -3,7 +3,7 @@
 //
 // Author: Jeffrey Stedfast <jestedfa@microsoft.com>
 //
-// Copyright (c) 2013-2018 Xamarin Inc. (www.xamarin.com)
+// Copyright (c) 2013-2020 .NET Foundation and Contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -30,17 +30,12 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-#if PORTABLE
-using Encoding = Portable.Text.Encoding;
-using MD5 = MimeKit.Cryptography.MD5;
-#else
 using MD5 = System.Security.Cryptography.MD5;
-#endif
 
-using MimeKit.IO.Filters;
-using MimeKit.Encodings;
-using MimeKit.Utils;
 using MimeKit.IO;
+using MimeKit.Utils;
+using MimeKit.Encodings;
+using MimeKit.IO.Filters;
 
 namespace MimeKit {
 	/// <summary>
@@ -62,11 +57,11 @@ namespace MimeKit {
 		int? duration;
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.MimePart"/> class
+		/// Initialize a new instance of the <see cref="MimePart"/> class
 		/// based on the <see cref="MimeEntityConstructorArgs"/>.
 		/// </summary>
 		/// <remarks>
-		/// This constructor is used by <see cref="MimeKit.MimeParser"/>.
+		/// This constructor is used by <see cref="MimeParser"/>.
 		/// </remarks>
 		/// <param name="args">Information used by the constructor.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -77,7 +72,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.MimePart"/> class
+		/// Initialize a new instance of the <see cref="MimePart"/> class
 		/// with the specified media type and subtype.
 		/// </summary>
 		/// <remarks>
@@ -94,7 +89,7 @@ namespace MimeKit {
 		/// <para><paramref name="args"/> is <c>null</c>.</para>
 		/// </exception>
 		/// <exception cref="System.ArgumentException">
-		/// <para><paramref name="args"/> contains more than one <see cref="MimeKit.IMimeContent"/> or
+		/// <para><paramref name="args"/> contains more than one <see cref="IMimeContent"/> or
 		/// <see cref="System.IO.Stream"/>.</para>
 		/// <para>-or-</para>
 		/// <para><paramref name="args"/> contains one or more arguments of an unknown type.</para>
@@ -110,17 +105,15 @@ namespace MimeKit {
 				if (obj == null || TryInit (obj))
 					continue;
 
-				var co = obj as IMimeContent;
-				if (co != null) {
+				if (obj is IMimeContent co) {
 					if (content != null)
-						throw new ArgumentException ("ContentObject should not be specified more than once.");
+						throw new ArgumentException ("IMimeContent should not be specified more than once.");
 
 					content = co;
 					continue;
 				}
 
-				var stream = obj as Stream;
-				if (stream != null) {
+				if (obj is Stream stream) {
 					if (content != null)
 						throw new ArgumentException ("Stream (used as content) should not be specified more than once.");
 
@@ -137,7 +130,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.MimePart"/> class
+		/// Initialize a new instance of the <see cref="MimePart"/> class
 		/// with the specified media type and subtype.
 		/// </summary>
 		/// <remarks>
@@ -155,7 +148,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.MimePart"/> class
+		/// Initialize a new instance of the <see cref="MimePart"/> class
 		/// with the specified content type.
 		/// </summary>
 		/// <remarks>
@@ -170,7 +163,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.MimePart"/> class
+		/// Initialize a new instance of the <see cref="MimePart"/> class
 		/// with the specified content type.
 		/// </summary>
 		/// <remarks>
@@ -188,7 +181,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="MimeKit.MimePart"/> class
+		/// Initialize a new instance of the <see cref="MimePart"/> class
 		/// with the default Content-Type of application/octet-stream.
 		/// </summary>
 		/// <remarks>
@@ -358,12 +351,12 @@ namespace MimeKit {
 		/// Dispatches to the specific visit method for this MIME entity.
 		/// </summary>
 		/// <remarks>
-		/// This default implementation for <see cref="MimeKit.MimePart"/> nodes
-		/// calls <see cref="MimeKit.MimeVisitor.VisitMimePart"/>. Override this
+		/// This default implementation for <see cref="MimePart"/> nodes
+		/// calls <see cref="MimeVisitor.VisitMimePart"/>. Override this
 		/// method to call into a more specific method on a derived visitor class
-		/// of the <see cref="MimeKit.MimeVisitor"/> class. However, it should still
+		/// of the <see cref="MimeVisitor"/> class. However, it should still
 		/// support unknown visitors by calling
-		/// <see cref="MimeKit.MimeVisitor.VisitMimePart"/>.
+		/// <see cref="MimeVisitor.VisitMimePart"/>.
 		/// </remarks>
 		/// <param name="visitor">The visitor.</param>
 		/// <exception cref="System.ArgumentNullException">
@@ -423,20 +416,24 @@ namespace MimeKit {
 		/// </exception>
 		public ContentEncoding GetBestEncoding (EncodingConstraint constraint, int maxLineLength, CancellationToken cancellationToken = default (CancellationToken))
 		{
-			if (Content == null)
-				return ContentEncoding.SevenBit;
+			if (ContentType.IsMimeType ("text", "*") || ContentType.IsMimeType ("message", "*")) {
+				if (Content == null)
+					return ContentEncoding.SevenBit;
 
-			using (var measure = new MeasuringStream ()) {
-				using (var filtered = new FilteredStream (measure)) {
-					var filter = new BestEncodingFilter ();
+				using (var measure = new MeasuringStream ()) {
+					using (var filtered = new FilteredStream (measure)) {
+						var filter = new BestEncodingFilter ();
 
-					filtered.Add (filter);
-					Content.DecodeTo (filtered, cancellationToken);
-					filtered.Flush ();
+						filtered.Add (filter);
+						Content.DecodeTo (filtered, cancellationToken);
+						filtered.Flush ();
 
-					return filter.GetBestEncoding (constraint, maxLineLength);
+						return filter.GetBestEncoding (constraint, maxLineLength);
+					}
 				}
 			}
+
+			return constraint == EncodingConstraint.None ? ContentEncoding.Binary : ContentEncoding.Base64;
 		}
 
 		/// <summary>
@@ -504,18 +501,6 @@ namespace MimeKit {
 			return md5sum == ComputeContentMd5 ();
 		}
 
-		static bool NeedsEncoding (ContentEncoding encoding)
-		{
-			switch (encoding) {
-			case ContentEncoding.EightBit:
-			case ContentEncoding.Binary:
-			case ContentEncoding.Default:
-				return true;
-			default:
-				return false;
-			}
-		}
-
 		/// <summary>
 		/// Prepare the MIME entity for transport using the specified encoding constraints.
 		/// </summary>
@@ -557,7 +542,7 @@ namespace MimeKit {
 		}
 
 		/// <summary>
-		/// Writes the <see cref="MimeKit.MimePart"/> to the specified output stream.
+		/// Write the <see cref="MimePart"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
 		/// Writes the MIME part to the output stream.
@@ -624,7 +609,16 @@ namespace MimeKit {
 						stream.Write (options.NewLineBytes, 0, options.NewLineBytes.Length);
 					}
 				}
-			} else if (encoding != ContentEncoding.Binary) {
+			} else if (encoding == ContentEncoding.Binary) {
+				// Do not alter binary content.
+				Content.WriteTo (stream, cancellationToken);
+			} else if (options.VerifyingSignature && Content.NewLineFormat.HasValue && Content.NewLineFormat.Value == NewLineFormat.Mixed) {
+				// Allow pass-through of the original parsed content without canonicalization when verifying signatures
+				// if the content contains a mix of line-endings.
+				//
+				// See https://github.com/jstedfast/MimeKit/issues/569 for details.
+				Content.WriteTo (stream, cancellationToken);
+			} else {
 				using (var filtered = new FilteredStream (stream)) {
 					// Note: if we are writing the top-level MimePart, make sure it ends with a new-line so that
 					// MimeMessage.WriteTo() *always* ends with a new-line.
@@ -632,17 +626,16 @@ namespace MimeKit {
 					Content.WriteTo (filtered, cancellationToken);
 					filtered.Flush (cancellationToken);
 				}
-			} else {
-				Content.WriteTo (stream, cancellationToken);
 			}
 		}
 
 		/// <summary>
-		/// Asynchronously writes the <see cref="MimeKit.MimePart"/> to the specified output stream.
+		/// Asynchronously write the <see cref="MimePart"/> to the specified output stream.
 		/// </summary>
 		/// <remarks>
-		/// Writes the MIME part to the output stream.
+		/// Asynchronously writes the MIME part to the output stream.
 		/// </remarks>
+		/// <returns>An awaitable task.</returns>
 		/// <param name="options">The formatting options.</param>
 		/// <param name="stream">The output stream.</param>
 		/// <param name="contentOnly"><c>true</c> if only the content should be written; otherwise, <c>false</c>.</param>
@@ -664,6 +657,8 @@ namespace MimeKit {
 
 			if (Content == null)
 				return;
+
+			var isText = ContentType.IsMimeType ("text", "*") || ContentType.IsMimeType ("message", "*");
 
 			if (Content.Encoding != encoding) {
 				if (encoding == ContentEncoding.UUEncode) {
@@ -691,7 +686,16 @@ namespace MimeKit {
 					await stream.WriteAsync (buffer, 0, buffer.Length, cancellationToken).ConfigureAwait (false);
 					await stream.WriteAsync (options.NewLineBytes, 0, options.NewLineBytes.Length, cancellationToken).ConfigureAwait (false);
 				}
-			} else if (encoding != ContentEncoding.Binary) {
+			} else if (encoding == ContentEncoding.Binary) {
+				// Do not alter binary content.
+				await Content.WriteToAsync (stream, cancellationToken).ConfigureAwait (false);
+			} else if (options.VerifyingSignature && Content.NewLineFormat.HasValue && Content.NewLineFormat.Value == NewLineFormat.Mixed) {
+				// Allow pass-through of the original parsed content without canonicalization when verifying signatures
+				// if the content contains a mix of line-endings.
+				//
+				// See https://github.com/jstedfast/MimeKit/issues/569 for details.
+				await Content.WriteToAsync (stream, cancellationToken).ConfigureAwait (false);
+			} else {
 				using (var filtered = new FilteredStream (stream)) {
 					// Note: if we are writing the top-level MimePart, make sure it ends with a new-line so that
 					// MimeMessage.WriteTo() *always* ends with a new-line.
@@ -699,8 +703,6 @@ namespace MimeKit {
 					await Content.WriteToAsync (filtered, cancellationToken).ConfigureAwait (false);
 					await filtered.FlushAsync (cancellationToken).ConfigureAwait (false);
 				}
-			} else {
-				await Content.WriteToAsync (stream, cancellationToken).ConfigureAwait (false);
 			}
 		}
 
