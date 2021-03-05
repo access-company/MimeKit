@@ -274,6 +274,20 @@ namespace MimeKit.Utils {
 			return false;
 		}
 
+		public static bool SkipPhraseWordAndPeriod (byte[] text, ref int index, int endIndex, bool throwOnError)
+		{
+			if (text[index] == (byte) '"')
+				return SkipQuoted (text, ref index, endIndex, throwOnError);
+
+			if (text[index].IsPhraseAtom ())
+				return SkipPhraseAtom (text, ref index, endIndex);
+
+			if (text[index] == (byte) '.')
+				return SkipPeriod (text, ref index, endIndex);
+
+			return false;
+		}
+
 		public static bool IsSentinel (byte c, byte[] sentinels)
 		{
 			for (int i = 0; i < sentinels.Length; i++) {

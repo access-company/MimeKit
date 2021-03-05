@@ -633,7 +633,7 @@ namespace MimeKit {
 							trimLeadingQuote = true;
 					}
 				} else {
-					if (!ParseUtils.SkipWordAndPeriod (text, ref index, endIndex, throwOnError))
+					if (!ParseUtils.SkipPhraseWordAndPeriod (text, ref index, endIndex, throwOnError))
 						break;
 				}
 

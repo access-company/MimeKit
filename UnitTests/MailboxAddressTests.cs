@@ -954,6 +954,11 @@ namespace UnitTests {
 				new TestCaseData ("aa..aa@example.com"),
 				new TestCaseData (".aaaa@example.com"),
 
+				// Not compliant with RFC (Square brackets in display name)
+				new TestCaseData ("[Invalid Sender] <aaaa.@example.com>"),
+				new TestCaseData ("[Invalid Sender] <aa..aa@example.com>"),
+				new TestCaseData ("[Invalid Sender] <.aaaa@example.com>"),
+
 				// More not compliant with RFC
 				// Does not correspond now.
 				//new TestCaseData ("アドレス <aa\"aa@example.com>"),
